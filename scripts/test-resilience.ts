@@ -28,6 +28,7 @@ function fakeClip(start: number, end: number, score: number): Clip {
     hashtags: [],
     thumbnailPath: null,
     focusTrack: null,
+    broll: [],
     edit: {
       aspect: '9:16',
       reframeMode: 'crop',

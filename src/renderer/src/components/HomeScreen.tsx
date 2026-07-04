@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   Upload,
   Film,
+  ImagePlus,
   Link2,
   Loader2,
   Sparkles,
@@ -145,6 +146,7 @@ function SetupPanel(): React.JSX.Element {
   const pipelineError = useStore((s) => s.pipelineError)
   const [prompt, setPrompt] = useState(project.prompt)
   const [clipLength, setClipLength] = useState<ClipLengthPreference>('auto')
+  const [broll, setBroll] = useState(true)
 
   const needsKey = settings !== null && !settings.hasApiKey
 
@@ -211,6 +213,31 @@ function SetupPanel(): React.JSX.Element {
           </div>
 
           <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+            <button
+              onClick={() => setBroll(!broll)}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <span>
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <ImagePlus size={15} className="text-accent-400" />
+                  AI B-roll images
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                  When you mention a character, person or place ("Yoda"), a matching image pops
+                  over the video at that exact word. Every insert is editable per clip.
+                </span>
+              </span>
+              <span
+                className={`relative h-5 w-9 shrink-0 rounded-full transition ${broll ? 'bg-accent-500' : 'bg-surface-600'}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${broll ? 'left-[18px]' : 'left-0.5'}`}
+                />
+              </span>
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
             <label className="flex items-center gap-2 text-sm font-semibold">
               <Clock size={15} className="text-accent-400" />
               Preferred clip length
@@ -250,7 +277,7 @@ function SetupPanel(): React.JSX.Element {
           ) : (
             <div>
               <button
-                onClick={() => void analyze({ prompt, clipLength })}
+                onClick={() => void analyze({ prompt, clipLength, broll })}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110"
               >
                 <Sparkles size={17} />

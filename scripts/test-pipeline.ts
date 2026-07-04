@@ -47,6 +47,7 @@ function makeClip(overrides: Partial<Clip['edit']> = {}): Clip {
     hashtags: ['test'],
     thumbnailPath: null,
     focusTrack: null,
+    broll: [],
     edit: {
       aspect: '9:16',
       reframeMode: 'crop',

@@ -7,6 +7,7 @@ import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus } from './faces'
+import { attachBroll } from './broll'
 import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta } from './ytdlp'
 import { getApiKey, getModelPreferences } from '../settings'
 import { projectDir, saveProject } from '../projects'
@@ -162,7 +163,28 @@ export async function analyzeProject(
       })
     }
 
-    onProgress({ stage: 'thumbnails', progress: 0.82, message: 'Creating thumbnails…' })
+    if (options.broll) {
+      onProgress({ stage: 'broll', progress: 0.82, message: 'Finding B-roll images…' })
+      for (let i = 0; i < clips.length; i++) {
+        signal?.throwIfAborted()
+        const clip = clips[i]
+        try {
+          await attachBroll(apiKey, settings.analysisModel, transcript, project.id, clip, signal)
+        } catch (err) {
+          if (signal?.aborted) throw err
+          console.error(`B-roll failed for clip ${clip.id}:`, err)
+          clip.broll = []
+        }
+        onProgress({
+          stage: 'broll',
+          progress: 0.82 + ((i + 1) / clips.length) * 0.08,
+          message: 'Finding B-roll images…'
+        })
+      }
+      await saveProject(project)
+    }
+
+    onProgress({ stage: 'thumbnails', progress: 0.9, message: 'Creating thumbnails…' })
     const thumbsDir = join(projectDir(project.id), 'thumbs')
     await mkdir(thumbsDir, { recursive: true })
     for (let i = 0; i < clips.length; i++) {
@@ -176,7 +198,7 @@ export async function analyzeProject(
       }
       onProgress({
         stage: 'thumbnails',
-        progress: 0.82 + ((i + 1) / clips.length) * 0.16,
+        progress: 0.9 + ((i + 1) / clips.length) * 0.08,
         message: 'Creating thumbnails…'
       })
     }

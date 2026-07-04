@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     API_KEY,
     'gpt-4o-mini',
     transcript,
-    { prompt: '', clipLength: 'short' },
+    { prompt: '', clipLength: 'short', broll: false },
     info.durationSec
   )
   assert.ok(clips.length >= 1, 'no clips detected')

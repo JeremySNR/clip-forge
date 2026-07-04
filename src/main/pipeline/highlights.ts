@@ -277,6 +277,7 @@ async function requestHighlights(
       hashtags: (raw.hashtags ?? []).map((h) => h.replace(/^#/, '').toLowerCase()),
       thumbnailPath: null,
       focusTrack: null,
+      broll: [],
       edit: {
         aspect: '9:16',
         reframeMode: 'crop',

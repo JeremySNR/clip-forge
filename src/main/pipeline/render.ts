@@ -57,33 +57,104 @@ function focusExpression(clip: Clip): string {
   return expr
 }
 
-function buildVideoFilter(clip: Clip, source: VideoInfo, assPath: string | null): string {
+/** Maps [0:v] to [reframed] according to the clip's aspect/reframe settings. */
+function reframeGraph(clip: Clip, source: VideoInfo): string {
   const { w, h } = targetDims(clip.edit.aspect, source)
   const ratio = (w / h).toFixed(6)
   const focus = focusExpression(clip)
-  const filters: string[] = []
 
   if (clip.edit.aspect === 'original') {
-    filters.push(`scale=${w}:${h}:flags=lanczos`)
-  } else if (clip.edit.reframeMode === 'fit-blur') {
+    return `[0:v]scale=${w}:${h}:flags=lanczos[reframed]`
+  }
+  if (clip.edit.reframeMode === 'fit-blur') {
     // Blurred, darkened cover background with the full frame fitted on top.
     return (
-      `split=2[bg][fg];` +
+      `[0:v]split=2[bg][fg];` +
       `[bg]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},gblur=sigma=24,eq=brightness=-0.12[bgb];` +
       `[fg]scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos[fgs];` +
-      `[bgb][fgs]overlay=(W-w)/2:(H-h)/2` +
-      (assPath ? `,ass=filename='${escapeFilterPath(assPath)}'` : '')
-    )
-  } else {
-    // Crop to the target ratio around the horizontal focus point, then scale.
-    filters.push(
-      `crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='(iw-ow)*${focus}':y='(ih-oh)/2'`,
-      `scale=${w}:${h}:flags=lanczos`
+      `[bgb][fgs]overlay=(W-w)/2:(H-h)/2[reframed]`
     )
   }
+  // Crop to the target ratio around the horizontal focus point, then scale.
+  return (
+    `[0:v]crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='(iw-ow)*${focus}':y='(ih-oh)/2',` +
+    `scale=${w}:${h}:flags=lanczos[reframed]`
+  )
+}
 
-  if (assPath) filters.push(`ass=filename='${escapeFilterPath(assPath)}'`)
-  return filters.join(',')
+const BROLL_FADE_SEC = 0.25
+
+interface FilterGraph {
+  filterComplex: string
+  /** Extra `-i` input args for the B-roll images (after the main input). */
+  extraInputs: string[]
+}
+
+/**
+ * Full video filter graph: reframe -> timed B-roll image overlays (fade
+ * in/out, fullscreen or picture-in-picture) -> caption burn-in on top.
+ */
+function buildFilterGraph(
+  clip: Clip,
+  source: VideoInfo,
+  assPath: string | null,
+  clipDuration: number
+): FilterGraph {
+  const { w, h } = targetDims(clip.edit.aspect, source)
+  const parts: string[] = [reframeGraph(clip, source)]
+  const extraInputs: string[] = []
+
+  const items = clip.broll.filter(
+    (b) =>
+      b.enabled &&
+      b.imagePath !== null &&
+      b.end > clip.edit.start &&
+      b.start < clip.edit.end
+  )
+
+  let current = 'reframed'
+  items.forEach((item, i) => {
+    const input = i + 1
+    const s = Math.max(0, item.start - clip.edit.start)
+    const e = Math.min(clipDuration, item.end - clip.edit.start)
+    extraInputs.push('-loop', '1', '-t', clipDuration.toFixed(3), '-i', item.imagePath!)
+
+    const fades =
+      `format=rgba,` +
+      `fade=t=in:st=${s.toFixed(3)}:d=${BROLL_FADE_SEC}:alpha=1,` +
+      `fade=t=out:st=${Math.max(s, e - BROLL_FADE_SEC).toFixed(3)}:d=${BROLL_FADE_SEC}:alpha=1`
+
+    if (item.mode === 'fullscreen') {
+      parts.push(
+        `[${input}:v]scale=${w}:${h}:force_original_aspect_ratio=increase:flags=lanczos,crop=${w}:${h},${fades}[b${i}]`
+      )
+      parts.push(
+        `[${current}][b${i}]overlay=0:0:enable='between(t,${s.toFixed(3)},${e.toFixed(3)})':eof_action=pass[v${i}]`
+      )
+    } else {
+      // Picture-in-picture panel over the speaker, upper-centre, white border.
+      const panelW = Math.floor((w * 0.62) / 2) * 2
+      parts.push(
+        `[${input}:v]scale=${panelW}:-2:flags=lanczos,pad=w=iw+16:h=ih+16:x=8:y=8:color=white,${fades}[b${i}]`
+      )
+      parts.push(
+        `[${current}][b${i}]overlay=(W-w)/2:${Math.round(h * 0.1)}:enable='between(t,${s.toFixed(3)},${e.toFixed(3)})':eof_action=pass[v${i}]`
+      )
+    }
+    current = `v${i}`
+  })
+
+  if (assPath) {
+    parts.push(`[${current}]ass=filename='${escapeFilterPath(assPath)}'[vout]`)
+  } else if (current === 'reframed') {
+    parts.push(`[reframed]null[vout]`)
+  } else {
+    // Rename the last overlay output to [vout].
+    const last = parts.pop()!
+    parts.push(last.replace(`[${current}]`, '[vout]'))
+  }
+
+  return { filterComplex: parts.join(';'), extraInputs }
 }
 
 export interface RenderJob {
@@ -120,12 +191,13 @@ export async function renderClip(job: RenderJob): Promise<string> {
     await writeFile(assPath, ass, 'utf8')
   }
 
-  const vf = buildVideoFilter(clip, source, assPath)
+  const graph = buildFilterGraph(clip, source, assPath, duration)
   const buildArgs = (videoArgs: string[]): string[] => [
     '-ss', start.toFixed(3),
     '-t', duration.toFixed(3),
     '-i', source.path,
-    '-filter_complex', `[0:v]${vf}[vout]`,
+    ...graph.extraInputs,
+    '-filter_complex', graph.filterComplex,
     '-map', '[vout]',
     '-map', '0:a?',
     ...videoArgs,

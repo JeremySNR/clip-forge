@@ -21,10 +21,11 @@ export async function saveProject(project: Project): Promise<void> {
 export async function loadProject(id: string): Promise<Project> {
   const raw = await readFile(join(projectDir(id), 'project.json'), 'utf8')
   const project = JSON.parse(raw) as Project
-  // Migrate projects saved before auto-reframing existed.
+  // Migrate projects saved before auto-reframing / B-roll existed.
   for (const clip of project.clips) {
     clip.focusTrack ??= null
     clip.edit.framing ??= 'manual'
+    clip.broll ??= []
   }
   return project
 }

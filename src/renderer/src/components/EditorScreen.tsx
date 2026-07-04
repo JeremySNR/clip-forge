@@ -4,9 +4,11 @@ import {
   CaseUpper,
   Crop,
   GalleryVerticalEnd,
+  ImagePlus,
   Quote,
   ScanFace,
-  Scissors
+  Scissors,
+  Trash2
 } from 'lucide-react'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
@@ -15,7 +17,8 @@ import ScoreBadge from './ScoreBadge'
 import { ExportButton } from './ClipsScreen'
 import { CAPTION_STYLES } from '@shared/captionStyles'
 import { wordsInRange } from '@shared/captionLayout'
-import type { AspectRatio, Clip, FramingMode, ReframeMode } from '@shared/types'
+import { formatTimecode } from '../lib/format'
+import type { AspectRatio, BrollItem, BrollMode, Clip, FramingMode, ReframeMode } from '@shared/types'
 
 const ASPECTS: Array<{ value: AspectRatio; label: string }> = [
   { value: '9:16', label: '9:16' },
@@ -48,6 +51,15 @@ export default function EditorScreen(): React.JSX.Element {
   }
   const setLocal = (edit: Partial<Clip['edit']>): void => {
     updateClipLocal({ ...clip, edit: { ...clip.edit, ...edit } })
+  }
+  const updateBroll = (id: string, patch: Partial<BrollItem>): void => {
+    void updateClip({
+      ...clip,
+      broll: clip.broll.map((b) => (b.id === id ? { ...b, ...patch } : b))
+    })
+  }
+  const removeBroll = (id: string): void => {
+    void updateClip({ ...clip, broll: clip.broll.filter((b) => b.id !== id) })
   }
 
   const entry = exports[clip.id]
@@ -241,6 +253,83 @@ export default function EditorScreen(): React.JSX.Element {
                 onBlur={() => void updateClip(clip)}
                 className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-accent-500 focus:outline-none"
               />
+            </div>
+          )}
+        </Section>
+
+        <Section icon={ImagePlus} title="B-roll">
+          {clip.broll.length === 0 ? (
+            <p className="text-xs leading-relaxed text-zinc-500">
+              No image inserts for this clip. Enable “AI B-roll images” when generating clips to
+              get keyword-triggered visuals.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {clip.broll.map((item) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center gap-3 rounded-xl border border-surface-600 p-2.5 transition ${
+                    item.enabled ? '' : 'opacity-50'
+                  }`}
+                >
+                  {item.imagePath && (
+                    <img
+                      src={window.clipforge.mediaUrl(item.imagePath)}
+                      alt={item.trigger}
+                      className="h-12 w-16 shrink-0 rounded-lg bg-black object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-semibold">“{item.trigger}”</div>
+                    <div className="mt-0.5 text-[11px] tabular-nums text-zinc-500">
+                      {formatTimecode(item.start - clip.edit.start)} ·{' '}
+                      {(item.end - item.start).toFixed(1)}s
+                    </div>
+                    <div className="mt-1.5 flex gap-1">
+                      {(
+                        [
+                          { value: 'fullscreen', label: 'Full' },
+                          { value: 'overlay', label: 'Overlay' }
+                        ] as Array<{ value: BrollMode; label: string }>
+                      ).map((m) => (
+                        <button
+                          key={m.value}
+                          onClick={() => updateBroll(item.id, { mode: m.value })}
+                          className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
+                            item.mode === m.value
+                              ? 'border-accent-500 bg-accent-500/10 text-zinc-200'
+                              : 'border-surface-600 text-zinc-500 hover:bg-surface-800'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <button
+                      onClick={() => updateBroll(item.id, { enabled: !item.enabled })}
+                      title={item.enabled ? 'Disable this insert' : 'Enable this insert'}
+                      className={`relative h-5 w-9 rounded-full transition ${
+                        item.enabled ? 'bg-accent-500' : 'bg-surface-600'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                          item.enabled ? 'left-[18px]' : 'left-0.5'
+                        }`}
+                      />
+                    </button>
+                    <button
+                      onClick={() => removeBroll(item.id)}
+                      title="Remove this insert"
+                      className="rounded-md p-1 text-zinc-600 transition hover:bg-surface-700 hover:text-red-400"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </Section>

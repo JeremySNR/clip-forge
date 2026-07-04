@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AudioLines, FileAudio, Brain, Image, Check, Loader2, ScanFace, X } from 'lucide-react'
+import { AudioLines, FileAudio, Brain, Image, ImagePlus, Check, Loader2, ScanFace, X } from 'lucide-react'
 import { useStore } from '../store'
 import type { PipelineStage } from '@shared/types'
 
@@ -8,10 +8,11 @@ const STAGES: Array<{ id: PipelineStage; label: string; icon: React.ElementType 
   { id: 'transcribe', label: 'Transcribe speech', icon: AudioLines },
   { id: 'analyze', label: 'Find viral moments', icon: Brain },
   { id: 'reframe', label: 'Track faces for reframing', icon: ScanFace },
+  { id: 'broll', label: 'Find B-roll images', icon: ImagePlus },
   { id: 'thumbnails', label: 'Create thumbnails', icon: Image }
 ]
 
-const STAGE_ORDER: PipelineStage[] = ['probe', 'audio', 'transcribe', 'analyze', 'reframe', 'thumbnails', 'done']
+const STAGE_ORDER: PipelineStage[] = ['probe', 'audio', 'transcribe', 'analyze', 'reframe', 'broll', 'thumbnails', 'done']
 
 export default function ProcessingScreen(): React.JSX.Element {
   const progress = useStore((s) => s.pipelineProgress)

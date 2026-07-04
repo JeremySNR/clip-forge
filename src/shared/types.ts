@@ -59,6 +59,26 @@ export interface ClipEditState {
   end: number
 }
 
+/** How a B-roll image is composited over the clip. */
+export type BrollMode = 'fullscreen' | 'overlay'
+
+export interface BrollItem {
+  id: string
+  /** The spoken word/phrase that triggered this insert, e.g. "Yoda". */
+  trigger: string
+  /** Image search query used, e.g. "Yoda Star Wars character". */
+  query: string
+  /** Absolute source-video seconds. */
+  start: number
+  end: number
+  mode: BrollMode
+  /** Local path of the downloaded image; null if no image was found. */
+  imagePath: string | null
+  /** Where the image came from (page URL) for attribution. */
+  sourceUrl: string
+  enabled: boolean
+}
+
 export interface Clip {
   id: string
   /** AI suggested boundaries (absolute seconds in the source video). */
@@ -73,6 +93,8 @@ export interface Clip {
   thumbnailPath: string | null
   /** AI face track for auto reframing; null when no usable faces were found. */
   focusTrack: FocusKeyframe[] | null
+  /** AI-suggested image inserts timed to spoken keywords. */
+  broll: BrollItem[]
   edit: ClipEditState
 }
 
@@ -106,6 +128,7 @@ export type PipelineStage =
   | 'transcribe'
   | 'analyze'
   | 'reframe'
+  | 'broll'
   | 'thumbnails'
   | 'done'
 
@@ -120,6 +143,8 @@ export interface AnalyzeOptions {
   /** Optional user steering prompt ("ClipAnything" style). */
   prompt: string
   clipLength: ClipLengthPreference
+  /** Generate AI B-roll image inserts timed to spoken keywords. */
+  broll: boolean
 }
 
 export type ClipLengthPreference = 'auto' | 'short' | 'medium' | 'long'

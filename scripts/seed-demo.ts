@@ -93,6 +93,14 @@ async function main(): Promise<void> {
   ])
   const video = await probeVideo(videoPath)
 
+  // A stand-in B-roll image so the editor's B-roll section has content.
+  const brollImagePath = join(dir, 'demo-broll.png')
+  await runFfmpeg([
+    '-f', 'lavfi', '-i', 'gradients=size=800x600:c0=purple:c1=orange:n=2',
+    '-frames:v', '1',
+    brollImagePath
+  ])
+
   const clips: Clip[] = []
   for (let i = 0; i < DEMO_CLIPS.length; i++) {
     const d = DEMO_CLIPS[i]
@@ -109,6 +117,22 @@ async function main(): Promise<void> {
       viralityReason: d.viralityReason,
       hashtags: d.hashtags,
       thumbnailPath,
+      broll:
+        i === 0
+          ? [
+              {
+                id: 'demo-broll-0',
+                trigger: 'algorithm',
+                query: 'computer algorithm visualisation',
+                start: d.start + 5,
+                end: d.start + 8,
+                mode: 'overlay' as const,
+                imagePath: brollImagePath,
+                sourceUrl: 'https://example.com',
+                enabled: true
+              }
+            ]
+          : [],
       focusTrack:
         i === 0
           ? [

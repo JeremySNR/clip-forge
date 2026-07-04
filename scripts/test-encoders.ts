@@ -36,6 +36,7 @@ function makeClip(): Clip {
     hashtags: [],
     thumbnailPath: null,
     focusTrack: null,
+    broll: [],
     edit: {
       aspect: '9:16',
       reframeMode: 'crop',

@@ -129,6 +129,7 @@ export default function PreviewPlayer({
           onEnded={() => setPlaying(false)}
           preload="auto"
         />
+        <BrollOverlay clip={clip} time={time} />
         {clip.edit.captionsEnabled && project.transcript && (
           <CaptionOverlay
             transcript={project.transcript}
@@ -189,6 +190,36 @@ export default function PreviewPlayer({
           {formatTimecode(Math.max(0, time - start))} / {formatTimecode(duration)}
         </span>
       </div>
+    </div>
+  )
+}
+
+function BrollOverlay({ clip, time }: { clip: Clip; time: number }): React.JSX.Element | null {
+  const active = clip.broll.find(
+    (b) => b.enabled && b.imagePath && time >= b.start && time <= b.end
+  )
+  if (!active) return null
+  const src = window.clipforge.mediaUrl(active.imagePath!)
+  if (active.mode === 'fullscreen') {
+    return (
+      <img
+        src={src}
+        alt={active.trigger}
+        className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+      />
+    )
+  }
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 flex justify-center"
+      style={{ top: '10cqh' }}
+    >
+      <img
+        src={src}
+        alt={active.trigger}
+        className="border-4 border-white shadow-2xl"
+        style={{ width: '62%', height: 'auto' }}
+      />
     </div>
   )
 }
