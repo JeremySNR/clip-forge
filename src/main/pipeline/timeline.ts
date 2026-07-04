@@ -67,6 +67,8 @@ async function pruneCache(root: string): Promise<void> {
 }
 
 let prunedThisRun = false
+/** Concurrent requests for the same window share one extraction. */
+const inFlight = new Map<string, Promise<TimelineData>>()
 
 export async function getTimeline(
   videoPath: string,
@@ -80,6 +82,22 @@ export async function getTimeline(
     )
     .digest('hex')
     .slice(0, 20)
+
+  const existing = inFlight.get(key)
+  if (existing) return existing
+  const promise = extractTimeline(key, videoPath, startSec, endSec).finally(() =>
+    inFlight.delete(key)
+  )
+  inFlight.set(key, promise)
+  return promise
+}
+
+async function extractTimeline(
+  key: string,
+  videoPath: string,
+  startSec: number,
+  endSec: number
+): Promise<TimelineData> {
   const dir = join(cacheRoot(), key)
   const manifestPath = join(dir, 'timeline.json')
 
