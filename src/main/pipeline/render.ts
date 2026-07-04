@@ -1,10 +1,12 @@
-import { writeFile, mkdir } from 'node:fs/promises'
+import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { AspectRatio, Clip, Transcript, VideoInfo } from '@shared/types'
-import { runFfmpeg } from './ffmpeg'
+import type { AspectRatio, Clip, QualityPreference, Transcript, VideoInfo } from '@shared/types'
+import type { EncoderPreference } from '@shared/types'
+import { runFfmpegWith } from './ffmpeg'
 import { buildAss } from './captions'
+import { audioArgs, encoderArgs, resolveEncoder } from './encoders'
 
 function targetDims(aspect: AspectRatio, source: VideoInfo): { w: number; h: number } {
   switch (aspect) {
@@ -62,13 +64,13 @@ function buildVideoFilter(clip: Clip, source: VideoInfo, assPath: string | null)
   const filters: string[] = []
 
   if (clip.edit.aspect === 'original') {
-    filters.push(`scale=${w}:${h}`)
+    filters.push(`scale=${w}:${h}:flags=lanczos`)
   } else if (clip.edit.reframeMode === 'fit-blur') {
     // Blurred, darkened cover background with the full frame fitted on top.
     return (
       `split=2[bg][fg];` +
       `[bg]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},gblur=sigma=24,eq=brightness=-0.12[bgb];` +
-      `[fg]scale=${w}:${h}:force_original_aspect_ratio=decrease[fgs];` +
+      `[fg]scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos[fgs];` +
       `[bgb][fgs]overlay=(W-w)/2:(H-h)/2` +
       (assPath ? `,ass=filename='${escapeFilterPath(assPath)}'` : '')
     )
@@ -76,7 +78,7 @@ function buildVideoFilter(clip: Clip, source: VideoInfo, assPath: string | null)
     // Crop to the target ratio around the horizontal focus point, then scale.
     filters.push(
       `crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='(iw-ow)*${focus}':y='(ih-oh)/2'`,
-      `scale=${w}:${h}`
+      `scale=${w}:${h}:flags=lanczos`
     )
   }
 
@@ -89,12 +91,15 @@ export interface RenderJob {
   source: VideoInfo
   transcript: Transcript | null
   outputPath: string
+  encoder?: EncoderPreference
+  quality?: QualityPreference
   onProgress?: (fraction: number) => void
   signal?: AbortSignal
 }
 
 export async function renderClip(job: RenderJob): Promise<string> {
   const { clip, source, transcript } = job
+  const quality = job.quality ?? 'standard'
   const start = clip.edit.start
   const duration = Math.max(0.5, clip.edit.end - clip.edit.start)
   const { w, h } = targetDims(clip.edit.aspect, source)
@@ -116,26 +121,37 @@ export async function renderClip(job: RenderJob): Promise<string> {
   }
 
   const vf = buildVideoFilter(clip, source, assPath)
-  const args = [
+  const buildArgs = (videoArgs: string[]): string[] => [
     '-ss', start.toFixed(3),
     '-t', duration.toFixed(3),
     '-i', source.path,
     '-filter_complex', `[0:v]${vf}[vout]`,
     '-map', '[vout]',
     '-map', '0:a?',
-    '-c:v', 'libx264',
-    '-preset', 'fast',
-    '-crf', '19',
-    '-pix_fmt', 'yuv420p',
-    '-c:a', 'aac',
-    '-b:a', '160k',
+    ...videoArgs,
+    ...audioArgs(quality),
     '-movflags', '+faststart',
     job.outputPath
   ]
 
-  await runFfmpeg(args, {
-    onProgress: (t) => job.onProgress?.(Math.min(1, t / duration)),
+  const resolved = await resolveEncoder(job.encoder ?? 'auto')
+  const runOpts = {
+    onProgress: (t: number) => job.onProgress?.(Math.min(1, t / duration)),
     signal: job.signal
-  })
+  }
+
+  try {
+    await runFfmpegWith(resolved.bin, buildArgs(encoderArgs(resolved.kind, quality)), runOpts)
+  } catch (err) {
+    // NVENC can fail at runtime (driver updates, GPU busy, session limits).
+    // Unless the user explicitly demanded GPU, fall back to a CPU encode.
+    if (resolved.kind === 'nvenc' && job.encoder !== 'gpu' && !job.signal?.aborted) {
+      console.error('NVENC render failed, retrying on CPU:', err)
+      await rm(job.outputPath, { force: true }).catch(() => undefined)
+      await runFfmpegWith(resolved.bin, buildArgs(encoderArgs('cpu', quality)), runOpts)
+    } else {
+      throw err
+    }
+  }
   return job.outputPath
 }

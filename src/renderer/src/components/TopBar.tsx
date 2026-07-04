@@ -51,6 +51,7 @@ export default function TopBar(): React.JSX.Element {
         )}
         <button
           onClick={() => setSettingsOpen(true)}
+          data-testid="settings-button"
           className="rounded-lg p-2 text-zinc-400 transition hover:bg-surface-800 hover:text-zinc-100"
           title="Settings"
         >

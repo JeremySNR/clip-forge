@@ -22,6 +22,9 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   await click('[data-testid="clip-thumb"]')
   await sleep(1500)
   await shot('editor')
+  await click('[data-testid="settings-button"]')
+  await sleep(1200)
+  await shot('settings')
   app.quit()
 }
 

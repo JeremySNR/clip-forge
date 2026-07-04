@@ -1,17 +1,45 @@
-import { useState } from 'react'
-import { X, KeyRound, Brain, Check, ExternalLink } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import {
+  X,
+  KeyRound,
+  Brain,
+  Check,
+  ExternalLink,
+  MonitorPlay,
+  Zap,
+  Download,
+  Loader2
+} from 'lucide-react'
 import { useStore } from '../store'
+import type { EncoderPreference, ImportProgress, QualityPreference } from '@shared/types'
 
 const ANALYSIS_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1']
+
+const ENCODERS: Array<{ value: EncoderPreference; label: string; hint: string }> = [
+  { value: 'auto', label: 'Auto', hint: 'GPU when ready' },
+  { value: 'gpu', label: 'NVIDIA GPU', hint: 'NVENC' },
+  { value: 'cpu', label: 'CPU', hint: 'libx264' }
+]
+
+const QUALITIES: Array<{ value: QualityPreference; label: string; hint: string }> = [
+  { value: 'draft', label: 'Draft', hint: 'Fastest' },
+  { value: 'standard', label: 'Standard', hint: 'Balanced' },
+  { value: 'high', label: 'High', hint: 'Best quality' }
+]
 
 export default function SettingsModal(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const saveSettings = useStore((s) => s.saveSettings)
+  const refreshSettings = useStore((s) => s.refreshSettings)
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-4o-mini')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [gpuProgress, setGpuProgress] = useState<ImportProgress | null>(null)
+  const [gpuError, setGpuError] = useState<string | null>(null)
+
+  useEffect(() => window.clipforge.onGpuProgress(setGpuProgress), [])
 
   const save = async (): Promise<void> => {
     setSaving(true)
@@ -28,13 +56,26 @@ export default function SettingsModal(): React.JSX.Element {
     }
   }
 
+  const downloadGpu = async (): Promise<void> => {
+    setGpuError(null)
+    setGpuProgress({ progress: 0, message: 'Starting download…' })
+    try {
+      await window.clipforge.downloadGpuFfmpeg()
+      await refreshSettings()
+    } catch (err) {
+      setGpuError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setGpuProgress(null)
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={() => setSettingsOpen(false)}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-surface-700 bg-surface-900 p-6 shadow-2xl"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-surface-700 bg-surface-900 p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -93,6 +134,87 @@ export default function SettingsModal(): React.JSX.Element {
                 }`}
               >
                 {m}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5 border-t border-surface-700 pt-5">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <MonitorPlay size={15} className="text-accent-400" />
+            Export encoder
+          </label>
+          <div
+            className={`mt-2 flex items-start gap-2 rounded-lg px-3 py-2 text-xs leading-relaxed ${
+              settings?.gpu.available
+                ? 'bg-emerald-500/10 text-emerald-400'
+                : 'bg-surface-850 text-zinc-500'
+            }`}
+          >
+            <Zap size={13} className="mt-0.5 shrink-0" />
+            <span>{settings?.gpu.detail ?? 'Checking GPU…'}</span>
+          </div>
+          {settings?.gpu.canDownloadFfmpeg &&
+            (gpuProgress ? (
+              <div className="mt-2 rounded-lg border border-surface-600 px-3 py-2.5">
+                <div className="flex items-center gap-2 text-xs text-zinc-300">
+                  <Loader2 size={13} className="animate-spin text-accent-400" />
+                  {gpuProgress.message}
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-700">
+                  <div
+                    className="h-full rounded-full bg-accent-500 transition-all"
+                    style={{ width: `${Math.round(Math.max(0, gpuProgress.progress) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => void downloadGpu()}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+              >
+                <Download size={13} />
+                Download GPU-enabled ffmpeg (~40 MB, one time)
+              </button>
+            ))}
+          {gpuError && <p className="mt-2 text-xs text-red-400">{gpuError}</p>}
+          <div className="mt-2.5 grid grid-cols-3 gap-2">
+            {ENCODERS.map((e) => (
+              <button
+                key={e.value}
+                onClick={() => void saveSettings({ encoder: e.value })}
+                disabled={e.value === 'gpu' && !settings?.gpu.available}
+                className={`rounded-xl border px-2 py-2 text-center transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  settings?.encoder === e.value
+                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
+                }`}
+              >
+                <div className="text-xs font-medium">{e.label}</div>
+                <div className="mt-0.5 text-[10px] text-zinc-500">{e.hint}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <MonitorPlay size={15} className="text-accent-400" />
+            Export quality
+          </label>
+          <div className="mt-2.5 grid grid-cols-3 gap-2">
+            {QUALITIES.map((q) => (
+              <button
+                key={q.value}
+                onClick={() => void saveSettings({ quality: q.value })}
+                className={`rounded-xl border px-2 py-2 text-center transition ${
+                  settings?.quality === q.value
+                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
+                }`}
+              >
+                <div className="text-xs font-medium">{q.label}</div>
+                <div className="mt-0.5 text-[10px] text-zinc-500">{q.hint}</div>
               </button>
             ))}
           </div>

@@ -6,7 +6,8 @@ import type {
   ImportProgress,
   PipelineProgress,
   Project,
-  ProjectSummary
+  ProjectSummary,
+  SettingsUpdate
 } from '@shared/types'
 
 export type Screen = 'home' | 'processing' | 'clips' | 'editor'
@@ -38,7 +39,8 @@ interface AppState {
   deleteProject: (id: string) => Promise<void>
   goHome: () => void
   setSettingsOpen: (open: boolean) => void
-  saveSettings: (update: { apiKey?: string; analysisModel?: string }) => Promise<void>
+  saveSettings: (update: SettingsUpdate) => Promise<void>
+  refreshSettings: () => Promise<void>
   analyze: (options: AnalyzeOptions) => Promise<void>
   cancelAnalyze: () => Promise<void>
   openEditor: (clipId: string) => void
@@ -137,6 +139,10 @@ export const useStore = create<AppState>((set, get) => ({
   saveSettings: async (update) => {
     const settings = await window.clipforge.updateSettings(update)
     set({ settings })
+  },
+
+  refreshSettings: async () => {
+    set({ settings: await window.clipforge.getSettings() })
   },
 
   analyze: async (options) => {

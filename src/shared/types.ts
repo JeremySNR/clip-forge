@@ -141,18 +141,35 @@ export interface ExportResult {
   outputPath: string
 }
 
+export type EncoderPreference = 'auto' | 'cpu' | 'gpu'
+export type QualityPreference = 'draft' | 'standard' | 'high'
+
+export interface GpuEncoderStatus {
+  /** True when a working hardware encoder was verified with a test encode. */
+  available: boolean
+  /** Human-readable status, e.g. "NVENC ready via system ffmpeg". */
+  detail: string
+  /** True when a GPU-capable ffmpeg build can be downloaded to enable it. */
+  canDownloadFfmpeg: boolean
+}
+
 export interface AppSettings {
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
   hasApiKey: boolean
   transcriptionModel: string
   analysisModel: string
+  encoder: EncoderPreference
+  quality: QualityPreference
+  gpu: GpuEncoderStatus
 }
 
 export interface SettingsUpdate {
   apiKey?: string
   transcriptionModel?: string
   analysisModel?: string
+  encoder?: EncoderPreference
+  quality?: QualityPreference
 }
 
 export interface PipelineError {

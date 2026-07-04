@@ -6,6 +6,7 @@ import type {
   ExportOptions,
   ExportProgress,
   ExportResult,
+  GpuEncoderStatus,
   ImportProgress,
   PipelineProgress,
   Project,
@@ -36,6 +37,12 @@ const api = {
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (update: SettingsUpdate): Promise<AppSettings> => ipcRenderer.invoke('settings:update', update),
+  downloadGpuFfmpeg: (): Promise<GpuEncoderStatus> => ipcRenderer.invoke('settings:downloadGpuFfmpeg'),
+  onGpuProgress: (cb: (p: ImportProgress) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: ImportProgress): void => cb(p)
+    ipcRenderer.on('gpu:progress', listener)
+    return () => ipcRenderer.removeListener('gpu:progress', listener)
+  },
 
   showItemInFolder: (path: string): Promise<void> => ipcRenderer.invoke('shell:showItemInFolder', path),
 

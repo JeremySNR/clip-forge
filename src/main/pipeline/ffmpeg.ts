@@ -51,9 +51,14 @@ export function runBinary(bin: string, args: string[], opts: RunOptions = {}): P
 }
 
 export function runFfmpeg(args: string[], opts: RunOptions = {}): Promise<string> {
+  return runFfmpegWith(FFMPEG_PATH, args, opts)
+}
+
+/** Like runFfmpeg but with an explicit binary (e.g. a GPU-enabled build). */
+export function runFfmpegWith(bin: string, args: string[], opts: RunOptions = {}): Promise<string> {
   const fullArgs = ['-hide_banner', '-y', ...args]
   if (opts.onProgress) fullArgs.push('-progress', 'pipe:1', '-nostats')
-  return runBinary(FFMPEG_PATH, fullArgs, opts)
+  return runBinary(bin, fullArgs, opts)
 }
 
 export async function probeVideo(filePath: string): Promise<VideoInfo> {

@@ -1,19 +1,29 @@
 import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AppSettings, SettingsUpdate } from '@shared/types'
+import type {
+  AppSettings,
+  EncoderPreference,
+  QualityPreference,
+  SettingsUpdate
+} from '@shared/types'
+import { getGpuStatus } from './pipeline/encoders'
 
 interface StoredSettings {
   /** Base64 of safeStorage-encrypted key, or plain 'plain:'-prefixed fallback. */
   apiKeyEncrypted: string
   transcriptionModel: string
   analysisModel: string
+  encoder: EncoderPreference
+  quality: QualityPreference
 }
 
 const DEFAULTS: StoredSettings = {
   apiKeyEncrypted: '',
   transcriptionModel: 'whisper-1',
-  analysisModel: 'gpt-4o-mini'
+  analysisModel: 'gpt-4o-mini',
+  encoder: 'auto',
+  quality: 'standard'
 }
 
 function settingsPath(): string {
@@ -69,18 +79,33 @@ export function getApiKey(): string {
   return stored || envKey || ''
 }
 
-export function getSettings(): AppSettings {
+export async function getSettings(): Promise<AppSettings> {
   const s = load()
   const key = getApiKey()
   return {
     hasApiKey: key.length > 0,
     apiKeyMasked: key.length > 8 ? `${key.slice(0, 5)}…${key.slice(-4)}` : key ? '•••' : '',
     transcriptionModel: s.transcriptionModel,
-    analysisModel: s.analysisModel
+    analysisModel: s.analysisModel,
+    encoder: s.encoder,
+    quality: s.quality,
+    gpu: await getGpuStatus()
   }
 }
 
-export function updateSettings(update: SettingsUpdate): AppSettings {
+/** Synchronous access to the stored encoder/quality preferences. */
+export function getExportPreferences(): { encoder: EncoderPreference; quality: QualityPreference } {
+  const s = load()
+  return { encoder: s.encoder, quality: s.quality }
+}
+
+/** Synchronous access to the stored model preferences (no GPU probe). */
+export function getModelPreferences(): { transcriptionModel: string; analysisModel: string } {
+  const s = load()
+  return { transcriptionModel: s.transcriptionModel, analysisModel: s.analysisModel }
+}
+
+export async function updateSettings(update: SettingsUpdate): Promise<AppSettings> {
   const s = { ...load() }
   if (update.apiKey !== undefined) s.apiKeyEncrypted = encryptKey(update.apiKey.trim())
   if (update.transcriptionModel !== undefined && update.transcriptionModel.trim()) {
@@ -89,6 +114,8 @@ export function updateSettings(update: SettingsUpdate): AppSettings {
   if (update.analysisModel !== undefined && update.analysisModel.trim()) {
     s.analysisModel = update.analysisModel.trim()
   }
+  if (update.encoder !== undefined) s.encoder = update.encoder
+  if (update.quality !== undefined) s.quality = update.quality
   persist(s)
   return getSettings()
 }

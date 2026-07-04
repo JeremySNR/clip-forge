@@ -8,7 +8,7 @@ import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus } from './faces'
 import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta } from './ytdlp'
-import { getApiKey, getSettings } from '../settings'
+import { getApiKey, getModelPreferences } from '../settings'
 import { projectDir, saveProject } from '../projects'
 
 export async function createProject(videoPath: string): Promise<Project> {
@@ -83,7 +83,7 @@ export async function analyzeProject(
   if (!apiKey) {
     throw new Error('No OpenAI API key configured. Add one in Settings before generating clips.')
   }
-  const settings = getSettings()
+  const settings = getModelPreferences()
   const workDir = join(tmpdir(), 'clipforge', `job-${project.id}`)
   await mkdir(workDir, { recursive: true })
 

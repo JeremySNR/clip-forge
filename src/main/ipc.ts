@@ -8,9 +8,10 @@ import type {
   SettingsUpdate
 } from '@shared/types'
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
+import { downloadGpuFfmpeg } from './pipeline/encoders'
 import { renderClip } from './pipeline/render'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
-import { getSettings, updateSettings } from './settings'
+import { getExportPreferences, getSettings, updateSettings } from './settings'
 
 function sanitizeFileName(name: string): string {
   const cleaned = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim()
@@ -107,11 +108,14 @@ export function registerIpcHandlers(): void {
     if (!clip) throw new Error('Clip not found')
     const suffix = clip.edit.aspect === 'original' ? '' : ` (${clip.edit.aspect.replace(':', 'x')})`
     const outputPath = join(opts.outputDir, `${sanitizeFileName(clip.title)}${suffix}.mp4`)
+    const prefs = getExportPreferences()
     await renderClip({
       clip,
       source: project.video,
       transcript: project.transcript,
       outputPath,
+      encoder: prefs.encoder,
+      quality: prefs.quality,
       onProgress: (fraction) => {
         if (!event.sender.isDestroyed()) {
           event.sender.send('export:progress', { clipId: clip.id, progress: fraction, message: 'Rendering…' })
@@ -119,6 +123,12 @@ export function registerIpcHandlers(): void {
       }
     })
     return { clipId: clip.id, outputPath }
+  })
+
+  ipcMain.handle('settings:downloadGpuFfmpeg', async (event) => {
+    return downloadGpuFfmpeg((p) => {
+      if (!event.sender.isDestroyed()) event.sender.send('gpu:progress', p)
+    })
   })
 
   ipcMain.handle('settings:get', async () => getSettings())
