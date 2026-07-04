@@ -7,6 +7,7 @@ import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus } from './faces'
+import { annotateEnergy } from './energy'
 import { attachBroll } from './broll'
 import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta } from './ytdlp'
 import { getApiKey, getModelPreferences } from '../settings'
@@ -64,6 +65,23 @@ export async function createProjectFromUrl(
 
 type ProgressFn = (p: PipelineProgress) => void
 
+/** Run `fn` over items with bounded concurrency, preserving order. */
+async function mapLimit<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<void>
+): Promise<void> {
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    for (;;) {
+      const index = next++
+      if (index >= items.length) return
+      await fn(items[index], index)
+    }
+  })
+  await Promise.all(workers)
+}
+
 /**
  * The full "get clips" pipeline: audio extraction -> Whisper transcription ->
  * LLM highlight detection -> per-clip thumbnails. Mutates and saves the
@@ -119,6 +137,9 @@ export async function analyzeProject(
       if (transcript.segments.length === 0) {
         throw new Error('No speech was detected in this video, so no clips could be generated.')
       }
+      // Vocal-energy annotation feeds the virality analysis (arousal signal).
+      onProgress({ stage: 'transcribe', progress: 0.56, message: 'Measuring vocal energy…' })
+      await annotateEnergy(transcript, chunks)
       // Checkpoint: transcription is the most expensive stage, never redo it.
       project.transcript = transcript
       await saveProject(project)
@@ -143,9 +164,9 @@ export async function analyzeProject(
     await saveProject(project)
 
     onProgress({ stage: 'reframe', progress: 0.72, message: 'Tracking faces for auto reframing…' })
-    for (let i = 0; i < clips.length; i++) {
+    let reframed = 0
+    await mapLimit(clips, 2, async (clip) => {
       signal?.throwIfAborted()
-      const clip = clips[i]
       clip.focusTrack = await analyzeClipFocus(
         project.video.path,
         clip.suggestedStart,
@@ -156,18 +177,19 @@ export async function analyzeProject(
         clip.edit.framing = 'auto'
         clip.edit.focusX = clip.focusTrack[0]?.x ?? 0.5
       }
+      reframed++
       onProgress({
         stage: 'reframe',
-        progress: 0.72 + ((i + 1) / clips.length) * 0.1,
+        progress: 0.72 + (reframed / clips.length) * 0.1,
         message: 'Tracking faces for auto reframing…'
       })
-    }
+    })
 
     if (options.broll) {
       onProgress({ stage: 'broll', progress: 0.82, message: 'Finding B-roll images…' })
-      for (let i = 0; i < clips.length; i++) {
+      let brolled = 0
+      await mapLimit(clips, 3, async (clip) => {
         signal?.throwIfAborted()
-        const clip = clips[i]
         try {
           await attachBroll(apiKey, settings.analysisModel, transcript, project.id, clip, signal)
         } catch (err) {
@@ -175,12 +197,13 @@ export async function analyzeProject(
           console.error(`B-roll failed for clip ${clip.id}:`, err)
           clip.broll = []
         }
+        brolled++
         onProgress({
           stage: 'broll',
-          progress: 0.82 + ((i + 1) / clips.length) * 0.08,
+          progress: 0.82 + (brolled / clips.length) * 0.08,
           message: 'Finding B-roll images…'
         })
-      }
+      })
       await saveProject(project)
     }
 

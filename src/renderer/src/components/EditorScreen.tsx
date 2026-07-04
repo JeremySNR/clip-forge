@@ -101,6 +101,13 @@ export default function EditorScreen(): React.JSX.Element {
             onChange={(start, end) => setLocal({ start, end })}
             onCommit={() => void updateClip(clip)}
           />
+          <div className="mt-3">
+            <Toggle
+              label="Tighten cuts — remove pauses and filler words"
+              checked={clip.edit.tightenCuts}
+              onChange={(v) => set({ tightenCuts: v })}
+            />
+          </div>
         </Section>
 
         <Section icon={Crop} title="Layout">
@@ -216,7 +223,11 @@ export default function EditorScreen(): React.JSX.Element {
                 >
                   <div
                     className="text-sm"
-                    style={{ fontWeight: style.bold ? 800 : 500, color: style.textColor }}
+                    style={{
+                      fontFamily: `'${style.fontFamily}', sans-serif`,
+                      fontWeight: style.bold ? 700 : 400,
+                      color: style.textColor
+                    }}
                   >
                     {style.uppercase ? 'SO I ' : 'so I '}
                     <span

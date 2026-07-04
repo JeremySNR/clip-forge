@@ -145,6 +145,7 @@ async function main(): Promise<void> {
         aspect: '9:16',
         reframeMode: 'crop',
         framing: i === 0 ? 'auto' : 'manual',
+        tightenCuts: false,
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,

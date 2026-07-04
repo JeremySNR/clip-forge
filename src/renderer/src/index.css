@@ -1,5 +1,22 @@
 @import 'tailwindcss';
 
+/* Bundled caption fonts — same files libass burns into exports. */
+@font-face {
+  font-family: 'Anton';
+  src: url('./assets/fonts/Anton-Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('./assets/fonts/Poppins-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'Poppins Medium';
+  src: url('./assets/fonts/Poppins-Medium.ttf') format('truetype');
+  font-weight: 500;
+}
+
 @theme {
   --color-surface-950: #09090b;
   --color-surface-900: #0f0f13;

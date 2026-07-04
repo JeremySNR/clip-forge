@@ -3,6 +3,7 @@ import { Play, Pause, RotateCcw } from 'lucide-react'
 import type { Clip, Project } from '@shared/types'
 import { getCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
+import { computeKeptSegments, TimeMap } from '@shared/tighten'
 import { focusAt } from '@shared/focusTrack'
 import { formatTimecode } from '../lib/format'
 
@@ -53,12 +54,22 @@ export default function PreviewPlayer({
     }
   }, [start, end])
 
+  // Mirrors the export's tighten-cuts behaviour by skipping removed spans.
+  const timeMap = useMemo(() => {
+    if (!clip.edit.tightenCuts || !project.transcript) return null
+    const segments = computeKeptSegments(project.transcript, start, end)
+    return segments ? new TimeMap(segments) : null
+  }, [clip.edit.tightenCuts, project.transcript, start, end])
+
   useEffect(() => {
     const tick = (): void => {
       const video = videoRef.current
       if (video) {
         if (video.currentTime >= end) {
           video.currentTime = start
+        } else if (timeMap && !video.paused && timeMap.isRemoved(video.currentTime)) {
+          const next = timeMap.nextKeptStart(video.currentTime)
+          video.currentTime = next ?? end
         }
         setTime(video.currentTime)
       }
@@ -66,7 +77,7 @@ export default function PreviewPlayer({
     }
     if (playing) rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [playing, start, end])
+  }, [playing, start, end, timeMap])
 
   const togglePlay = (): void => {
     const video = videoRef.current
@@ -255,8 +266,9 @@ function CaptionOverlay({
     >
       <div
         style={{
+          fontFamily: `'${style.fontFamily}', sans-serif`,
           fontSize: `${style.fontScale * 100}cqh`,
-          fontWeight: style.bold ? 800 : 500,
+          fontWeight: style.bold ? 700 : 400,
           lineHeight: 1.25,
           textShadow:
             style.outlineWidth > 0

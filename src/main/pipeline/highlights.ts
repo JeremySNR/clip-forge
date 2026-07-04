@@ -119,7 +119,18 @@ function minDurationFor(pref: ClipLengthPreference): number {
   }
 }
 
-const SYSTEM_PROMPT = `You are an expert short-form video editor who has studied thousands of viral TikToks, Reels and Shorts. You receive the timestamped transcript of a long video and must select the moments most likely to go viral as standalone vertical clips.
+/**
+ * The scoring rubric operationalises published virality research rather than
+ * vibes — primarily Berger & Milkman, "What Makes Online Content Viral?"
+ * (Journal of Marketing Research, 2012): sharing is driven by physiological
+ * AROUSAL. High-arousal emotions (awe, amusement/humour, excitement, anger,
+ * anxiety) increase transmission; low-arousal/deactivating emotions (sadness)
+ * decrease it, independent of positive/negative valence. Surprise, interest
+ * and practical utility are independently positively linked to sharing, and
+ * anger was the single strongest predictor in their model. Berger (2011,
+ * Psychological Science) shows induced arousal alone increases sharing.
+ */
+const SYSTEM_PROMPT = `You are an expert short-form video editor who selects moments most likely to go viral as standalone vertical clips. You receive the timestamped transcript of a long video. Some lines carry a [delivery: ...] tag measured from the actual audio — "energetic" marks the speaker's most aroused, animated delivery, "subdued" the flattest.
 
 Selection rules:
 - Every clip MUST start at the beginning of a sentence or thought and end at a natural conclusion. Never cut mid-sentence.
@@ -128,12 +139,12 @@ Selection rules:
 - Do not overlap clips. Order them by virality score, highest first.
 - Use the transcript timestamps precisely; do not invent times outside the video.
 
-Virality scoring rubric (0-99):
-- Hook strength in the first sentence (0-30)
-- Emotional impact or surprise (0-25)
-- Value/insight density (0-20)
+Virality scoring rubric (0-99), grounded in sharing research (Berger & Milkman 2012: physiological arousal drives transmission; anger, awe and anxiety are the strongest predictors; sadness suppresses sharing; surprise and practical value independently boost it):
+- Hook strength in the first sentence — curiosity gap, bold claim, or open question (0-30)
+- High-arousal emotion — awe, amusement, excitement, anger, anxiety, surprise. Weight moments tagged [delivery: energetic] upward; a flat, deactivating or sad moment scores low here even if well-worded (0-25)
+- Value — practical utility the viewer can apply, or novel insight that makes the sharer look smart (0-20)
 - Completeness as a standalone story (0-15)
-- Shareability / discussion potential (0-9)
+- Shareability — would someone tag a friend, argue in the comments, or repost to signal identity? (0-9)
 Sum the parts for the final score. Be honest and discriminating: most clips score 40-75, reserve 85+ for exceptional moments.`
 
 /** Snap a time to the nearest transcript word boundary within a tolerance. */
@@ -196,7 +207,17 @@ async function requestHighlights(
   signal?: AbortSignal
 ): Promise<Clip[]> {
   const transcriptText = transcript.segments
-    .map((s) => `[${formatTimestamp(s.start)} - ${formatTimestamp(s.end)}] ${s.text}`)
+    .map((s) => {
+      const delivery =
+        s.energy === undefined
+          ? ''
+          : s.energy >= 0.8
+            ? ' [delivery: energetic]'
+            : s.energy <= 0.2
+              ? ' [delivery: subdued]'
+              : ''
+      return `[${formatTimestamp(s.start)} - ${formatTimestamp(s.end)}] ${s.text}${delivery}`
+    })
     .join('\n')
 
   const targetCount = Math.max(3, Math.min(12, Math.round(videoDurationSec / 240)))
@@ -282,6 +303,7 @@ async function requestHighlights(
         aspect: '9:16',
         reframeMode: 'crop',
         framing: 'manual',
+        tightenCuts: true,
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,

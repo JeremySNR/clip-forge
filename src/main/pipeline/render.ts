@@ -4,9 +4,13 @@ import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import type { AspectRatio, Clip, QualityPreference, Transcript, VideoInfo } from '@shared/types'
 import type { EncoderPreference } from '@shared/types'
+import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { runFfmpegWith } from './ffmpeg'
-import { buildAss } from './captions'
+import { buildAss, fontsDir } from './captions'
 import { audioArgs, encoderArgs, resolveEncoder } from './encoders'
+
+/** Social platforms normalise to ~-14 LUFS; master exports to match. */
+const LOUDNORM = 'loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000'
 
 function targetDims(aspect: AspectRatio, source: VideoInfo): { w: number; h: number } {
   switch (aspect) {
@@ -57,19 +61,19 @@ function focusExpression(clip: Clip): string {
   return expr
 }
 
-/** Maps [0:v] to [reframed] according to the clip's aspect/reframe settings. */
-function reframeGraph(clip: Clip, source: VideoInfo): string {
+/** Maps `[inputLabel]` to [reframed] according to the clip's aspect/reframe settings. */
+function reframeGraph(clip: Clip, source: VideoInfo, inputLabel: string): string {
   const { w, h } = targetDims(clip.edit.aspect, source)
   const ratio = (w / h).toFixed(6)
   const focus = focusExpression(clip)
 
   if (clip.edit.aspect === 'original') {
-    return `[0:v]scale=${w}:${h}:flags=lanczos[reframed]`
+    return `[${inputLabel}]scale=${w}:${h}:flags=lanczos[reframed]`
   }
   if (clip.edit.reframeMode === 'fit-blur') {
     // Blurred, darkened cover background with the full frame fitted on top.
     return (
-      `[0:v]split=2[bg][fg];` +
+      `[${inputLabel}]split=2[bg][fg];` +
       `[bg]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},gblur=sigma=24,eq=brightness=-0.12[bgb];` +
       `[fg]scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos[fgs];` +
       `[bgb][fgs]overlay=(W-w)/2:(H-h)/2[reframed]`
@@ -77,9 +81,33 @@ function reframeGraph(clip: Clip, source: VideoInfo): string {
   }
   // Crop to the target ratio around the horizontal focus point, then scale.
   return (
-    `[0:v]crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='(iw-ow)*${focus}':y='(ih-oh)/2',` +
+    `[${inputLabel}]crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='(iw-ow)*${focus}':y='(ih-oh)/2',` +
     `scale=${w}:${h}:flags=lanczos[reframed]`
   )
+}
+
+/**
+ * Trim+concat prefix for tightened clips: cuts the kept segments out of the
+ * (already -ss seeked, so clip-relative) input and concatenates them.
+ * Produces [vcat] and, when audio is present, [acat].
+ */
+function tightenGraph(segments: KeptSegment[], clipStart: number, hasAudio: boolean): string {
+  const parts: string[] = []
+  const vLabels: string[] = []
+  const aLabels: string[] = []
+  segments.forEach((seg, i) => {
+    const s = Math.max(0, seg.start - clipStart).toFixed(3)
+    const e = Math.max(0, seg.end - clipStart).toFixed(3)
+    parts.push(`[0:v]trim=start=${s}:end=${e},setpts=PTS-STARTPTS[vs${i}]`)
+    vLabels.push(`[vs${i}]`)
+    if (hasAudio) {
+      parts.push(`[0:a]atrim=start=${s}:end=${e},asetpts=PTS-STARTPTS[as${i}]`)
+      aLabels.push(`[as${i}]`)
+    }
+  })
+  parts.push(`${vLabels.join('')}concat=n=${segments.length}:v=1:a=0[vcat]`)
+  if (hasAudio) parts.push(`${aLabels.join('')}concat=n=${segments.length}:v=0:a=1[acat]`)
+  return parts.join(';')
 }
 
 const BROLL_FADE_SEC = 0.25
@@ -88,21 +116,41 @@ interface FilterGraph {
   filterComplex: string
   /** Extra `-i` input args for the B-roll images (after the main input). */
   extraInputs: string[]
+  /** Label of the final audio stream, or null when the source has no audio. */
+  audioLabel: string | null
 }
 
 /**
- * Full video filter graph: reframe -> timed B-roll image overlays (fade
- * in/out, fullscreen or picture-in-picture) -> caption burn-in on top.
+ * Full filter graph: optional tighten trim+concat -> reframe -> timed B-roll
+ * image overlays (fade in/out) -> caption burn-in on top, plus the loudness-
+ * normalised audio chain.
  */
 function buildFilterGraph(
   clip: Clip,
   source: VideoInfo,
   assPath: string | null,
-  clipDuration: number
+  clipDuration: number,
+  tighten: { segments: KeptSegment[]; clipStart: number } | null
 ): FilterGraph {
   const { w, h } = targetDims(clip.edit.aspect, source)
-  const parts: string[] = [reframeGraph(clip, source)]
+  const parts: string[] = []
   const extraInputs: string[] = []
+
+  let audioLabel: string | null = null
+  if (tighten) {
+    parts.push(tightenGraph(tighten.segments, tighten.clipStart, source.hasAudio))
+    parts.push(reframeGraph(clip, source, 'vcat'))
+    if (source.hasAudio) {
+      parts.push(`[acat]${LOUDNORM}[aout]`)
+      audioLabel = 'aout'
+    }
+  } else {
+    parts.push(reframeGraph(clip, source, '0:v'))
+    if (source.hasAudio) {
+      parts.push(`[0:a]${LOUDNORM}[aout]`)
+      audioLabel = 'aout'
+    }
+  }
 
   const items = clip.broll.filter(
     (b) =>
@@ -145,7 +193,9 @@ function buildFilterGraph(
   })
 
   if (assPath) {
-    parts.push(`[${current}]ass=filename='${escapeFilterPath(assPath)}'[vout]`)
+    parts.push(
+      `[${current}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDir())}'[vout]`
+    )
   } else if (current === 'reframed') {
     parts.push(`[reframed]null[vout]`)
   } else {
@@ -154,7 +204,7 @@ function buildFilterGraph(
     parts.push(last.replace(`[${current}]`, '[vout]'))
   }
 
-  return { filterComplex: parts.join(';'), extraInputs }
+  return { filterComplex: parts.join(';'), extraInputs, audioLabel }
 }
 
 export interface RenderJob {
@@ -175,14 +225,46 @@ export async function renderClip(job: RenderJob): Promise<string> {
   const duration = Math.max(0.5, clip.edit.end - clip.edit.start)
   const { w, h } = targetDims(clip.edit.aspect, source)
 
+  // Tighten cuts: figure out the kept segments and remap everything that is
+  // timed against the source (captions, B-roll, face track) into the
+  // compacted output timeline.
+  const segments =
+    clip.edit.tightenCuts && transcript
+      ? computeKeptSegments(transcript, start, clip.edit.end)
+      : null
+  const map = segments ? new TimeMap(segments) : null
+  const outputDuration = map ? map.outputDuration : duration
+
+  let effectiveClip = clip
+  let captionTranscript = transcript
+  let captionStart = start
+  let captionEnd = clip.edit.end
+  if (map && segments) {
+    effectiveClip = {
+      ...clip,
+      edit: { ...clip.edit, start: 0, end: outputDuration },
+      broll: clip.broll
+        .map((b) => ({ ...b, start: map.toOutput(b.start), end: map.toOutput(b.end) }))
+        .filter((b) => b.end - b.start > 0.6),
+      focusTrack: clip.focusTrack
+        ? clip.focusTrack.map((kf) => ({ ...kf, t: map.toOutput(kf.t) }))
+        : null
+    }
+    if (transcript) {
+      captionTranscript = remapTranscript(transcript, map, start, clip.edit.end)
+      captionStart = 0
+      captionEnd = outputDuration
+    }
+  }
+
   let assPath: string | null = null
-  if (clip.edit.captionsEnabled && transcript) {
-    const ass = buildAss(transcript, {
+  if (clip.edit.captionsEnabled && captionTranscript) {
+    const ass = buildAss(captionTranscript, {
       styleId: clip.edit.captionStyleId,
       width: w,
       height: h,
-      clipStart: start,
-      clipEnd: clip.edit.end,
+      clipStart: captionStart,
+      clipEnd: captionEnd,
       title: clip.edit.showTitle ? clip.hook || clip.title : undefined
     })
     const dir = join(tmpdir(), 'clipforge')
@@ -191,7 +273,13 @@ export async function renderClip(job: RenderJob): Promise<string> {
     await writeFile(assPath, ass, 'utf8')
   }
 
-  const graph = buildFilterGraph(clip, source, assPath, duration)
+  const graph = buildFilterGraph(
+    effectiveClip,
+    source,
+    assPath,
+    outputDuration,
+    segments ? { segments, clipStart: start } : null
+  )
   const buildArgs = (videoArgs: string[]): string[] => [
     '-ss', start.toFixed(3),
     '-t', duration.toFixed(3),
@@ -199,7 +287,7 @@ export async function renderClip(job: RenderJob): Promise<string> {
     ...graph.extraInputs,
     '-filter_complex', graph.filterComplex,
     '-map', '[vout]',
-    '-map', '0:a?',
+    ...(graph.audioLabel ? ['-map', `[${graph.audioLabel}]`] : []),
     ...videoArgs,
     ...audioArgs(quality),
     '-movflags', '+faststart',
@@ -208,7 +296,7 @@ export async function renderClip(job: RenderJob): Promise<string> {
 
   const resolved = await resolveEncoder(job.encoder ?? 'auto')
   const runOpts = {
-    onProgress: (t: number) => job.onProgress?.(Math.min(1, t / duration)),
+    onProgress: (t: number) => job.onProgress?.(Math.min(1, t / outputDuration)),
     signal: job.signal
   }
 

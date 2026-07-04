@@ -8,6 +8,7 @@ export interface VideoInfo {
   height: number
   fps: number
   sizeBytes: number
+  hasAudio: boolean
 }
 
 export interface TranscriptWord {
@@ -22,6 +23,8 @@ export interface TranscriptSegment {
   start: number
   end: number
   words: TranscriptWord[]
+  /** Relative vocal energy 0..1 (percentile within this video); optional. */
+  energy?: number
 }
 
 export interface Transcript {
@@ -49,6 +52,8 @@ export interface ClipEditState {
   aspect: AspectRatio
   reframeMode: ReframeMode
   framing: FramingMode
+  /** Remove long pauses and filler words ("um", "uh") from the clip. */
+  tightenCuts: boolean
   /** Horizontal focus for cropping, 0 = far left, 0.5 = centre, 1 = far right. */
   focusX: number
   captionsEnabled: boolean

@@ -55,6 +55,10 @@
       {
         "from": "resources/models",
         "to": "models"
+      },
+      {
+        "from": "resources/fonts",
+        "to": "fonts"
       }
     ],
     "mac": {

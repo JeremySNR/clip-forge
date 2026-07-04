@@ -98,13 +98,34 @@ async function detectFaces(rgb: Buffer): Promise<FaceBox[]> {
   return nms(candidates)
 }
 
+/** Mean absolute luma-ish difference between two raw RGB frames (sampled). */
+function frameDifference(a: Buffer, b: Buffer): number {
+  let sum = 0
+  let count = 0
+  // Sample every 24th byte — plenty for shot-change detection at 320x240.
+  for (let i = 0; i < a.length; i += 24) {
+    sum += Math.abs(a[i] - b[i])
+    count++
+  }
+  return sum / Math.max(1, count)
+}
+
+/** Frame-to-frame difference above this (0-255) counts as a camera cut. */
+const SCENE_CUT_THRESHOLD = 34
+
+interface SampledFrames {
+  centres: Array<number | null>
+  /** Frame indices where a shot change was detected. */
+  cuts: number[]
+}
+
 /** Extract per-frame primary-face centres for a clip range of the source video. */
 async function sampleFaceCentres(
   videoPath: string,
   startSec: number,
   endSec: number,
   signal?: AbortSignal
-): Promise<Array<number | null>> {
+): Promise<SampledFrames> {
   const duration = Math.max(0.1, endSec - startSec)
   const rawPath = join(tmpdir(), 'clipforge', `faces-${randomUUID()}.rgb`)
   await runFfmpeg(
@@ -124,9 +145,15 @@ async function sampleFaceCentres(
     const frameBytes = MODEL_W * MODEL_H * 3
     const frameCount = Math.floor(raw.length / frameBytes)
     const centres: Array<number | null> = []
+    const cuts: number[] = []
+    let prevFrame: Buffer | null = null
     for (let f = 0; f < frameCount; f++) {
       signal?.throwIfAborted()
       const frame = raw.subarray(f * frameBytes, (f + 1) * frameBytes)
+      if (prevFrame && frameDifference(prevFrame, frame) > SCENE_CUT_THRESHOLD) {
+        cuts.push(f)
+      }
+      prevFrame = frame
       const faces = await detectFaces(frame)
       if (faces.length === 0) {
         centres.push(null)
@@ -139,7 +166,7 @@ async function sampleFaceCentres(
       })
       centres.push((primary.x1 + primary.x2) / 2)
     }
-    return centres
+    return { centres, cuts }
   } finally {
     await rm(rawPath, { force: true }).catch(() => undefined)
   }
@@ -155,12 +182,15 @@ function medianSmooth(values: number[], window: number): number[] {
 }
 
 /**
- * Turn per-frame centres into a piecewise-constant focus track. Returns null
+ * Turn per-frame centres into a piecewise-constant focus track. Camera cuts
+ * split the analysis into independent runs — smoothing never bleeds across a
+ * shot change, and every cut gets an immediate refocus keyframe. Returns null
  * when too few faces were found to be useful (caller falls back to manual).
  */
 export function buildFocusTrack(
   centres: Array<number | null>,
-  clipStartSec: number
+  clipStartSec: number,
+  cuts: number[] = []
 ): FocusKeyframe[] | null {
   const detected = centres.filter((c): c is number => c !== null)
   if (detected.length < centres.length * 0.3 || detected.length < 2) return null
@@ -172,17 +202,33 @@ export function buildFocusTrack(
     if (c !== null) last = c
     filled.push(last)
   }
-  const smooth = medianSmooth(filled, 5)
 
   const keyframes: FocusKeyframe[] = []
+  const runBounds = [0, ...cuts.filter((c) => c > 0 && c < filled.length), filled.length]
+  for (let r = 0; r < runBounds.length - 1; r++) {
+    const runStart = runBounds[r]
+    const run = filled.slice(runStart, runBounds[r + 1])
+    if (run.length === 0) continue
+    trackRun(medianSmooth(run, Math.min(5, run.length)), runStart, clipStartSec, keyframes)
+  }
+  return keyframes
+}
+
+/** Segment one continuous shot into stable focus positions. */
+function trackRun(
+  smooth: number[],
+  runStartFrame: number,
+  clipStartSec: number,
+  out: FocusKeyframe[]
+): void {
   let segmentStart = 0
   let segmentValues = [smooth[0]]
   let shiftRun = 0
 
   const emit = (fromFrame: number): void => {
     const mean = segmentValues.reduce((a, b) => a + b, 0) / segmentValues.length
-    keyframes.push({
-      t: clipStartSec + fromFrame / SAMPLE_FPS,
+    out.push({
+      t: clipStartSec + (runStartFrame + fromFrame) / SAMPLE_FPS,
       x: Math.min(1, Math.max(0, mean))
     })
   }
@@ -203,7 +249,6 @@ export function buildFocusTrack(
     }
   }
   emit(segmentStart)
-  return keyframes
 }
 
 /**
@@ -217,8 +262,8 @@ export async function analyzeClipFocus(
   signal?: AbortSignal
 ): Promise<FocusKeyframe[] | null> {
   try {
-    const centres = await sampleFaceCentres(videoPath, startSec, endSec, signal)
-    return buildFocusTrack(centres, startSec)
+    const { centres, cuts } = await sampleFaceCentres(videoPath, startSec, endSec, signal)
+    return buildFocusTrack(centres, startSec, cuts)
   } catch (err) {
     if (signal?.aborted) throw err
     console.error('Face analysis failed, falling back to manual focus:', err)

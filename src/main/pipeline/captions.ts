@@ -1,6 +1,19 @@
+import { join } from 'node:path'
+import { app } from 'electron'
 import type { Transcript } from '@shared/types'
 import { getCaptionStyle, type CaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange, type WordGroup } from '@shared/captionLayout'
+
+/**
+ * Bundled caption fonts (Anton, Poppins — OFL licensed) so exports render
+ * identically on every OS instead of falling back to system fonts.
+ * `app` is undefined when running outside Electron (test scripts).
+ */
+export function fontsDir(): string {
+  if (app?.isPackaged) return join(process.resourcesPath, 'fonts')
+  const base = app?.getAppPath?.() ?? process.cwd()
+  return join(base, 'resources', 'fonts')
+}
 
 /**
  * Generates ASS (Advanced SubStation Alpha) subtitles with word-level karaoke

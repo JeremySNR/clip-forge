@@ -82,6 +82,7 @@ export async function probeVideo(filePath: string): Promise<VideoInfo> {
   }
   const video = data.streams?.find((s) => s.codec_type === 'video')
   if (!video) throw new Error('No video stream found in file')
+  const hasAudio = data.streams?.some((s) => s.codec_type === 'audio') ?? false
   const fpsRaw = video.avg_frame_rate ?? '30/1'
   const [num, den] = fpsRaw.split('/').map(Number)
   const fps = den > 0 ? num / den : 30
@@ -94,7 +95,8 @@ export async function probeVideo(filePath: string): Promise<VideoInfo> {
     width: video.width ?? 0,
     height: video.height ?? 0,
     fps: Math.round(fps * 100) / 100,
-    sizeBytes: Number(data.format?.size ?? 0)
+    sizeBytes: Number(data.format?.size ?? 0),
+    hasAudio
   }
 }
 

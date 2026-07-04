@@ -41,6 +41,7 @@ function makeClip(): Clip {
       aspect: '9:16',
       reframeMode: 'crop',
       framing: 'manual',
+      tightenCuts: false,
       focusX: 0.5,
       captionsEnabled: false,
       captionStyleId: DEFAULT_CAPTION_STYLE_ID,

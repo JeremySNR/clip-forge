@@ -32,7 +32,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
   {
     id: 'beast',
     name: 'Beast',
-    fontFamily: 'Arial',
+    fontFamily: 'Anton',
     fontScale: 0.052,
     uppercase: true,
     textColor: '#FFFFFF',
@@ -41,14 +41,14 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     outlineColor: '#000000',
     outlineWidth: 3.2,
     shadow: 1,
-    bold: true,
+    bold: false,
     positionY: 0.72,
     wordsPerGroup: 3
   },
   {
     id: 'karaoke',
     name: 'Karaoke',
-    fontFamily: 'Arial',
+    fontFamily: 'Poppins',
     fontScale: 0.046,
     uppercase: false,
     textColor: '#FFFFFF',
@@ -64,7 +64,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
   {
     id: 'pill',
     name: 'Pill',
-    fontFamily: 'Arial',
+    fontFamily: 'Anton',
     fontScale: 0.044,
     uppercase: true,
     textColor: '#FFFFFF',
@@ -73,14 +73,14 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     outlineColor: '#000000',
     outlineWidth: 0,
     shadow: 0,
-    bold: true,
+    bold: false,
     positionY: 0.74,
     wordsPerGroup: 3
   },
   {
     id: 'minimal',
     name: 'Minimal',
-    fontFamily: 'Arial',
+    fontFamily: 'Poppins Medium',
     fontScale: 0.038,
     uppercase: false,
     textColor: '#FFFFFF',
