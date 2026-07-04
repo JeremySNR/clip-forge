@@ -75,7 +75,7 @@ export default function SettingsModal(): React.JSX.Element {
       onClick={() => setSettingsOpen(false)}
     >
       <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-surface-700 bg-surface-900 p-6 shadow-2xl"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-surface-900/85 p-6 shadow-2xl shadow-black/60 backdrop-blur-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -108,13 +108,13 @@ export default function SettingsModal(): React.JSX.Element {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder={settings?.hasApiKey ? `Current: ${settings.apiKeyMasked}` : 'sk-…'}
-            className="mt-2.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-accent-500 focus:outline-none"
+            className="mt-2.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
           />
           <a
             href="https://platform.openai.com/api-keys"
             target="_blank"
             rel="noreferrer"
-            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-accent-400 hover:underline"
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-zinc-400 underline decoration-zinc-600 underline-offset-2 hover:text-zinc-200"
           >
             Get an API key <ExternalLink size={11} />
           </a>
@@ -135,7 +135,7 @@ export default function SettingsModal(): React.JSX.Element {
                 onClick={() => setModel(m)}
                 className={`rounded-xl border px-3 py-2 text-xs font-medium transition ${
                   model === m
-                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                     : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                 }`}
               >
@@ -164,12 +164,12 @@ export default function SettingsModal(): React.JSX.Element {
             (gpuProgress ? (
               <div className="mt-2 rounded-lg border border-surface-600 px-3 py-2.5">
                 <div className="flex items-center gap-2 text-xs text-zinc-300">
-                  <Loader2 size={13} className="animate-spin text-accent-400" />
+                  <Loader2 size={13} className="animate-spin text-zinc-300" />
                   {gpuProgress.message}
                 </div>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-700">
                   <div
-                    className="h-full rounded-full bg-accent-500 transition-all"
+                    className="h-full rounded-full bg-zinc-200 transition-all"
                     style={{ width: `${Math.round(Math.max(0, gpuProgress.progress) * 100)}%` }}
                   />
                 </div>
@@ -192,7 +192,7 @@ export default function SettingsModal(): React.JSX.Element {
                 disabled={e.value === 'gpu' && !settings?.gpu.available}
                 className={`rounded-xl border px-2 py-2 text-center transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   settings?.encoder === e.value
-                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                     : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                 }`}
               >
@@ -215,7 +215,7 @@ export default function SettingsModal(): React.JSX.Element {
                 onClick={() => void saveSettings({ quality: q.value })}
                 className={`rounded-xl border px-2 py-2 text-center transition ${
                   settings?.quality === q.value
-                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                     : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                 }`}
               >
@@ -229,7 +229,7 @@ export default function SettingsModal(): React.JSX.Element {
         <button
           onClick={() => void save()}
           disabled={saving}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-500 disabled:opacity-60"
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-900 transition hover:bg-white disabled:opacity-60"
         >
           {saved ? <Check size={16} /> : null}
           {saved ? 'Saved' : saving ? 'Saving…' : 'Save settings'}

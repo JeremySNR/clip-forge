@@ -51,7 +51,7 @@ function ImportHero(): React.JSX.Element {
     <div className="flex flex-col items-center pb-4 pt-8 text-center">
       <h1 className="max-w-2xl text-4xl font-bold leading-tight tracking-tight">
         Turn long videos into{' '}
-        <span className="bg-gradient-to-r from-accent-400 to-fuchsia-400 bg-clip-text text-transparent">
+        <span className="bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-transparent">
           viral clips
         </span>
       </h1>
@@ -77,10 +77,10 @@ function ImportHero(): React.JSX.Element {
           }
         }}
         disabled={busy || importing}
-        className="mt-8 flex w-full max-w-xl cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-surface-600 bg-surface-900/60 px-8 py-12 transition hover:border-accent-500/60 hover:bg-surface-850 disabled:opacity-60"
+        className="mt-8 flex w-full max-w-xl cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-surface-600 bg-white/[0.02] px-8 py-12 backdrop-blur transition hover:border-white/25 hover:bg-white/[0.04] disabled:opacity-60"
       >
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-500/15">
-          <Upload size={24} className="text-accent-400" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.05]">
+          <Upload size={24} className="text-zinc-200" />
         </div>
         <div className="text-[15px] font-semibold">
           {busy ? 'Reading video…' : 'Choose a video to clip'}
@@ -92,12 +92,12 @@ function ImportHero(): React.JSX.Element {
         {importing ? (
           <div className="rounded-2xl border border-surface-700 bg-surface-900 px-4 py-3.5">
             <div className="flex items-center gap-2.5 text-sm text-zinc-300">
-              <Loader2 size={15} className="animate-spin text-accent-400" />
+              <Loader2 size={15} className="animate-spin text-zinc-300" />
               {importProgress.message}
             </div>
             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-700">
               <div
-                className={`h-full rounded-full bg-gradient-to-r from-accent-500 to-fuchsia-500 transition-all ${
+                className={`h-full rounded-full bg-zinc-200 transition-all ${
                   importProgress.progress < 0 ? 'w-1/4 animate-pulse' : ''
                 }`}
                 style={
@@ -114,7 +114,7 @@ function ImportHero(): React.JSX.Element {
               e.preventDefault()
               if (canSubmitUrl) void importVideoFromUrl(url)
             }}
-            className="flex items-center gap-2 rounded-2xl border border-surface-700 bg-surface-900 py-2 pl-4 pr-2 focus-within:border-accent-500/60"
+            className="flex items-center gap-2 rounded-2xl border border-surface-700 bg-surface-900 py-2 pl-4 pr-2 focus-within:border-white/25"
           >
             <Link2 size={16} className="shrink-0 text-zinc-500" />
             <input
@@ -126,7 +126,7 @@ function ImportHero(): React.JSX.Element {
             <button
               type="submit"
               disabled={!canSubmitUrl}
-              className="shrink-0 rounded-xl bg-accent-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-accent-500 disabled:opacity-40"
+              className="shrink-0 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-900 transition hover:bg-white disabled:opacity-40"
             >
               Import
             </button>
@@ -211,7 +211,7 @@ function SetupPanel(): React.JSX.Element {
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={'e.g. "Focus on the moments about pricing strategy" or "Find the funniest exchanges between the hosts"'}
               rows={3}
-              className="mt-3 w-full resize-none rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-accent-500 focus:outline-none"
+              className="mt-3 w-full resize-none rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
             />
           </div>
 
@@ -231,10 +231,10 @@ function SetupPanel(): React.JSX.Element {
                 </span>
               </span>
               <span
-                className={`relative h-5 w-9 shrink-0 rounded-full transition ${broll ? 'bg-accent-500' : 'bg-surface-600'}`}
+                className={`relative h-5 w-9 shrink-0 rounded-full transition ${broll ? 'bg-zinc-100' : 'bg-surface-600'}`}
               >
                 <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${broll ? 'left-[18px]' : 'left-0.5'}`}
+                  className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${broll ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
                 />
               </span>
             </button>
@@ -252,7 +252,7 @@ function SetupPanel(): React.JSX.Element {
                   onClick={() => setClipLength(opt.value)}
                   className={`rounded-xl border px-3 py-2.5 text-center transition ${
                     clipLength === opt.value
-                      ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                      ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                       : 'border-surface-600 bg-surface-850 text-zinc-400 hover:border-surface-600 hover:bg-surface-800'
                   }`}
                 >
@@ -281,7 +281,7 @@ function SetupPanel(): React.JSX.Element {
             <div>
               <button
                 onClick={() => void analyze({ prompt, clipLength, broll })}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-black/40 transition hover:bg-white"
               >
                 <Sparkles size={17} />
                 {project.clips.length > 0 ? 'Regenerate clips' : 'Get clips'}

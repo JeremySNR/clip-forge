@@ -118,7 +118,7 @@ export default function EditorScreen(): React.JSX.Element {
                 onClick={() => set({ aspect: a.value })}
                 className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
                   clip.edit.aspect === a.value
-                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                     : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                 }`}
               >
@@ -140,7 +140,7 @@ export default function EditorScreen(): React.JSX.Element {
                     onClick={() => set({ reframeMode: m.value })}
                     className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
                       clip.edit.reframeMode === m.value
-                        ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                        ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                         : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                     }`}
                   >
@@ -163,7 +163,7 @@ export default function EditorScreen(): React.JSX.Element {
                           onClick={() => set({ framing: f.value })}
                           className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition ${
                             clip.edit.framing === f.value
-                              ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                              ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                               : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                           }`}
                         >
@@ -217,7 +217,7 @@ export default function EditorScreen(): React.JSX.Element {
                   onClick={() => set({ captionStyleId: style.id })}
                   className={`rounded-xl border px-3 py-2.5 text-left transition ${
                     clip.edit.captionStyleId === style.id
-                      ? 'border-accent-500 bg-accent-500/10'
+                      ? 'border-white/30 bg-white/[0.07]'
                       : 'border-surface-600 hover:bg-surface-800'
                   }`}
                 >
@@ -262,7 +262,7 @@ export default function EditorScreen(): React.JSX.Element {
                 value={clip.hook}
                 onChange={(e) => updateClipLocal({ ...clip, hook: e.target.value })}
                 onBlur={() => void updateClip(clip)}
-                className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-accent-500 focus:outline-none"
+                className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-white/25 focus:outline-none"
               />
             </div>
           )}
@@ -308,7 +308,7 @@ export default function EditorScreen(): React.JSX.Element {
                           onClick={() => updateBroll(item.id, { mode: m.value })}
                           className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
                             item.mode === m.value
-                              ? 'border-accent-500 bg-accent-500/10 text-zinc-200'
+                              ? 'border-white/30 bg-white/[0.07] text-zinc-200'
                               : 'border-surface-600 text-zinc-500 hover:bg-surface-800'
                           }`}
                         >
@@ -322,12 +322,12 @@ export default function EditorScreen(): React.JSX.Element {
                       onClick={() => updateBroll(item.id, { enabled: !item.enabled })}
                       title={item.enabled ? 'Disable this insert' : 'Enable this insert'}
                       className={`relative h-5 w-9 rounded-full transition ${
-                        item.enabled ? 'bg-accent-500' : 'bg-surface-600'
+                        item.enabled ? 'bg-zinc-100' : 'bg-surface-600'
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
-                          item.enabled ? 'left-[18px]' : 'left-0.5'
+                        className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
+                          item.enabled ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'
                         }`}
                       />
                     </button>
@@ -362,7 +362,7 @@ export default function EditorScreen(): React.JSX.Element {
             {clip.hashtags.map((h) => (
               <span
                 key={h}
-                className="select-text rounded-full bg-surface-800 px-2.5 py-1 text-[11px] text-accent-400"
+                className="select-text rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-300"
               >
                 #{h}
               </span>
@@ -370,7 +370,7 @@ export default function EditorScreen(): React.JSX.Element {
           </div>
         </Section>
 
-        <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-surface-700 bg-surface-900 p-4">
+        <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-white/[0.06] bg-surface-900/80 p-4 backdrop-blur-xl">
           <div className="flex">
             <ExportButton
               status={entry?.status}
@@ -426,10 +426,10 @@ function Toggle({
     >
       {label}
       <span
-        className={`relative h-5 w-9 rounded-full transition ${checked ? 'bg-accent-500' : 'bg-surface-600'}`}
+        className={`relative h-5 w-9 rounded-full transition ${checked ? 'bg-zinc-100' : 'bg-surface-600'}`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${checked ? 'left-[18px]' : 'left-0.5'}`}
+          className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${checked ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
         />
       </span>
     </button>

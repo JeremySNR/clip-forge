@@ -59,22 +59,22 @@ export default function TrimBar({
     <div>
       <div ref={trackRef} className="relative h-9 cursor-pointer rounded-lg bg-surface-800">
         <div
-          className="absolute inset-y-0 rounded-md border-y-2 border-accent-500 bg-accent-500/20"
+          className="absolute inset-y-0 rounded-md border-y-2 border-zinc-200 bg-white/10"
           style={{ left: `${leftPct}%`, width: `${rightPct - leftPct}%` }}
         />
         <div
-          className="absolute inset-y-0 w-3 cursor-ew-resize rounded-l-md bg-accent-500"
+          className="absolute inset-y-0 w-3 cursor-ew-resize rounded-l-md bg-zinc-200"
           style={{ left: `calc(${leftPct}% - 0px)` }}
           onPointerDown={beginDrag('start')}
         >
-          <div className="absolute left-1/2 top-1/2 h-3.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-white/80" />
+          <div className="absolute left-1/2 top-1/2 h-3.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-zinc-600" />
         </div>
         <div
-          className="absolute inset-y-0 w-3 cursor-ew-resize rounded-r-md bg-accent-500"
+          className="absolute inset-y-0 w-3 cursor-ew-resize rounded-r-md bg-zinc-200"
           style={{ left: `calc(${rightPct}% - 12px)` }}
           onPointerDown={beginDrag('end')}
         >
-          <div className="absolute left-1/2 top-1/2 h-3.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-white/80" />
+          <div className="absolute left-1/2 top-1/2 h-3.5 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-zinc-600" />
         </div>
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-zinc-500">

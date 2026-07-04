@@ -74,7 +74,7 @@ export default function TranscriptEditor({
                   if (e.key === 'Escape') setEditing(null)
                 }}
                 size={Math.max(3, draft.length + 1)}
-                className="mx-0.5 rounded border border-accent-500 bg-surface-850 px-1 py-0 text-xs text-zinc-100 focus:outline-none"
+                className="mx-0.5 rounded border border-white/40 bg-surface-850 px-1 py-0 text-xs text-zinc-100 focus:outline-none"
               />
             )
           }
