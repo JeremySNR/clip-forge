@@ -115,6 +115,7 @@ async function main(): Promise<void> {
       summary: d.summary,
       viralityScore: d.viralityScore,
       viralityReason: d.viralityReason,
+      visualSummary: null,
       hashtags: d.hashtags,
       thumbnailPath,
       broll:

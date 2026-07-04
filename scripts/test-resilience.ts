@@ -24,6 +24,7 @@ function fakeClip(start: number, end: number, score: number): Clip {
     hook: 'h',
     summary: 's',
     viralityScore: score,
+    visualSummary: null,
     viralityReason: 'r',
     hashtags: [],
     thumbnailPath: null,

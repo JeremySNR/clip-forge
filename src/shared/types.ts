@@ -94,6 +94,8 @@ export interface Clip {
   summary: string
   viralityScore: number
   viralityReason: string
+  /** One-line LLM assessment of what the visuals add/cost; null until scored. */
+  visualSummary: string | null
   hashtags: string[]
   thumbnailPath: string | null
   /** AI face track for auto reframing; null when no usable faces were found. */

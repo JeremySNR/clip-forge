@@ -295,6 +295,7 @@ async function requestHighlights(
       summary: raw.summary,
       viralityScore: Math.max(0, Math.min(99, Math.round(raw.virality_score))),
       viralityReason: raw.virality_reason,
+      visualSummary: null,
       hashtags: (raw.hashtags ?? []).map((h) => h.replace(/^#/, '').toLowerCase()),
       thumbnailPath: null,
       focusTrack: null,

@@ -90,6 +90,13 @@ export default function EditorScreen(): React.JSX.Element {
         <div className="rounded-xl border border-surface-700 bg-surface-850 px-3.5 py-3 text-xs leading-relaxed text-zinc-400">
           <span className="font-semibold text-zinc-300">Why this score: </span>
           {clip.viralityReason}
+          {clip.visualSummary && (
+            <>
+              {' '}
+              <span className="font-semibold text-zinc-300">Visuals: </span>
+              {clip.visualSummary}
+            </>
+          )}
         </div>
 
         <Section icon={Scissors} title="Trim">

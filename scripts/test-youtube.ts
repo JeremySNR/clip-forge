@@ -16,6 +16,7 @@ import { analyzeClipFocus } from '../src/main/pipeline/faces'
 import { focusAt } from '../src/shared/focusTrack'
 import { transcribeChunks } from '../src/main/pipeline/transcribe'
 import { detectHighlights } from '../src/main/pipeline/highlights'
+import { assessClipVisuals, ensembleScore } from '../src/main/pipeline/visualScore'
 import { renderClip } from '../src/main/pipeline/render'
 import type { Clip } from '../src/shared/types'
 
@@ -123,8 +124,19 @@ async function main(): Promise<void> {
     assert.ok(lastStart > info.durationSec * 0.15, 'clips all clustered at the start of a long video')
   }
 
-  console.log('7. Rendering top clip with auto framing + captions…')
+  console.log('7. Visual rescoring (frames + LLM)…')
   const top: Clip = clips[0]
+  const visual = await assessClipVisuals(apiKey, 'gpt-4o-mini', videoPath, transcript, top)
+  assert.ok(visual, 'visual assessment should succeed')
+  assert.ok(visual.visualScore >= 0 && visual.visualScore <= 99)
+  assert.ok(visual.visualSummary.length > 5)
+  const blended = ensembleScore(top.viralityScore, visual.visualScore)
+  console.log(`   text=${top.viralityScore} visual=${visual.visualScore} -> ensemble=${blended}`)
+  console.log(`   visuals: ${visual.visualSummary}`)
+  top.viralityScore = blended
+  top.visualSummary = visual.visualSummary
+
+  console.log('8. Rendering top clip with auto framing + captions…')
   top.focusTrack = await analyzeClipFocus(videoPath, top.edit.start, top.edit.end)
   if (top.focusTrack) top.edit.framing = 'auto'
   top.edit.showTitle = true

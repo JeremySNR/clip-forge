@@ -8,6 +8,7 @@ import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus } from './faces'
 import { annotateEnergy } from './energy'
+import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
 import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta } from './ytdlp'
 import { getApiKey, getModelPreferences } from '../settings'
@@ -159,6 +160,34 @@ export async function analyzeProject(
     if (clips.length === 0) {
       throw new Error('The AI could not find any clip-worthy moments in this video.')
     }
+
+    // Visual rescoring (Kayal et al., ACL 2025): sample frames per clip, let
+    // the LLM judge visual engagement, and ensemble with the text score.
+    onProgress({ stage: 'analyze', progress: 0.64, message: 'Scoring visuals…' })
+    let scored = 0
+    await mapLimit(clips, 3, async (clip) => {
+      signal?.throwIfAborted()
+      const visual = await assessClipVisuals(
+        apiKey,
+        settings.analysisModel,
+        project.video.path,
+        transcript,
+        clip,
+        signal
+      )
+      if (visual) {
+        clip.viralityScore = ensembleScore(clip.viralityScore, visual.visualScore)
+        clip.visualSummary = visual.visualSummary
+      }
+      scored++
+      onProgress({
+        stage: 'analyze',
+        progress: 0.64 + (scored / clips.length) * 0.08,
+        message: 'Scoring visuals…'
+      })
+    })
+    clips.sort((a, b) => b.viralityScore - a.viralityScore)
+
     project.clips = clips
     project.prompt = options.prompt
     await saveProject(project)

@@ -72,6 +72,7 @@ async function main(): Promise<void> {
     hook: '',
     summary: '',
     viralityScore: 80,
+    visualSummary: null,
     viralityReason: '',
     hashtags: [],
     thumbnailPath: null,

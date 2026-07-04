@@ -32,6 +32,7 @@ function makeClip(): Clip {
     hook: '',
     summary: '',
     viralityScore: 50,
+    visualSummary: null,
     viralityReason: '',
     hashtags: [],
     thumbnailPath: null,

@@ -69,6 +69,7 @@ function makeClip(overrides: Partial<Clip['edit']> = {}): Clip {
     hook: 'Hook!',
     summary: '',
     viralityScore: 50,
+    visualSummary: null,
     viralityReason: '',
     hashtags: [],
     thumbnailPath: null,
