@@ -213,6 +213,7 @@ function RecentProjects(): React.JSX.Element | null {
         {others.map((p) => (
           <div
             key={p.id}
+            data-testid="project-card"
             className="group cursor-pointer overflow-hidden rounded-2xl border border-surface-700 bg-surface-900 transition hover:border-surface-600 hover:bg-surface-850"
             onClick={() => void openProject(p.id)}
           >

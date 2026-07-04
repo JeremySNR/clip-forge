@@ -66,6 +66,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
   return (
     <div className="group overflow-hidden rounded-2xl border border-surface-700 bg-surface-900 transition hover:border-surface-600">
       <div
+        data-testid="clip-thumb"
         className="relative aspect-video cursor-pointer bg-black"
         onClick={() => openEditor(clip.id)}
       >

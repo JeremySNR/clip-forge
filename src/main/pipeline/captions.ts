@@ -87,7 +87,7 @@ Title: ClipForge captions
 ScriptType: v4.00+
 PlayResX: ${opts.width}
 PlayResY: ${opts.height}
-WrapStyle: 2
+WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]

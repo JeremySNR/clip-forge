@@ -29,8 +29,8 @@ export default function ScoreBadge({
   }
   return (
     <div
-      className="flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur"
-      style={{ backgroundColor: `${color}26`, color }}
+      className="flex items-center gap-1 rounded-full bg-black/70 px-2 py-0.5 text-xs font-bold tabular-nums backdrop-blur"
+      style={{ color, boxShadow: `inset 0 0 0 1px ${color}55` }}
     >
       <Flame size={12} />
       {score}

@@ -1,7 +1,29 @@
 import { app, BrowserWindow, net, protocol, shell } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { registerIpcHandlers } from './ipc'
+
+async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
+  const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
+  const shot = async (name: string): Promise<void> => {
+    const image = await win.webContents.capturePage()
+    await writeFile(join(dir, `${name}.png`), image.toPNG())
+  }
+  const click = (selector: string): Promise<unknown> =>
+    win.webContents.executeJavaScript(
+      `document.querySelector(${JSON.stringify(selector)})?.click()`
+    )
+  await sleep(2500)
+  await shot('home')
+  await click('[data-testid="project-card"]')
+  await sleep(1200)
+  await shot('clips')
+  await click('[data-testid="clip-thumb"]')
+  await sleep(1500)
+  await shot('editor')
+  app.quit()
+}
 
 // Serves local media (source videos, thumbnails) to the sandboxed renderer.
 // URL shape: media://file/<encodeURIComponent(absolutePath)>
@@ -31,6 +53,15 @@ function createWindow(): void {
   })
 
   win.on('ready-to-show', () => win.show())
+
+  // Headless smoke test hook: CLIPFORGE_SMOKE=/dir walks the main screens,
+  // capturing a screenshot of each, then quits (see scripts/smoke-test.sh).
+  const smokeDir = process.env.CLIPFORGE_SMOKE
+  if (smokeDir) {
+    win.webContents.on('did-finish-load', () => {
+      void runSmokeCapture(win, smokeDir)
+    })
+  }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('https://')) shell.openExternal(url)

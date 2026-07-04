@@ -1,0 +1,142 @@
+/**
+ * Seeds a demo project into ClipForge's userData directory so the UI can be
+ * inspected (and smoke-tested) without running the OpenAI pipeline.
+ *
+ * Run with: npx tsx --tsconfig tsconfig.node.json scripts/seed-demo.ts
+ */
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { runFfmpeg, probeVideo, extractThumbnail } from '../src/main/pipeline/ffmpeg'
+import { DEFAULT_CAPTION_STYLE_ID } from '../src/shared/captionStyles'
+import type { Clip, Project, Transcript, TranscriptWord } from '../src/shared/types'
+
+const USER_DATA = process.env.CLIPFORGE_USER_DATA ?? join(homedir(), '.config', 'clipforge')
+const PROJECT_ID = 'demo-project-0000'
+
+const SPEECH =
+  'so here is the thing nobody tells you about growing an audience. the first hundred videos are practice. everyone I know who blew up posted consistently for a year before anything happened. and then one clip changes everything overnight. the algorithm is not against you it just has no idea who you are yet. give it evidence. post daily clips from your long content and let the data tell you what works.'
+
+function makeTranscript(durationSec: number): Transcript {
+  const words = SPEECH.split(' ')
+  const perWord = (durationSec - 2) / words.length
+  const all: TranscriptWord[] = words.map((w, i) => ({
+    text: w,
+    start: 1 + i * perWord,
+    end: 1 + (i + 1) * perWord - 0.04
+  }))
+  const segSize = 12
+  const segments = []
+  for (let i = 0; i < all.length; i += segSize) {
+    const slice = all.slice(i, i + segSize)
+    segments.push({
+      id: segments.length,
+      text: slice.map((w) => w.text).join(' '),
+      start: slice[0].start,
+      end: slice[slice.length - 1].end,
+      words: slice
+    })
+  }
+  return { language: 'english', durationSec, segments }
+}
+
+const DEMO_CLIPS: Array<Pick<Clip, 'title' | 'hook' | 'summary' | 'viralityScore' | 'viralityReason' | 'hashtags'> & { start: number; end: number }> = [
+  {
+    start: 14, end: 38,
+    title: 'One clip changes everything overnight',
+    hook: 'This is how creators actually blow up…',
+    summary: 'The turning point every consistent creator eventually hits, and why it feels sudden.',
+    viralityScore: 91,
+    viralityReason: 'Strong curiosity hook, emotionally resonant payoff and a complete standalone arc.',
+    hashtags: ['creator', 'growth', 'contentstrategy']
+  },
+  {
+    start: 2, end: 20,
+    title: 'The first 100 videos are practice',
+    hook: 'Nobody tells you this about growing an audience',
+    summary: 'A blunt reframe of early content as reps, not results.',
+    viralityScore: 84,
+    viralityReason: 'Contrarian opening line with high shareability among aspiring creators.',
+    hashtags: ['contentcreator', 'mindset', 'audience']
+  },
+  {
+    start: 38, end: 56,
+    title: 'The algorithm is not against you',
+    hook: 'Stop blaming the algorithm',
+    summary: 'Why the algorithm ignores new creators and how to feed it evidence.',
+    viralityScore: 76,
+    viralityReason: 'Debunks a common excuse; strong discussion bait, slightly less emotional peak.',
+    hashtags: ['algorithm', 'shorts', 'tiktokgrowth']
+  },
+  {
+    start: 50, end: 68,
+    title: 'Let the data tell you what works',
+    hook: 'Post daily. Watch the data.',
+    summary: 'The practical posting system: daily clips from long-form content.',
+    viralityScore: 63,
+    viralityReason: 'Actionable advice but a softer hook and less standalone tension.',
+    hashtags: ['contentplan', 'repurposing', 'advice']
+  }
+]
+
+async function main(): Promise<void> {
+  const dir = join(USER_DATA, 'projects', PROJECT_ID)
+  const thumbs = join(dir, 'thumbs')
+  await mkdir(thumbs, { recursive: true })
+
+  const videoPath = join(dir, 'demo-podcast.mp4')
+  await runFfmpeg([
+    '-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=30:duration=70',
+    '-f', 'lavfi', '-i', 'sine=frequency=330:duration=70',
+    '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
+    videoPath
+  ])
+  const video = await probeVideo(videoPath)
+
+  const clips: Clip[] = []
+  for (let i = 0; i < DEMO_CLIPS.length; i++) {
+    const d = DEMO_CLIPS[i]
+    const id = `demo-clip-${i}`
+    const thumbnailPath = await extractThumbnail(videoPath, d.start + 2, join(thumbs, `${id}.jpg`))
+    clips.push({
+      id,
+      suggestedStart: d.start,
+      suggestedEnd: d.end,
+      title: d.title,
+      hook: d.hook,
+      summary: d.summary,
+      viralityScore: d.viralityScore,
+      viralityReason: d.viralityReason,
+      hashtags: d.hashtags,
+      thumbnailPath,
+      edit: {
+        aspect: '9:16',
+        reframeMode: 'crop',
+        focusX: 0.5,
+        captionsEnabled: true,
+        captionStyleId: DEFAULT_CAPTION_STYLE_ID,
+        showTitle: i === 0,
+        start: d.start,
+        end: d.end
+      }
+    })
+  }
+
+  const project: Project = {
+    id: PROJECT_ID,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    name: 'Demo: creator growth podcast',
+    video,
+    transcript: makeTranscript(video.durationSec),
+    clips,
+    prompt: ''
+  }
+  await writeFile(join(dir, 'project.json'), JSON.stringify(project), 'utf8')
+  console.log(`Seeded demo project at ${dir}`)
+}
+
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
