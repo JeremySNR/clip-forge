@@ -120,14 +120,33 @@ function cleanYtDlpError(stderr: string): string {
   return line ? line.replace(/^ERROR:\s*(\[[^\]]+\]\s*[^\s:]*:?\s*)?/, '').trim() : ''
 }
 
+interface YtDlpJson {
+  _type?: string
+  id?: string
+  title?: string
+  duration?: number
+  webpage_url?: string
+  url?: string
+  entries?: YtDlpJson[]
+}
+
 export async function fetchUrlMeta(binPath: string, url: string): Promise<UrlVideoMeta> {
   const out = await runYtDlp(binPath, ['-J', '--no-playlist', '--no-warnings', url])
-  const data = JSON.parse(out) as {
-    id?: string
-    title?: string
-    duration?: number
-    webpage_url?: string
+  let data = JSON.parse(out) as YtDlpJson
+
+  // Some sites (e.g. archive.org items with several files) resolve to a
+  // playlist. Pick the longest entry — almost always the main video.
+  if (data._type === 'playlist') {
+    const entries = (data.entries ?? []).filter((e) => (e.duration ?? 0) > 0)
+    if (entries.length === 0) {
+      throw new Error('This URL does not contain a downloadable video.')
+    }
+    const main = entries.reduce((a, b) => ((b.duration ?? 0) > (a.duration ?? 0) ? b : a))
+    // Prefer the entry's direct media URL: the entry webpage_url often points
+    // back at the playlist page, which would re-resolve to all files.
+    data = { ...main, title: main.title ?? data.title, webpage_url: main.url ?? main.webpage_url }
   }
+
   if (!data.duration || data.duration <= 0) {
     throw new Error('This URL does not point to a downloadable video.')
   }
@@ -135,7 +154,7 @@ export async function fetchUrlMeta(binPath: string, url: string): Promise<UrlVid
     id: data.id ?? 'video',
     title: data.title ?? 'Imported video',
     durationSec: data.duration,
-    webpageUrl: data.webpage_url ?? url
+    webpageUrl: data.webpage_url ?? data.url ?? url
   }
 }
 

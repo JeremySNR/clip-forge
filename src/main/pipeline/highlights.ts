@@ -77,13 +77,13 @@ const RESPONSE_SCHEMA = {
 function lengthGuidance(pref: ClipLengthPreference): string {
   switch (pref) {
     case 'short':
-      return 'Each clip should be 15-30 seconds long.'
+      return 'Each clip MUST be between 15 and 30 seconds long (end minus start).'
     case 'medium':
-      return 'Each clip should be 30-60 seconds long.'
+      return 'Each clip MUST be between 30 and 60 seconds long (end minus start).'
     case 'long':
-      return 'Each clip should be 60-90 seconds long.'
+      return 'Each clip MUST be between 60 and 90 seconds long (end minus start).'
     case 'auto':
-      return 'Each clip should be 20-90 seconds long; choose whatever length lets the moment breathe.'
+      return 'Each clip MUST be between 15 and 90 seconds long (end minus start); choose whatever length lets the moment breathe.'
     default: {
       const exhaustive: never = pref
       return exhaustive
@@ -91,10 +91,32 @@ function lengthGuidance(pref: ClipLengthPreference): string {
   }
 }
 
+/**
+ * Plain seconds, not m:ss — models reliably echo the same unit back, whereas
+ * "5:30" style timestamps get misread as 5.5 seconds on long videos.
+ */
 function formatTimestamp(sec: number): string {
-  const m = Math.floor(sec / 60)
-  const s = (sec % 60).toFixed(1).padStart(4, '0')
-  return `${m}:${s}`
+  return `${sec.toFixed(1)}s`
+}
+
+const MIN_CLIP_SEC = 8
+
+/** Hard floor per length preference, enforced after the LLM responds. */
+function minDurationFor(pref: ClipLengthPreference): number {
+  switch (pref) {
+    case 'short':
+      return 15
+    case 'medium':
+      return 30
+    case 'long':
+      return 60
+    case 'auto':
+      return 15
+    default: {
+      const exhaustive: never = pref
+      return exhaustive
+    }
+  }
 }
 
 const SYSTEM_PROMPT = `You are an expert short-form video editor who has studied thousands of viral TikToks, Reels and Shorts. You receive the timestamped transcript of a long video and must select the moments most likely to go viral as standalone vertical clips.
@@ -135,6 +157,21 @@ export async function detectHighlights(
   options: AnalyzeOptions,
   videoDurationSec: number
 ): Promise<Clip[]> {
+  // LLM output is nondeterministic: occasionally it returns an empty list on
+  // perfectly clippable material, so retry once with a firmer instruction.
+  const first = await requestHighlights(apiKey, model, transcript, options, videoDurationSec, false)
+  if (first.length > 0) return first
+  return requestHighlights(apiKey, model, transcript, options, videoDurationSec, true)
+}
+
+async function requestHighlights(
+  apiKey: string,
+  model: string,
+  transcript: Transcript,
+  options: AnalyzeOptions,
+  videoDurationSec: number,
+  insist: boolean
+): Promise<Clip[]> {
   const transcriptText = transcript.segments
     .map((s) => `[${formatTimestamp(s.start)} - ${formatTimestamp(s.end)}] ${s.text}`)
     .join('\n')
@@ -142,13 +179,15 @@ export async function detectHighlights(
   const targetCount = Math.max(3, Math.min(12, Math.round(videoDurationSec / 240)))
 
   const userPrompt = [
-    `Video duration: ${formatTimestamp(videoDurationSec)} (${videoDurationSec.toFixed(1)} seconds).`,
+    `Video duration: ${videoDurationSec.toFixed(1)} seconds.`,
     lengthGuidance(options.clipLength),
-    `Return between 3 and ${Math.max(targetCount, 5)} clips (fewer if the material genuinely does not support more). All timestamps are in seconds from the start of the video. Express "start" and "end" as plain seconds (e.g. 132.4).`,
+    insist
+      ? 'You MUST return at least 3 clips. Even if no moment feels exceptional, select the 3 strongest available moments and score them honestly (low scores are fine). All timestamps are in seconds from the start of the video. Express "start" and "end" as plain seconds (e.g. 132.4).'
+      : `Aim for ${Math.max(targetCount, 4)} clips spread across the whole video (at least 3; fewer only if the material genuinely cannot support more). All timestamps are in seconds from the start of the video. Express "start" and "end" as plain seconds (e.g. 132.4).`,
     options.prompt.trim()
       ? `The creator gave these special instructions, which take priority when choosing moments: "${options.prompt.trim()}"`
       : '',
-    'Transcript (each line prefixed with [start - end] in m:ss.s):',
+    'Transcript (each line prefixed with [start - end] in seconds from the start of the video):',
     transcriptText
   ]
     .filter(Boolean)
@@ -173,6 +212,12 @@ export async function detectHighlights(
       wordEnds.push(w.end)
     }
   }
+  const segmentEnds = transcript.segments.map((s) => s.end).sort((a, b) => a - b)
+  const minDur = minDurationFor(options.clipLength)
+
+  if (process.env.CLIPFORGE_DEBUG) {
+    console.error('[highlights] raw LLM response:', JSON.stringify(res, null, 2))
+  }
 
   const clips: Clip[] = []
   for (const raw of res.clips ?? []) {
@@ -181,7 +226,21 @@ export async function detectHighlights(
     // Snap to word boundaries for clean cuts, with a little pre/post roll.
     start = Math.max(0, snap(start, wordStarts, 1.5) - 0.25)
     end = Math.min(videoDurationSec, snap(end, wordEnds, 1.5) + 0.45)
-    if (end - start < 3) continue
+    // Models often under-shoot durations: extend short clips to the next
+    // sentence boundary until they satisfy the length preference.
+    if (end - start < minDur) {
+      const targetEnd = start + minDur
+      const nextSentenceEnd = segmentEnds.find((e) => e >= targetEnd)
+      if (nextSentenceEnd !== undefined) {
+        end = Math.min(videoDurationSec, nextSentenceEnd + 0.45)
+      }
+    }
+    if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
+      if (process.env.CLIPFORGE_DEBUG) {
+        console.error(`[highlights] dropped too-short clip ${raw.start}-${raw.end} -> ${start.toFixed(1)}-${end.toFixed(1)}`)
+      }
+      continue
+    }
     clips.push({
       id: randomUUID(),
       suggestedStart: start,
