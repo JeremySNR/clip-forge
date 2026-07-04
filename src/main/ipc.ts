@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join } from 'node:path'
+import { rm } from 'node:fs/promises'
 import type {
   AnalyzeOptions,
   Clip,
@@ -9,18 +9,20 @@ import type {
 } from '@shared/types'
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
 import { downloadGpuFfmpeg } from './pipeline/encoders'
+import { probeVideo } from './pipeline/ffmpeg'
 import { renderClip } from './pipeline/render'
+import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
 import { getExportPreferences, getSettings, updateSettings } from './settings'
 
-function sanitizeFileName(name: string): string {
-  const cleaned = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim()
-  return (cleaned || 'clip').slice(0, 80)
-}
-
 const runningAnalyses = new Map<string, AbortController>()
+const runningExports = new Map<string, AbortController>()
 
 export const ANALYSIS_CANCELLED_MESSAGE = 'Analysis cancelled'
+export const EXPORT_CANCELLED_MESSAGE = 'Export cancelled'
+
+/** How far apart durations may be for a relinked file to count as the same video. */
+const RELINK_DURATION_TOLERANCE_SEC = 2
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('dialog:selectVideo', async (event) => {
@@ -62,6 +64,11 @@ export function registerIpcHandlers(): void {
     runningAnalyses.set(projectId, controller)
     try {
       const project = await loadProject(projectId)
+      if (project.sourceMissing) {
+        throw new Error(
+          `The source video is missing (${project.video.path}). Relink it before generating clips.`
+        )
+      }
       return await analyzeProject(
         project,
         options,
@@ -71,7 +78,7 @@ export function registerIpcHandlers(): void {
         controller.signal
       )
     } catch (err) {
-      if (controller.signal.aborted) throw new Error(ANALYSIS_CANCELLED_MESSAGE)
+      if (controller.signal.aborted) throw new Error(ANALYSIS_CANCELLED_MESSAGE, { cause: err })
       throw err
     } finally {
       runningAnalyses.delete(projectId)
@@ -102,27 +109,92 @@ export function registerIpcHandlers(): void {
     return project
   })
 
+  ipcMain.handle(
+    'project:updateTranscriptWord',
+    async (_e, projectId: string, segmentId: number, wordIndex: number, text: string) => {
+      const project = await loadProject(projectId)
+      const segment = project.transcript?.segments.find((s) => s.id === segmentId)
+      const word = segment?.words[wordIndex]
+      if (!segment || !word) throw new Error('Transcript word not found')
+      word.text = text.trim()
+      segment.text = segment.words
+        .map((w) => w.text)
+        .filter((t) => t.length > 0)
+        .join(' ')
+      await saveProject(project)
+      return project
+    }
+  )
+
+  ipcMain.handle('project:relinkVideo', async (event, projectId: string) => {
+    const project = await loadProject(projectId)
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win!, {
+      title: `Locate "${project.video.fileName}"`,
+      properties: ['openFile'],
+      filters: [
+        { name: 'Videos', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v', 'mpg', 'mpeg', 'wmv'] }
+      ]
+    })
+    if (result.canceled || result.filePaths.length === 0) return project
+
+    const video = await probeVideo(result.filePaths[0])
+    if (Math.abs(video.durationSec - project.video.durationSec) > RELINK_DURATION_TOLERANCE_SEC) {
+      throw new Error(
+        `That file is ${video.durationSec.toFixed(0)}s long but this project's video was ` +
+          `${project.video.durationSec.toFixed(0)}s. The transcript and clips would not line up — ` +
+          'pick the same video.'
+      )
+    }
+    project.video = video
+    project.sourceMissing = false
+    await saveProject(project)
+    return project
+  })
+
   ipcMain.handle('clip:export', async (event, projectId: string, opts: ExportOptions) => {
     const project: Project = await loadProject(projectId)
     const clip = project.clips.find((c) => c.id === opts.clipId)
     if (!clip) throw new Error('Clip not found')
+    if (project.sourceMissing) {
+      throw new Error(`The source video is missing (${project.video.path}). Relink it to export.`)
+    }
+    if (runningExports.has(clip.id)) throw new Error('This clip is already exporting.')
+
     const suffix = clip.edit.aspect === 'original' ? '' : ` (${clip.edit.aspect.replace(':', 'x')})`
-    const outputPath = join(opts.outputDir, `${sanitizeFileName(clip.title)}${suffix}.mp4`)
+    const outputPath = uniqueOutputPath(opts.outputDir, `${sanitizeFileName(clip.title)}${suffix}`)
     const prefs = getExportPreferences()
-    await renderClip({
-      clip,
-      source: project.video,
-      transcript: project.transcript,
-      outputPath,
-      encoder: prefs.encoder,
-      quality: prefs.quality,
-      onProgress: (fraction) => {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send('export:progress', { clipId: clip.id, progress: fraction, message: 'Rendering…' })
+    const controller = new AbortController()
+    runningExports.set(clip.id, controller)
+    try {
+      await renderClip({
+        clip,
+        source: project.video,
+        transcript: project.transcript,
+        outputPath,
+        encoder: prefs.encoder,
+        quality: prefs.quality,
+        signal: controller.signal,
+        onProgress: (fraction) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send('export:progress', { clipId: clip.id, progress: fraction, message: 'Rendering…' })
+          }
         }
+      })
+    } catch (err) {
+      if (controller.signal.aborted) {
+        await rm(outputPath, { force: true }).catch(() => undefined)
+        throw new Error(EXPORT_CANCELLED_MESSAGE, { cause: err })
       }
-    })
+      throw err
+    } finally {
+      runningExports.delete(clip.id)
+    }
     return { clipId: clip.id, outputPath }
+  })
+
+  ipcMain.handle('clip:cancelExport', async (_e, clipId: string) => {
+    runningExports.get(clipId)?.abort()
   })
 
   ipcMain.handle('settings:downloadGpuFfmpeg', async (event) => {

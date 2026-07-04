@@ -100,28 +100,49 @@ export async function probeVideo(filePath: string): Promise<VideoInfo> {
   }
 }
 
+export interface AudioChunk {
+  path: string
+  /** Where this chunk's audio starts in the source video (seconds). */
+  offsetSec: number
+  /**
+   * The half-open window [keepFromSec, keepToSec) of source time this chunk is
+   * responsible for when stitching transcripts. Chunks overlap so words near a
+   * boundary are transcribed with full context; the windows tile exactly, so
+   * every word belongs to exactly one chunk.
+   */
+  keepFromSec: number
+  keepToSec: number
+}
+
 /**
  * Extract mono compressed audio for transcription, split into chunks that stay
  * safely under the OpenAI 25 MB upload limit. 48 kbps mono MP3 ≈ 21.6 MB/hour,
- * so 20-minute chunks (~7.2 MB) leave plenty of headroom.
+ * so 20-minute chunks (~7.2 MB) leave plenty of headroom. Consecutive chunks
+ * overlap by a few seconds so no word is cut in half at a boundary — Whisper
+ * sees full context on both sides and the stitcher picks each word from the
+ * chunk that owns its timestamp.
  */
+export const AUDIO_CHUNK_SEC = 20 * 60
+export const AUDIO_CHUNK_OVERLAP_SEC = 8
+
 export async function extractAudioChunks(
   videoPath: string,
   workDir: string,
   durationSec: number,
   onProgress?: (fraction: number) => void,
   signal?: AbortSignal
-): Promise<Array<{ path: string; offsetSec: number }>> {
+): Promise<AudioChunk[]> {
   await mkdir(workDir, { recursive: true })
-  const CHUNK_SEC = 20 * 60
-  const chunks: Array<{ path: string; offsetSec: number }> = []
-  const count = Math.max(1, Math.ceil(durationSec / CHUNK_SEC))
+  const stride = AUDIO_CHUNK_SEC - AUDIO_CHUNK_OVERLAP_SEC
+  const count =
+    durationSec <= AUDIO_CHUNK_SEC ? 1 : 1 + Math.ceil((durationSec - AUDIO_CHUNK_SEC) / stride)
+  const chunks: AudioChunk[] = []
   for (let i = 0; i < count; i++) {
-    const offset = i * CHUNK_SEC
+    const offset = i * stride
     const out = join(workDir, `audio-${i}.mp3`)
     const args = [
       '-ss', String(offset),
-      '-t', String(CHUNK_SEC),
+      '-t', String(AUDIO_CHUNK_SEC),
       '-i', videoPath,
       '-vn',
       '-ac', '1',
@@ -129,12 +150,18 @@ export async function extractAudioChunks(
       '-b:a', '48k',
       out
     ]
-    const chunkDur = Math.min(CHUNK_SEC, durationSec - offset)
+    const chunkDur = Math.min(AUDIO_CHUNK_SEC, durationSec - offset)
     await runFfmpeg(args, {
-      onProgress: (t) => onProgress?.((offset + Math.min(t, chunkDur)) / durationSec),
+      onProgress: (t) => onProgress?.(Math.min(1, (offset + Math.min(t, chunkDur)) / durationSec)),
       signal
     })
-    chunks.push({ path: out, offsetSec: offset })
+    chunks.push({
+      path: out,
+      offsetSec: offset,
+      keepFromSec: i === 0 ? 0 : offset + AUDIO_CHUNK_OVERLAP_SEC / 2,
+      keepToSec:
+        i === count - 1 ? Number.POSITIVE_INFINITY : offset + AUDIO_CHUNK_SEC - AUDIO_CHUNK_OVERLAP_SEC / 2
+    })
   }
   onProgress?.(1)
   return chunks

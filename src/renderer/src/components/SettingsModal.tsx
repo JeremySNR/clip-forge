@@ -97,6 +97,12 @@ export default function SettingsModal(): React.JSX.Element {
             Used for Whisper transcription and clip analysis. Stored encrypted on this machine
             and never sent anywhere except the OpenAI API.
           </p>
+          {settings !== null && !settings.keyStorageSecure && (
+            <p className="mt-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-400">
+              Your OS keychain is unavailable, so the key is stored only obfuscated on disk.
+              Prefer a key with a spending limit on this machine.
+            </p>
+          )}
           <input
             type="password"
             value={apiKey}

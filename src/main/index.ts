@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { registerIpcHandlers } from './ipc'
+import { isMediaPathAllowed } from './mediaAccess'
 
 async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -33,7 +34,7 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'media',
-    privileges: { secure: true, supportFetchAPI: true, stream: true, bypassCSP: true }
+    privileges: { secure: true, supportFetchAPI: true, stream: true }
   }
 ])
 
@@ -49,7 +50,7 @@ function createWindow(): void {
     title: 'ClipForge',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -82,6 +83,10 @@ app.whenReady().then(() => {
   protocol.handle('media', (request) => {
     const url = new URL(request.url)
     const filePath = decodeURIComponent(url.pathname.replace(/^\//, ''))
+    // Only serve files the app registered (project media), never arbitrary disk paths.
+    if (!isMediaPathAllowed(filePath)) {
+      return new Response('Forbidden', { status: 403 })
+    }
     return net.fetch(pathToFileURL(filePath).toString())
   })
 

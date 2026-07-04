@@ -115,6 +115,11 @@ export interface Project {
   clips: Clip[]
   /** Custom instructions the user gave the AI, if any. */
   prompt: string
+  /**
+   * True when the source video no longer exists on disk (moved/deleted).
+   * Transient — recomputed on load, never persisted.
+   */
+  sourceMissing?: boolean
 }
 
 export interface ProjectSummary {
@@ -189,6 +194,11 @@ export interface AppSettings {
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
   hasApiKey: boolean
+  /**
+   * True when the OS keychain (Electron safeStorage) protects the API key;
+   * false when it is stored only obfuscated on disk (e.g. headless Linux).
+   */
+  keyStorageSecure: boolean
   transcriptionModel: string
   analysisModel: string
   encoder: EncoderPreference

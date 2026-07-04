@@ -1,6 +1,6 @@
 # ClipForge
 
-**Open-source AI video clipper.** Turn long videos — podcasts, webinars, streams, interviews — into ready-to-post short clips with AI-picked moments, virality scores, and animated karaoke captions. A free, local-first alternative to Opus Clip that runs as a desktop app.
+**Open-source AI video clipper.** Turn long videos — podcasts, webinars, streams, interviews — into ready-to-post short clips with AI-picked moments, virality scores, and animated karaoke captions. A free, open-source alternative to Opus Clip that runs as a desktop app — bring your own OpenAI API key and pay cents per video instead of a subscription.
 
 ## What it does
 
@@ -13,12 +13,12 @@
 5. **Tighten cuts** — long pauses and filler words ("um", "uh") are removed automatically (toggleable per clip); captions, B-roll and the face track are remapped to the compacted timeline, and the preview skips the same spans the export cuts.
 6. **Auto-reframe with face tracking** — an on-device face detector (UltraFace via ONNX Runtime, no cloud calls) tracks the speaker in each clip and the vertical crop cuts between speaker positions automatically, like a camera switch. Footage without faces falls back to a manual focus slider.
 7. **AI B-roll** — mention "Yoda" and a picture of Yoda pops over the video at that exact word. An LLM tags visual keywords in each clip's word-timed transcript, images come from Wikipedia/Openverse (no extra API keys), and each insert is fullscreen or a picture-in-picture panel with fade in/out. Every insert can be toggled, switched between modes, or removed in the editor.
-8. **Edit** each clip: trim with draggable handles, reframe to 9:16 / 1:1 / 16:9 (auto face-follow, fill-crop with a focus slider, or fit with a blurred background), pick a caption style, toggle the AI hook title, manage B-roll inserts.
+8. **Edit** each clip: trim with draggable handles, reframe to 9:16 / 1:1 / 16:9 (auto face-follow, fill-crop with a focus slider, or fit with a blurred background), pick a caption style, toggle the AI hook title, manage B-roll inserts, and click any transcript word to fix a transcription mistake (or clear it to hide it from captions) — the correction flows through the preview and every export.
 9. **Preview live** — playback is bounded to the clip; reframing (including the auto face-follow cuts) and word-by-word captions are simulated in real time before you render anything.
-10. **Export** MP4s with captions burned in (H.264 + AAC, faststart), one clip at a time or all at once. Three quality tiers (Draft / Standard / High with Lanczos scaling), loudness-normalised to -14 LUFS (the social-platform standard), with bundled caption fonts (Anton, Poppins — OFL) so exports look identical on every OS, and **NVIDIA GPU encoding (NVENC)**: ClipForge verifies your GPU with a real test encode, can download a GPU-enabled ffmpeg build on demand (the bundled one is CPU-only), and automatically falls back to CPU if a GPU encode fails mid-run.
-11. **Iterate cheaply** — the transcript is checkpointed the moment Whisper finishes, so retries after a failure and "Regenerate" with different instructions skip transcription and take seconds. All API calls retry transient failures with backoff, and analysis can be cancelled mid-run.
+10. **Export** MP4s with captions burned in (H.264 + AAC, faststart), one clip at a time or all at once — exports are cancellable, never overwrite an earlier file, and the output folder can be changed any time. Three quality tiers (Draft / Standard / High with Lanczos scaling), loudness-normalised to -14 LUFS (the social-platform standard), with bundled caption fonts (Anton, Poppins — OFL) so exports look identical on every OS, and **NVIDIA GPU encoding (NVENC)**: ClipForge verifies your GPU with a real test encode, can download a GPU-enabled ffmpeg build on demand (the bundled one is CPU-only), and automatically falls back to CPU if a GPU encode fails mid-run.
+11. **Iterate cheaply** — the transcript is checkpointed the moment Whisper finishes, so retries after a failure and "Regenerate" with different instructions skip transcription and take seconds. All API calls retry transient failures with backoff, and analysis can be cancelled mid-run. If you move or delete a source video, ClipForge notices and lets you relink it without losing the transcript or clips.
 
-Everything runs locally except the OpenAI API calls (Whisper + chat completions). Your videos never leave your machine.
+Rendering, face tracking and editing all run locally; transcription and analysis use the OpenAI API (Whisper + chat completions). Only extracted audio, transcripts and a few sampled frames are uploaded — never the full video.
 
 ## Requirements
 
@@ -69,6 +69,16 @@ The renderer's live caption preview and the exported ASS subtitles share the sam
 
 ## Tests
 
+Unit tests, typecheck and lint (all run in CI on every push, along with the offline pipeline test and the UI smoke test):
+
+```bash
+npm test               # vitest unit tests (caption layout, tighten cuts, dedupe, ASS, stitching…)
+npm run typecheck
+npm run lint
+```
+
+Integration test scripts:
+
 ```bash
 npx tsx --tsconfig tsconfig.node.json scripts/test-pipeline.ts  # offline: ffmpeg + captions + renders
 npx tsx --tsconfig tsconfig.node.json scripts/test-e2e.ts       # full AI pipeline (needs OPENAI_API_KEY)
@@ -78,13 +88,11 @@ npx tsx --tsconfig tsconfig.node.json scripts/test-encoders.ts   # NVENC detecti
 npx tsx --tsconfig tsconfig.node.json scripts/test-broll.ts      # Star Wars B-roll e2e (needs OPENAI_API_KEY)
 npx tsx --tsconfig tsconfig.node.json scripts/test-quality.ts    # tighten cuts, loudnorm, fonts, scene cuts, energy
 ./scripts/smoke-test.sh                                          # UI screenshots under Xvfb
-npm run typecheck
 ```
 
 ## Roadmap
 
 - Transcript-based editing (click words to seek/trim/cut)
-- Editable captions (fix transcription errors before export)
 - Filmstrip timeline with waveform in the editor
 - More caption styles + custom fonts
 - Direct publishing/scheduling

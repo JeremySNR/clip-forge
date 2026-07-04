@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { app } from 'electron'
 import * as ort from 'onnxruntime-node'
 import type { FocusKeyframe } from '@shared/types'
+import { mapLimit } from './concurrency'
 import { runFfmpeg } from './ffmpeg'
 
 /**
@@ -23,6 +24,8 @@ const IOU_THRESHOLD = 0.5
 const SEGMENT_SHIFT_THRESHOLD = 0.1
 /** Frames a shift must persist before we cut (at SAMPLE_FPS). */
 const SEGMENT_MIN_FRAMES = 3
+/** Concurrent UltraFace inferences per clip (each is small; 4 keeps CPU busy). */
+const FACE_INFERENCE_CONCURRENCY = 4
 
 interface FaceBox {
   x1: number
@@ -144,28 +147,30 @@ async function sampleFaceCentres(
     const raw = await readFile(rawPath)
     const frameBytes = MODEL_W * MODEL_H * 3
     const frameCount = Math.floor(raw.length / frameBytes)
-    const centres: Array<number | null> = []
+    const frames = Array.from({ length: frameCount }, (_, f) =>
+      raw.subarray(f * frameBytes, (f + 1) * frameBytes)
+    )
+
+    // Scene cuts need consecutive frame pairs; this pass is cheap.
     const cuts: number[] = []
-    let prevFrame: Buffer | null = null
-    for (let f = 0; f < frameCount; f++) {
+    for (let f = 1; f < frameCount; f++) {
+      if (frameDifference(frames[f - 1], frames[f]) > SCENE_CUT_THRESHOLD) cuts.push(f)
+    }
+
+    // Face detection per frame is independent — run inferences concurrently
+    // (ONNX Runtime queues session.run calls safely across its thread pool).
+    const centres: Array<number | null> = new Array(frameCount).fill(null)
+    await mapLimit(frames, FACE_INFERENCE_CONCURRENCY, async (frame, f) => {
       signal?.throwIfAborted()
-      const frame = raw.subarray(f * frameBytes, (f + 1) * frameBytes)
-      if (prevFrame && frameDifference(prevFrame, frame) > SCENE_CUT_THRESHOLD) {
-        cuts.push(f)
-      }
-      prevFrame = frame
       const faces = await detectFaces(frame)
-      if (faces.length === 0) {
-        centres.push(null)
-        continue
-      }
+      if (faces.length === 0) return
       // Primary face: biggest weighted by confidence (the speaker on screen).
       const primary = faces.reduce((best, cur) => {
         const area = (b: FaceBox): number => (b.x2 - b.x1) * (b.y2 - b.y1)
         return area(cur) * cur.score > area(best) * best.score ? cur : best
       })
-      centres.push((primary.x1 + primary.x2) / 2)
-    }
+      centres[f] = (primary.x1 + primary.x2) / 2
+    })
     return { centres, cuts }
   } finally {
     await rm(rawPath, { force: true }).catch(() => undefined)

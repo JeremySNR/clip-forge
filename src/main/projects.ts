@@ -1,7 +1,9 @@
 import { app } from 'electron'
+import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Project, ProjectSummary } from '@shared/types'
+import { allowMediaPath } from './mediaAccess'
 
 export function projectsRoot(): string {
   return join(app.getPath('userData'), 'projects')
@@ -15,7 +17,10 @@ export async function saveProject(project: Project): Promise<void> {
   const dir = projectDir(project.id)
   await mkdir(dir, { recursive: true })
   project.updatedAt = Date.now()
-  await writeFile(join(dir, 'project.json'), JSON.stringify(project), 'utf8')
+  allowMediaPath(project.video.path)
+  // sourceMissing is transient state, recomputed on every load.
+  const { sourceMissing: _omit, ...persisted } = project
+  await writeFile(join(dir, 'project.json'), JSON.stringify(persisted), 'utf8')
 }
 
 export async function loadProject(id: string): Promise<Project> {
@@ -30,6 +35,8 @@ export async function loadProject(id: string): Promise<Project> {
     clip.broll ??= []
     clip.visualSummary ??= null
   }
+  project.sourceMissing = !existsSync(project.video.path)
+  allowMediaPath(project.video.path)
   return project
 }
 

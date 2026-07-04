@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import {
   Captions,
   CaseUpper,
@@ -14,9 +13,9 @@ import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
 import ScoreBadge from './ScoreBadge'
+import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
 import { CAPTION_STYLES } from '@shared/captionStyles'
-import { wordsInRange } from '@shared/captionLayout'
 import { formatTimecode } from '../lib/format'
 import type { AspectRatio, BrollItem, BrollMode, Clip, FramingMode, ReframeMode } from '@shared/types'
 
@@ -33,16 +32,10 @@ export default function EditorScreen(): React.JSX.Element {
   const updateClip = useStore((s) => s.updateClip)
   const updateClipLocal = useStore((s) => s.updateClipLocal)
   const exportClip = useStore((s) => s.exportClip)
+  const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
-
-  const clipText = useMemo(() => {
-    if (!project?.transcript || !clip) return ''
-    return wordsInRange(project.transcript, clip.edit.start, clip.edit.end)
-      .map((w) => w.text)
-      .join(' ')
-  }, [project?.transcript, clip])
 
   if (!project || !clip) return <div />
 
@@ -353,9 +346,15 @@ export default function EditorScreen(): React.JSX.Element {
         </Section>
 
         <Section icon={Quote} title="Transcript">
-          <p className="max-h-36 select-text overflow-y-auto text-xs leading-relaxed text-zinc-400">
-            {clipText || 'No speech in this range.'}
-          </p>
+          {project.transcript ? (
+            <TranscriptEditor
+              transcript={project.transcript}
+              clipStart={clip.edit.start}
+              clipEnd={clip.edit.end}
+            />
+          ) : (
+            <p className="text-xs leading-relaxed text-zinc-500">No transcript available.</p>
+          )}
         </Section>
 
         <Section icon={GalleryVerticalEnd} title="Hashtags">
@@ -379,6 +378,7 @@ export default function EditorScreen(): React.JSX.Element {
               outputPath={entry?.outputPath}
               error={entry?.error}
               onExport={() => void exportClip(clip.id)}
+              onCancel={() => void cancelExport(clip.id)}
             />
           </div>
           {entry?.status === 'error' && entry.error && (

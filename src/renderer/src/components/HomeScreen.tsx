@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
+import MissingSourceBanner from './MissingSourceBanner'
 import type { ClipLengthPreference } from '@shared/types'
 
 const LENGTH_OPTIONS: Array<{ value: ClipLengthPreference; label: string; hint: string }> = [
@@ -168,6 +169,8 @@ function SetupPanel(): React.JSX.Element {
           </button>
         )}
       </div>
+
+      <MissingSourceBanner />
 
       <div className="mt-6 grid grid-cols-5 gap-6">
         <div className="col-span-2 rounded-2xl border border-surface-700 bg-surface-900 p-5">
