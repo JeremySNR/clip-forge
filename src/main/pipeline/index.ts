@@ -65,12 +65,19 @@ type ProgressFn = (p: PipelineProgress) => void
 
 /**
  * The full "get clips" pipeline: audio extraction -> Whisper transcription ->
- * LLM highlight detection -> per-clip thumbnails. Mutates and saves the project.
+ * LLM highlight detection -> per-clip thumbnails. Mutates and saves the
+ * project.
+ *
+ * Resilience: the transcript is checkpointed to disk as soon as Whisper
+ * finishes, and reused on later runs — so retries after a failure, and
+ * "regenerate with a different prompt", never pay for transcription again.
+ * The whole pipeline is cancellable via the AbortSignal.
  */
 export async function analyzeProject(
   project: Project,
   options: AnalyzeOptions,
-  onProgress: ProgressFn
+  onProgress: ProgressFn,
+  signal?: AbortSignal
 ): Promise<Project> {
   const apiKey = getApiKey()
   if (!apiKey) {
@@ -81,36 +88,69 @@ export async function analyzeProject(
   await mkdir(workDir, { recursive: true })
 
   try {
-    onProgress({ stage: 'audio', progress: 0.02, message: 'Extracting audio…' })
-    const chunks = await extractAudioChunks(project.video.path, workDir, project.video.durationSec, (f) =>
-      onProgress({ stage: 'audio', progress: 0.02 + f * 0.13, message: 'Extracting audio…' })
-    )
+    let transcript = project.transcript
+    if (!transcript) {
+      onProgress({ stage: 'audio', progress: 0.02, message: 'Extracting audio…' })
+      const chunks = await extractAudioChunks(
+        project.video.path,
+        workDir,
+        project.video.durationSec,
+        (f) => onProgress({ stage: 'audio', progress: 0.02 + f * 0.13, message: 'Extracting audio…' }),
+        signal
+      )
 
-    onProgress({ stage: 'transcribe', progress: 0.16, message: 'Transcribing with Whisper…' })
-    const transcript = await transcribeChunks(apiKey, settings.transcriptionModel, chunks, (f) =>
-      onProgress({
-        stage: 'transcribe',
-        progress: 0.16 + f * 0.4,
-        message: chunks.length > 1 ? `Transcribing (part ${Math.min(chunks.length, Math.ceil(f * chunks.length))}/${chunks.length})…` : 'Transcribing with Whisper…'
-      })
-    )
-    if (transcript.segments.length === 0) {
-      throw new Error('No speech was detected in this video, so no clips could be generated.')
+      onProgress({ stage: 'transcribe', progress: 0.16, message: 'Transcribing with Whisper…' })
+      transcript = await transcribeChunks(
+        apiKey,
+        settings.transcriptionModel,
+        chunks,
+        (f) =>
+          onProgress({
+            stage: 'transcribe',
+            progress: 0.16 + f * 0.4,
+            message:
+              chunks.length > 1
+                ? `Transcribing (part ${Math.min(chunks.length, Math.ceil(f * chunks.length))}/${chunks.length})…`
+                : 'Transcribing with Whisper…'
+          }),
+        signal
+      )
+      if (transcript.segments.length === 0) {
+        throw new Error('No speech was detected in this video, so no clips could be generated.')
+      }
+      // Checkpoint: transcription is the most expensive stage, never redo it.
+      project.transcript = transcript
+      await saveProject(project)
+    } else {
+      onProgress({ stage: 'transcribe', progress: 0.56, message: 'Using saved transcript…' })
     }
-    project.transcript = transcript
 
     onProgress({ stage: 'analyze', progress: 0.58, message: 'Finding viral moments…' })
-    const clips = await detectHighlights(apiKey, settings.analysisModel, transcript, options, project.video.durationSec)
+    const clips = await detectHighlights(
+      apiKey,
+      settings.analysisModel,
+      transcript,
+      options,
+      project.video.durationSec,
+      signal
+    )
     if (clips.length === 0) {
       throw new Error('The AI could not find any clip-worthy moments in this video.')
     }
     project.clips = clips
     project.prompt = options.prompt
+    await saveProject(project)
 
     onProgress({ stage: 'reframe', progress: 0.72, message: 'Tracking faces for auto reframing…' })
     for (let i = 0; i < clips.length; i++) {
+      signal?.throwIfAborted()
       const clip = clips[i]
-      clip.focusTrack = await analyzeClipFocus(project.video.path, clip.suggestedStart, clip.suggestedEnd)
+      clip.focusTrack = await analyzeClipFocus(
+        project.video.path,
+        clip.suggestedStart,
+        clip.suggestedEnd,
+        signal
+      )
       if (clip.focusTrack) {
         clip.edit.framing = 'auto'
         clip.edit.focusX = clip.focusTrack[0]?.x ?? 0.5
@@ -126,6 +166,7 @@ export async function analyzeProject(
     const thumbsDir = join(projectDir(project.id), 'thumbs')
     await mkdir(thumbsDir, { recursive: true })
     for (let i = 0; i < clips.length; i++) {
+      signal?.throwIfAborted()
       const clip = clips[i]
       const at = clip.suggestedStart + Math.min(1.5, (clip.suggestedEnd - clip.suggestedStart) / 2)
       try {

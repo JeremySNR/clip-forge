@@ -1,4 +1,5 @@
-import { AudioLines, FileAudio, Brain, Image, Check, Loader2, ScanFace } from 'lucide-react'
+import { useState } from 'react'
+import { AudioLines, FileAudio, Brain, Image, Check, Loader2, ScanFace, X } from 'lucide-react'
 import { useStore } from '../store'
 import type { PipelineStage } from '@shared/types'
 
@@ -15,6 +16,8 @@ const STAGE_ORDER: PipelineStage[] = ['probe', 'audio', 'transcribe', 'analyze',
 export default function ProcessingScreen(): React.JSX.Element {
   const progress = useStore((s) => s.pipelineProgress)
   const project = useStore((s) => s.project)
+  const cancelAnalyze = useStore((s) => s.cancelAnalyze)
+  const [cancelling, setCancelling] = useState(false)
 
   const currentIdx = progress ? STAGE_ORDER.indexOf(progress.stage) : 0
   const pct = Math.round((progress?.progress ?? 0) * 100)
@@ -73,9 +76,22 @@ export default function ProcessingScreen(): React.JSX.Element {
           })}
         </div>
 
-        <p className="mt-8 text-center text-xs leading-relaxed text-zinc-600">
+        <button
+          onClick={async () => {
+            setCancelling(true)
+            await cancelAnalyze()
+          }}
+          disabled={cancelling}
+          className="mx-auto mt-8 flex items-center gap-1.5 rounded-lg border border-surface-600 px-4 py-2 text-xs font-medium text-zinc-400 transition hover:border-red-500/50 hover:text-red-400 disabled:opacity-50"
+        >
+          <X size={14} />
+          {cancelling ? 'Cancelling…' : 'Cancel'}
+        </button>
+
+        <p className="mt-6 text-center text-xs leading-relaxed text-zinc-600">
           Transcription and analysis run on the OpenAI API. Long videos are transcribed in
-          chunks — an hour of footage typically takes a couple of minutes.
+          chunks — an hour of footage typically takes a couple of minutes. The transcript is
+          saved as soon as it completes, so retries and regenerations skip straight to analysis.
         </p>
       </div>
     </div>

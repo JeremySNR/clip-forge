@@ -17,6 +17,10 @@ function sanitizeFileName(name: string): string {
   return (cleaned || 'clip').slice(0, 80)
 }
 
+const runningAnalyses = new Map<string, AbortController>()
+
+export const ANALYSIS_CANCELLED_MESSAGE = 'Analysis cancelled'
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('dialog:selectVideo', async (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -50,10 +54,31 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('project:analyze', async (event, projectId: string, options: AnalyzeOptions) => {
-    const project = await loadProject(projectId)
-    return analyzeProject(project, options, (p) => {
-      if (!event.sender.isDestroyed()) event.sender.send('pipeline:progress', p)
-    })
+    if (runningAnalyses.has(projectId)) {
+      throw new Error('This project is already being analyzed.')
+    }
+    const controller = new AbortController()
+    runningAnalyses.set(projectId, controller)
+    try {
+      const project = await loadProject(projectId)
+      return await analyzeProject(
+        project,
+        options,
+        (p) => {
+          if (!event.sender.isDestroyed()) event.sender.send('pipeline:progress', p)
+        },
+        controller.signal
+      )
+    } catch (err) {
+      if (controller.signal.aborted) throw new Error(ANALYSIS_CANCELLED_MESSAGE)
+      throw err
+    } finally {
+      runningAnalyses.delete(projectId)
+    }
+  })
+
+  ipcMain.handle('project:cancelAnalyze', async (_e, projectId: string) => {
+    runningAnalyses.get(projectId)?.abort()
   })
 
   ipcMain.handle('project:list', async () => listProjects())

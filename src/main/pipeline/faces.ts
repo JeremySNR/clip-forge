@@ -102,25 +102,30 @@ async function detectFaces(rgb: Buffer): Promise<FaceBox[]> {
 async function sampleFaceCentres(
   videoPath: string,
   startSec: number,
-  endSec: number
+  endSec: number,
+  signal?: AbortSignal
 ): Promise<Array<number | null>> {
   const duration = Math.max(0.1, endSec - startSec)
   const rawPath = join(tmpdir(), 'clipforge', `faces-${randomUUID()}.rgb`)
-  await runFfmpeg([
-    '-ss', startSec.toFixed(3),
-    '-t', duration.toFixed(3),
-    '-i', videoPath,
-    '-vf', `fps=${SAMPLE_FPS},scale=${MODEL_W}:${MODEL_H}`,
-    '-f', 'rawvideo',
-    '-pix_fmt', 'rgb24',
-    rawPath
-  ])
+  await runFfmpeg(
+    [
+      '-ss', startSec.toFixed(3),
+      '-t', duration.toFixed(3),
+      '-i', videoPath,
+      '-vf', `fps=${SAMPLE_FPS},scale=${MODEL_W}:${MODEL_H}`,
+      '-f', 'rawvideo',
+      '-pix_fmt', 'rgb24',
+      rawPath
+    ],
+    { signal }
+  )
   try {
     const raw = await readFile(rawPath)
     const frameBytes = MODEL_W * MODEL_H * 3
     const frameCount = Math.floor(raw.length / frameBytes)
     const centres: Array<number | null> = []
     for (let f = 0; f < frameCount; f++) {
+      signal?.throwIfAborted()
       const frame = raw.subarray(f * frameBytes, (f + 1) * frameBytes)
       const faces = await detectFaces(frame)
       if (faces.length === 0) {
@@ -208,12 +213,14 @@ export function buildFocusTrack(
 export async function analyzeClipFocus(
   videoPath: string,
   startSec: number,
-  endSec: number
+  endSec: number,
+  signal?: AbortSignal
 ): Promise<FocusKeyframe[] | null> {
   try {
-    const centres = await sampleFaceCentres(videoPath, startSec, endSec)
+    const centres = await sampleFaceCentres(videoPath, startSec, endSec, signal)
     return buildFocusTrack(centres, startSec)
   } catch (err) {
+    if (signal?.aborted) throw err
     console.error('Face analysis failed, falling back to manual focus:', err)
     return null
   }

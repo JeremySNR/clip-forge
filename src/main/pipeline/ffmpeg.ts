@@ -102,7 +102,8 @@ export async function extractAudioChunks(
   videoPath: string,
   workDir: string,
   durationSec: number,
-  onProgress?: (fraction: number) => void
+  onProgress?: (fraction: number) => void,
+  signal?: AbortSignal
 ): Promise<Array<{ path: string; offsetSec: number }>> {
   await mkdir(workDir, { recursive: true })
   const CHUNK_SEC = 20 * 60
@@ -123,7 +124,8 @@ export async function extractAudioChunks(
     ]
     const chunkDur = Math.min(CHUNK_SEC, durationSec - offset)
     await runFfmpeg(args, {
-      onProgress: (t) => onProgress?.((offset + Math.min(t, chunkDur)) / durationSec)
+      onProgress: (t) => onProgress?.((offset + Math.min(t, chunkDur)) / durationSec),
+      signal
     })
     chunks.push({ path: out, offsetSec: offset })
   }

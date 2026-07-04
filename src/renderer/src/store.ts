@@ -40,6 +40,7 @@ interface AppState {
   setSettingsOpen: (open: boolean) => void
   saveSettings: (update: { apiKey?: string; analysisModel?: string }) => Promise<void>
   analyze: (options: AnalyzeOptions) => Promise<void>
+  cancelAnalyze: () => Promise<void>
   openEditor: (clipId: string) => void
   closeEditor: () => void
   updateClip: (clip: Clip) => Promise<void>
@@ -149,14 +150,24 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const updated = await window.clipforge.analyzeProject(project.id, options)
       set({ project: updated, screen: 'clips', pipelineProgress: null })
-      await get().refreshProjects()
     } catch (err) {
+      const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
+      const cancelled = message.includes('Analysis cancelled')
+      // Pick up any checkpoint (e.g. saved transcript) the failed run left.
+      const reloaded = await window.clipforge.loadProject(project.id).catch(() => project)
       set({
+        project: reloaded,
         screen: 'home',
         pipelineProgress: null,
-        pipelineError: err instanceof Error ? cleanIpcError(err.message) : String(err)
+        pipelineError: cancelled ? null : message
       })
     }
+    await get().refreshProjects()
+  },
+
+  cancelAnalyze: async () => {
+    const project = get().project
+    if (project) await window.clipforge.cancelAnalyze(project.id)
   },
 
   openEditor: (clipId) => set({ selectedClipId: clipId, screen: 'editor' }),

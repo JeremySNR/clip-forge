@@ -139,6 +139,7 @@ function SetupPanel(): React.JSX.Element {
   const project = useStore((s) => s.project)!
   const analyze = useStore((s) => s.analyze)
   const goHomeClear = useStore((s) => s.deleteProject)
+  const openProject = useStore((s) => s.openProject)
   const settings = useStore((s) => s.settings)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const pipelineError = useStore((s) => s.pipelineError)
@@ -149,10 +150,22 @@ function SetupPanel(): React.JSX.Element {
 
   return (
     <div className="pb-6">
-      <h1 className="text-2xl font-bold tracking-tight">Set up your clips</h1>
-      <p className="mt-1 text-sm text-zinc-400">
-        Tell the AI what to look for, then generate clips.
-      </p>
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Set up your clips</h1>
+          <p className="mt-1 text-sm text-zinc-400">
+            Tell the AI what to look for, then generate clips.
+          </p>
+        </div>
+        {project.clips.length > 0 && (
+          <button
+            onClick={() => void openProject(project.id)}
+            className="shrink-0 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+          >
+            View current {project.clips.length} clips →
+          </button>
+        )}
+      </div>
 
       <div className="mt-6 grid grid-cols-5 gap-6">
         <div className="col-span-2 rounded-2xl border border-surface-700 bg-surface-900 p-5">
@@ -235,13 +248,20 @@ function SetupPanel(): React.JSX.Element {
               Add your OpenAI API key first
             </button>
           ) : (
-            <button
-              onClick={() => void analyze({ prompt, clipLength })}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110"
-            >
-              <Sparkles size={17} />
-              Get clips
-            </button>
+            <div>
+              <button
+                onClick={() => void analyze({ prompt, clipLength })}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110"
+              >
+                <Sparkles size={17} />
+                {project.clips.length > 0 ? 'Regenerate clips' : 'Get clips'}
+              </button>
+              {project.transcript && (
+                <p className="mt-2 text-center text-[11px] text-zinc-500">
+                  Transcript already saved — this skips transcription and only takes seconds.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>

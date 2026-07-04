@@ -22,6 +22,8 @@ const api = {
     ipcRenderer.invoke('project:createFromUrl', url),
   analyzeProject: (projectId: string, options: AnalyzeOptions): Promise<Project> =>
     ipcRenderer.invoke('project:analyze', projectId, options),
+  cancelAnalyze: (projectId: string): Promise<void> =>
+    ipcRenderer.invoke('project:cancelAnalyze', projectId),
   listProjects: (): Promise<ProjectSummary[]> => ipcRenderer.invoke('project:list'),
   loadProject: (id: string): Promise<Project> => ipcRenderer.invoke('project:load', id),
   deleteProject: (id: string): Promise<void> => ipcRenderer.invoke('project:delete', id),

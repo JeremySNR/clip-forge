@@ -150,18 +150,40 @@ function snap(time: number, boundaries: number[], toleranceSec: number): number 
   return best
 }
 
+/**
+ * Drop clips that substantially overlap a higher-scored clip, so the results
+ * grid never shows two near-identical moments. Input must be sorted by score
+ * descending. Exported for tests.
+ */
+export function dedupeClips(clips: Clip[], maxOverlapFraction = 0.4): Clip[] {
+  const kept: Clip[] = []
+  for (const clip of clips) {
+    const dur = clip.suggestedEnd - clip.suggestedStart
+    const tooSimilar = kept.some((k) => {
+      const overlap =
+        Math.min(clip.suggestedEnd, k.suggestedEnd) - Math.max(clip.suggestedStart, k.suggestedStart)
+      if (overlap <= 0) return false
+      const kDur = k.suggestedEnd - k.suggestedStart
+      return overlap / Math.min(dur, kDur) > maxOverlapFraction
+    })
+    if (!tooSimilar) kept.push(clip)
+  }
+  return kept
+}
+
 export async function detectHighlights(
   apiKey: string,
   model: string,
   transcript: Transcript,
   options: AnalyzeOptions,
-  videoDurationSec: number
+  videoDurationSec: number,
+  signal?: AbortSignal
 ): Promise<Clip[]> {
   // LLM output is nondeterministic: occasionally it returns an empty list on
   // perfectly clippable material, so retry once with a firmer instruction.
-  const first = await requestHighlights(apiKey, model, transcript, options, videoDurationSec, false)
+  const first = await requestHighlights(apiKey, model, transcript, options, videoDurationSec, false, signal)
   if (first.length > 0) return first
-  return requestHighlights(apiKey, model, transcript, options, videoDurationSec, true)
+  return requestHighlights(apiKey, model, transcript, options, videoDurationSec, true, signal)
 }
 
 async function requestHighlights(
@@ -170,7 +192,8 @@ async function requestHighlights(
   transcript: Transcript,
   options: AnalyzeOptions,
   videoDurationSec: number,
-  insist: boolean
+  insist: boolean,
+  signal?: AbortSignal
 ): Promise<Clip[]> {
   const transcriptText = transcript.segments
     .map((s) => `[${formatTimestamp(s.start)} - ${formatTimestamp(s.end)}] ${s.text}`)
@@ -201,7 +224,8 @@ async function requestHighlights(
       { role: 'user', content: userPrompt }
     ],
     'viral_clips',
-    RESPONSE_SCHEMA as unknown as Record<string, unknown>
+    RESPONSE_SCHEMA as unknown as Record<string, unknown>,
+    signal
   )
 
   const wordStarts: number[] = []
@@ -268,5 +292,5 @@ async function requestHighlights(
   }
 
   clips.sort((a, b) => b.viralityScore - a.viralityScore)
-  return clips
+  return dedupeClips(clips)
 }

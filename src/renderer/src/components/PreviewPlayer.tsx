@@ -119,6 +119,7 @@ export default function PreviewPlayer({
         <video
           ref={videoRef}
           src={src}
+          poster={clip.thumbnailPath ? window.clipforge.mediaUrl(clip.thumbnailPath) : undefined}
           className="relative h-full w-full"
           style={{
             objectFit: isCrop ? 'cover' : 'contain',

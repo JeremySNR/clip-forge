@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Download, Pencil, Check, Loader2, AlertTriangle, FolderOpen, Sparkles } from 'lucide-react'
+import { Download, Pencil, Check, Loader2, AlertTriangle, FolderOpen, RefreshCw, Sparkles } from 'lucide-react'
 import { useStore } from '../store'
 import { formatDuration } from '../lib/format'
 import ScoreBadge from './ScoreBadge'
@@ -9,6 +9,7 @@ export default function ClipsScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
   const exportAll = useStore((s) => s.exportAll)
   const exports = useStore((s) => s.exports)
+  const goHome = useStore((s) => s.goHome)
   const [exportingAll, setExportingAll] = useState(false)
 
   if (!project) return <div />
@@ -29,21 +30,31 @@ export default function ClipsScreen(): React.JSX.Element {
               exporting.
             </p>
           </div>
-          <button
-            onClick={async () => {
-              setExportingAll(true)
-              try {
-                await exportAll()
-              } finally {
-                setExportingAll(false)
-              }
-            }}
-            disabled={exportingAll}
-            className="flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110 disabled:opacity-60"
-          >
-            {exportingAll ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-            {exportingAll ? `Exporting… (${doneCount}/${project.clips.length})` : 'Export all'}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={goHome}
+              title="Change the AI instructions and generate a new set of clips — the saved transcript is reused, so it only takes seconds"
+              className="flex items-center gap-2 rounded-xl border border-surface-600 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-surface-800"
+            >
+              <RefreshCw size={15} />
+              Regenerate
+            </button>
+            <button
+              onClick={async () => {
+                setExportingAll(true)
+                try {
+                  await exportAll()
+                } finally {
+                  setExportingAll(false)
+                }
+              }}
+              disabled={exportingAll}
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110 disabled:opacity-60"
+            >
+              {exportingAll ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+              {exportingAll ? `Exporting… (${doneCount}/${project.clips.length})` : 'Export all'}
+            </button>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-5 xl:grid-cols-3">
