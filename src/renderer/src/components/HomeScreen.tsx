@@ -218,9 +218,9 @@ function SetupPanel(): React.JSX.Element {
           <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
             <button
               onClick={() => setBroll(!broll)}
-              className="flex w-full items-center justify-between text-left"
+              className="flex w-full items-center justify-between gap-4 text-left"
             >
-              <span>
+              <span className="min-w-0">
                 <span className="flex items-center gap-2 text-sm font-semibold">
                   <ImagePlus size={15} className="text-accent-400" />
                   AI B-roll images

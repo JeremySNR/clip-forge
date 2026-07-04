@@ -73,7 +73,7 @@ export default function EditorScreen(): React.JSX.Element {
               value={clip.title}
               onChange={(e) => updateClipLocal({ ...clip, title: e.target.value })}
               onBlur={() => void updateClip(clip)}
-              className="w-full rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[15px] font-semibold focus:border-surface-600 focus:bg-surface-850 focus:outline-none"
+              className="w-full text-ellipsis rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[15px] font-semibold focus:border-surface-600 focus:bg-surface-850 focus:outline-none"
             />
             <p className="mt-1 px-1 text-xs leading-relaxed text-zinc-500">{clip.summary}</p>
           </div>
@@ -422,11 +422,11 @@ function Toggle({
   return (
     <button
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between rounded-lg border border-surface-600 px-3 py-2.5 text-left text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2.5 text-left text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
     >
       {label}
       <span
-        className={`relative h-5 w-9 rounded-full transition ${checked ? 'bg-zinc-100' : 'bg-surface-600'}`}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition ${checked ? 'bg-zinc-100' : 'bg-surface-600'}`}
       >
         <span
           className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${checked ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
