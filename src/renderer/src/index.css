@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+
+/* Bundled caption fonts — same files libass burns into exports. */
+@font-face {
+  font-family: 'Anton';
+  src: url('./assets/fonts/Anton-Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('./assets/fonts/Poppins-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'Poppins Medium';
+  src: url('./assets/fonts/Poppins-Medium.ttf') format('truetype');
+  font-weight: 500;
+}
+
+@theme {
+  --color-surface-950: #09090b;
+  --color-surface-900: #0f0f13;
+  --color-surface-850: #14141a;
+  --color-surface-800: #1a1a22;
+  --color-surface-700: #24242e;
+  --color-surface-600: #32323e;
+  --color-accent-400: #a78bfa;
+  --color-accent-500: #8b5cf6;
+  --color-accent-600: #7c3aed;
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface-950 text-zinc-100 antialiased select-none;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2c2c36;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3d3d4a;
+  background-clip: content-box;
+}
+
+input[type='range'] {
+  @apply appearance-none h-1.5 rounded-full bg-surface-600 cursor-pointer;
+}
+input[type='range']::-webkit-slider-thumb {
+  @apply appearance-none w-4 h-4 rounded-full bg-accent-500;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2);
+}
+
+@keyframes captionPop {
+  0% {
+    transform: scale(0.94);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.caption-pop {
+  animation: captionPop 90ms ease-out;
+}

@@ -1,0 +1,216 @@
+/** Shared domain types used across main, preload and renderer. */
+
+export interface VideoInfo {
+  path: string
+  fileName: string
+  durationSec: number
+  width: number
+  height: number
+  fps: number
+  sizeBytes: number
+  hasAudio: boolean
+}
+
+export interface TranscriptWord {
+  text: string
+  start: number
+  end: number
+}
+
+export interface TranscriptSegment {
+  id: number
+  text: string
+  start: number
+  end: number
+  words: TranscriptWord[]
+  /** Relative vocal energy 0..1 (percentile within this video); optional. */
+  energy?: number
+}
+
+export interface Transcript {
+  language: string
+  durationSec: number
+  segments: TranscriptSegment[]
+}
+
+export type AspectRatio = '9:16' | '1:1' | '16:9' | 'original'
+
+/** How the source frame is fitted into the target aspect ratio. */
+export type ReframeMode = 'crop' | 'fit-blur'
+
+/** Auto = follow the AI face track; manual = fixed focusX slider. */
+export type FramingMode = 'auto' | 'manual'
+
+/** One step of the piecewise-constant focus track (t in source seconds). */
+export interface FocusKeyframe {
+  t: number
+  /** Horizontal face centre, 0 = far left, 1 = far right. */
+  x: number
+}
+
+export interface ClipEditState {
+  aspect: AspectRatio
+  reframeMode: ReframeMode
+  framing: FramingMode
+  /** Remove long pauses and filler words ("um", "uh") from the clip. */
+  tightenCuts: boolean
+  /** Horizontal focus for cropping, 0 = far left, 0.5 = centre, 1 = far right. */
+  focusX: number
+  captionsEnabled: boolean
+  captionStyleId: string
+  showTitle: boolean
+  /** Trim overrides (absolute seconds in the source video). */
+  start: number
+  end: number
+}
+
+/** How a B-roll image is composited over the clip. */
+export type BrollMode = 'fullscreen' | 'overlay'
+
+export interface BrollItem {
+  id: string
+  /** The spoken word/phrase that triggered this insert, e.g. "Yoda". */
+  trigger: string
+  /** Image search query used, e.g. "Yoda Star Wars character". */
+  query: string
+  /** Absolute source-video seconds. */
+  start: number
+  end: number
+  mode: BrollMode
+  /** Local path of the downloaded image; null if no image was found. */
+  imagePath: string | null
+  /** Where the image came from (page URL) for attribution. */
+  sourceUrl: string
+  enabled: boolean
+}
+
+export interface Clip {
+  id: string
+  /** AI suggested boundaries (absolute seconds in the source video). */
+  suggestedStart: number
+  suggestedEnd: number
+  title: string
+  hook: string
+  summary: string
+  viralityScore: number
+  viralityReason: string
+  /** One-line LLM assessment of what the visuals add/cost; null until scored. */
+  visualSummary: string | null
+  hashtags: string[]
+  thumbnailPath: string | null
+  /** AI face track for auto reframing; null when no usable faces were found. */
+  focusTrack: FocusKeyframe[] | null
+  /** AI-suggested image inserts timed to spoken keywords. */
+  broll: BrollItem[]
+  edit: ClipEditState
+}
+
+export interface Project {
+  id: string
+  createdAt: number
+  updatedAt: number
+  name: string
+  video: VideoInfo
+  transcript: Transcript | null
+  clips: Clip[]
+  /** Custom instructions the user gave the AI, if any. */
+  prompt: string
+}
+
+export interface ProjectSummary {
+  id: string
+  createdAt: number
+  updatedAt: number
+  name: string
+  videoPath: string
+  videoFileName: string
+  durationSec: number
+  clipCount: number
+  thumbnailPath: string | null
+}
+
+export type PipelineStage =
+  | 'probe'
+  | 'audio'
+  | 'transcribe'
+  | 'analyze'
+  | 'reframe'
+  | 'broll'
+  | 'thumbnails'
+  | 'done'
+
+export interface PipelineProgress {
+  stage: PipelineStage
+  /** 0..1 within the whole pipeline. */
+  progress: number
+  message: string
+}
+
+export interface AnalyzeOptions {
+  /** Optional user steering prompt ("ClipAnything" style). */
+  prompt: string
+  clipLength: ClipLengthPreference
+  /** Generate AI B-roll image inserts timed to spoken keywords. */
+  broll: boolean
+}
+
+export type ClipLengthPreference = 'auto' | 'short' | 'medium' | 'long'
+
+export interface ExportOptions {
+  clipId: string
+  /** Target directory; a file name is derived from the clip title. */
+  outputDir: string
+}
+
+export interface ExportProgress {
+  clipId: string
+  progress: number
+  message: string
+}
+
+export interface ExportResult {
+  clipId: string
+  outputPath: string
+}
+
+export type EncoderPreference = 'auto' | 'cpu' | 'gpu'
+export type QualityPreference = 'draft' | 'standard' | 'high'
+
+export interface GpuEncoderStatus {
+  /** True when a working hardware encoder was verified with a test encode. */
+  available: boolean
+  /** Human-readable status, e.g. "NVENC ready via system ffmpeg". */
+  detail: string
+  /** True when a GPU-capable ffmpeg build can be downloaded to enable it. */
+  canDownloadFfmpeg: boolean
+}
+
+export interface AppSettings {
+  /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
+  apiKeyMasked: string
+  hasApiKey: boolean
+  transcriptionModel: string
+  analysisModel: string
+  encoder: EncoderPreference
+  quality: QualityPreference
+  gpu: GpuEncoderStatus
+}
+
+export interface SettingsUpdate {
+  apiKey?: string
+  transcriptionModel?: string
+  analysisModel?: string
+  encoder?: EncoderPreference
+  quality?: QualityPreference
+}
+
+export interface PipelineError {
+  message: string
+  stage: PipelineStage
+}
+
+export interface ImportProgress {
+  /** 0..1, or -1 when indeterminate. */
+  progress: number
+  message: string
+}
