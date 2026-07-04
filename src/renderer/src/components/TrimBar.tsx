@@ -113,12 +113,14 @@ export default function TrimBar({
           className="pointer-events-none absolute inset-y-0 border-y-2 border-zinc-100"
           style={{ left: `${leftPct}%`, width: `${rightPct - leftPct}%` }}
         />
-        {/* Playhead */}
+        {/* Playhead: white core with a dark halo so it reads on bright frames */}
         {time >= windowStart && time <= windowEnd && (
           <div
-            className="pointer-events-none absolute inset-y-0 w-[2px] bg-white shadow-[0_0_4px_rgba(0,0,0,0.8)]"
-            style={{ left: `calc(${playheadPct}% - 1px)` }}
-          />
+            className="pointer-events-none absolute inset-y-0 w-[6px] -translate-x-1/2 bg-black/60"
+            style={{ left: `${playheadPct}%` }}
+          >
+            <div className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2 bg-white" />
+          </div>
         )}
         {/* Drag handles */}
         <div
