@@ -129,7 +129,14 @@ export default function EditorScreen(): React.JSX.Element {
             end={clip.edit.end}
             timeline={timeline}
             onChange={(start, end) => setLocal({ start, end })}
-            onCommit={() => void updateClip(clip)}
+            onCommit={() => {
+              // Read the live clip: the pointerup closure inside TrimBar was
+              // created at drag start, so `clip` here would be pre-drag.
+              const current = useStore
+                .getState()
+                .project?.clips.find((c) => c.id === clip.id)
+              if (current) void updateClip(current)
+            }}
           />
           <div className="mt-3">
             <Toggle
