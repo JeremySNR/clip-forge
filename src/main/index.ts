@@ -1,9 +1,8 @@
-import { app, BrowserWindow, net, protocol, shell } from 'electron'
+import { app, BrowserWindow, protocol, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { registerIpcHandlers } from './ipc'
-import { isMediaPathAllowed } from './mediaAccess'
+import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
 
 async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -31,10 +30,12 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
 
 // Serves local media (source videos, thumbnails) to the sandboxed renderer.
 // URL shape: media://file/<encodeURIComponent(absolutePath)>
+// `standard` matters: Chromium's media loader aborts its second range request
+// on non-standard schemes, which broke <video> playback of files over ~2 MB.
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'media',
-    privileges: { secure: true, supportFetchAPI: true, stream: true }
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
   }
 ])
 
@@ -87,7 +88,7 @@ app.whenReady().then(() => {
     if (!isMediaPathAllowed(filePath)) {
       return new Response('Forbidden', { status: 403 })
     }
-    return net.fetch(pathToFileURL(filePath).toString())
+    return serveMediaFile(filePath, request.headers.get('range'))
   })
 
   registerIpcHandlers()

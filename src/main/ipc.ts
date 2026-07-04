@@ -24,20 +24,30 @@ export const EXPORT_CANCELLED_MESSAGE = 'Export cancelled'
 /** How far apart durations may be for a relinked file to count as the same video. */
 const RELINK_DURATION_TOLERANCE_SEC = 2
 
+const VIDEO_FILTERS = [
+  { name: 'Videos', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v', 'mpg', 'mpeg', 'wmv'] }
+]
+
+async function pickVideoFile(sender: Electron.WebContents, title: string): Promise<string | null> {
+  // Headless/CI hook (like CLIPFORGE_SMOKE): skip the native dialog.
+  if (process.env.CLIPFORGE_SELECT_VIDEO) return process.env.CLIPFORGE_SELECT_VIDEO
+  const win = BrowserWindow.fromWebContents(sender)
+  const result = await dialog.showOpenDialog(win!, {
+    title,
+    properties: ['openFile'],
+    filters: VIDEO_FILTERS
+  })
+  return result.canceled ? null : result.filePaths[0]
+}
+
 export function registerIpcHandlers(): void {
   ipcMain.handle('dialog:selectVideo', async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const result = await dialog.showOpenDialog(win!, {
-      title: 'Choose a video',
-      properties: ['openFile'],
-      filters: [
-        { name: 'Videos', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v', 'mpg', 'mpeg', 'wmv'] }
-      ]
-    })
-    return result.canceled ? null : result.filePaths[0]
+    return pickVideoFile(event.sender, 'Choose a video')
   })
 
   ipcMain.handle('dialog:selectDirectory', async (event) => {
+    // Headless/CI hook (like CLIPFORGE_SMOKE): skip the native dialog.
+    if (process.env.CLIPFORGE_EXPORT_DIR) return process.env.CLIPFORGE_EXPORT_DIR
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win!, {
       title: 'Choose export folder',
@@ -128,17 +138,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('project:relinkVideo', async (event, projectId: string) => {
     const project = await loadProject(projectId)
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const result = await dialog.showOpenDialog(win!, {
-      title: `Locate "${project.video.fileName}"`,
-      properties: ['openFile'],
-      filters: [
-        { name: 'Videos', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v', 'mpg', 'mpeg', 'wmv'] }
-      ]
-    })
-    if (result.canceled || result.filePaths.length === 0) return project
+    const picked = await pickVideoFile(event.sender, `Locate "${project.video.fileName}"`)
+    if (!picked) return project
 
-    const video = await probeVideo(result.filePaths[0])
+    const video = await probeVideo(picked)
     if (Math.abs(video.durationSec - project.video.durationSec) > RELINK_DURATION_TOLERANCE_SEC) {
       throw new Error(
         `That file is ${video.durationSec.toFixed(0)}s long but this project's video was ` +
