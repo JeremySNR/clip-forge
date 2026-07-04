@@ -7,7 +7,7 @@ import type {
   Project,
   SettingsUpdate
 } from '@shared/types'
-import { analyzeProject, createProject } from './pipeline'
+import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
 import { renderClip } from './pipeline/render'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
 import { getSettings, updateSettings } from './settings'
@@ -41,6 +41,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('project:create', async (_e, videoPath: string) => {
     return createProject(videoPath)
+  })
+
+  ipcMain.handle('project:createFromUrl', async (event, url: string) => {
+    return createProjectFromUrl(url, (p) => {
+      if (!event.sender.isDestroyed()) event.sender.send('import:progress', p)
+    })
   })
 
   ipcMain.handle('project:analyze', async (event, projectId: string, options: AnalyzeOptions) => {

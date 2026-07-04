@@ -3,6 +3,7 @@ import { Play, Pause, RotateCcw } from 'lucide-react'
 import type { Clip, Project } from '@shared/types'
 import { getCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
+import { focusAt } from '@shared/focusTrack'
 import { formatTimecode } from '../lib/format'
 
 /**
@@ -97,6 +98,10 @@ export default function PreviewPlayer({
   const src = window.clipforge.mediaUrl(project.video.path)
   const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'
   const isFitBlur = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'fit-blur'
+  const previewFocusX =
+    clip.edit.framing === 'auto' && clip.focusTrack
+      ? focusAt(clip.focusTrack, time)
+      : clip.edit.focusX
 
   return (
     <div className="flex h-full min-h-0 flex-col items-center gap-3">
@@ -117,7 +122,7 @@ export default function PreviewPlayer({
           className="relative h-full w-full"
           style={{
             objectFit: isCrop ? 'cover' : 'contain',
-            objectPosition: isCrop ? `${clip.edit.focusX * 100}% 50%` : '50% 50%'
+            objectPosition: isCrop ? `${previewFocusX * 100}% 50%` : '50% 50%'
           }}
           onClick={togglePlay}
           onEnded={() => setPlaying(false)}

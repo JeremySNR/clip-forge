@@ -3,6 +3,7 @@ import type {
   AnalyzeOptions,
   AppSettings,
   Clip,
+  ImportProgress,
   PipelineProgress,
   Project,
   ProjectSummary
@@ -25,12 +26,14 @@ interface AppState {
   settingsOpen: boolean
   pipelineProgress: PipelineProgress | null
   pipelineError: string | null
+  importProgress: ImportProgress | null
   selectedClipId: string | null
   exports: Record<string, ExportEntry>
 
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
   importVideo: () => Promise<void>
+  importVideoFromUrl: (url: string) => Promise<void>
   openProject: (id: string) => Promise<void>
   deleteProject: (id: string) => Promise<void>
   goHome: () => void
@@ -62,6 +65,7 @@ export const useStore = create<AppState>((set, get) => ({
   settingsOpen: false,
   pipelineProgress: null,
   pipelineError: null,
+  importProgress: null,
   selectedClipId: null,
   exports: {},
 
@@ -72,6 +76,9 @@ export const useStore = create<AppState>((set, get) => ({
     ])
     set({ settings, projects })
     window.clipforge.onPipelineProgress((p) => set({ pipelineProgress: p }))
+    window.clipforge.onImportProgress((p) => {
+      if (get().importProgress !== null) set({ importProgress: p })
+    })
     window.clipforge.onExportProgress((p) => {
       const entry = get().exports[p.clipId]
       if (entry?.status === 'exporting') {
@@ -90,6 +97,20 @@ export const useStore = create<AppState>((set, get) => ({
     const project = await window.clipforge.createProject(path)
     set({ project, screen: 'home', pipelineError: null })
     await get().refreshProjects()
+  },
+
+  importVideoFromUrl: async (url) => {
+    set({ importProgress: { progress: -1, message: 'Starting…' }, pipelineError: null })
+    try {
+      const project = await window.clipforge.createProjectFromUrl(url.trim())
+      set({ project, screen: 'home', importProgress: null })
+      await get().refreshProjects()
+    } catch (err) {
+      set({
+        importProgress: null,
+        pipelineError: err instanceof Error ? cleanIpcError(err.message) : String(err)
+      })
+    }
   },
 
   openProject: async (id) => {

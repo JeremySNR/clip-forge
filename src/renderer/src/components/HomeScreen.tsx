@@ -2,6 +2,8 @@ import { useState } from 'react'
 import {
   Upload,
   Film,
+  Link2,
+  Loader2,
   Sparkles,
   Trash2,
   AlertTriangle,
@@ -34,8 +36,14 @@ export default function HomeScreen(): React.JSX.Element {
 
 function ImportHero(): React.JSX.Element {
   const importVideo = useStore((s) => s.importVideo)
+  const importVideoFromUrl = useStore((s) => s.importVideoFromUrl)
+  const importProgress = useStore((s) => s.importProgress)
   const pipelineError = useStore((s) => s.pipelineError)
   const [busy, setBusy] = useState(false)
+  const [url, setUrl] = useState('')
+
+  const importing = importProgress !== null
+  const canSubmitUrl = /^https?:\/\/\S+$/.test(url.trim()) && !importing
 
   return (
     <div className="flex flex-col items-center pb-4 pt-8 text-center">
@@ -66,7 +74,7 @@ function ImportHero(): React.JSX.Element {
             setBusy(false)
           }
         }}
-        disabled={busy}
+        disabled={busy || importing}
         className="mt-8 flex w-full max-w-xl cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-surface-600 bg-surface-900/60 px-8 py-12 transition hover:border-accent-500/60 hover:bg-surface-850 disabled:opacity-60"
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-500/15">
@@ -77,6 +85,52 @@ function ImportHero(): React.JSX.Element {
         </div>
         <div className="text-xs text-zinc-500">MP4, MOV, MKV, WEBM and more</div>
       </button>
+
+      <div className="mt-4 w-full max-w-xl">
+        {importing ? (
+          <div className="rounded-2xl border border-surface-700 bg-surface-900 px-4 py-3.5">
+            <div className="flex items-center gap-2.5 text-sm text-zinc-300">
+              <Loader2 size={15} className="animate-spin text-accent-400" />
+              {importProgress.message}
+            </div>
+            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-700">
+              <div
+                className={`h-full rounded-full bg-gradient-to-r from-accent-500 to-fuchsia-500 transition-all ${
+                  importProgress.progress < 0 ? 'w-1/4 animate-pulse' : ''
+                }`}
+                style={
+                  importProgress.progress >= 0
+                    ? { width: `${Math.round(importProgress.progress * 100)}%` }
+                    : undefined
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (canSubmitUrl) void importVideoFromUrl(url)
+            }}
+            className="flex items-center gap-2 rounded-2xl border border-surface-700 bg-surface-900 py-2 pl-4 pr-2 focus-within:border-accent-500/60"
+          >
+            <Link2 size={16} className="shrink-0 text-zinc-500" />
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="…or paste a YouTube / Twitch / video URL"
+              className="min-w-0 flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={!canSubmitUrl}
+              className="shrink-0 rounded-xl bg-accent-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-accent-500 disabled:opacity-40"
+            >
+              Import
+            </button>
+          </form>
+        )}
+      </div>
     </div>
   )
 }

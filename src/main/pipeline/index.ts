@@ -2,10 +2,12 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { AnalyzeOptions, PipelineProgress, Project } from '@shared/types'
+import type { AnalyzeOptions, ImportProgress, PipelineProgress, Project } from '@shared/types'
 import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
+import { analyzeClipFocus } from './faces'
+import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta } from './ytdlp'
 import { getApiKey, getSettings } from '../settings'
 import { projectDir, saveProject } from '../projects'
 
@@ -23,6 +25,39 @@ export async function createProject(videoPath: string): Promise<Project> {
     prompt: ''
   }
   await saveProject(project)
+  return project
+}
+
+export async function createProjectFromUrl(
+  url: string,
+  onProgress: (p: ImportProgress) => void
+): Promise<Project> {
+  const binPath = await ensureYtDlp(onProgress)
+  onProgress({ progress: -1, message: 'Checking the video…' })
+  const meta = await fetchUrlMeta(binPath, url)
+
+  const id = randomUUID()
+  const dir = projectDir(id)
+  await mkdir(dir, { recursive: true })
+  const videoPath = join(dir, 'source.mp4')
+  onProgress({ progress: 0.15, message: 'Downloading video…' })
+  await downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress)
+
+  onProgress({ progress: 0.97, message: 'Reading video…' })
+  const video = await probeVideo(videoPath)
+  const now = Date.now()
+  const project: Project = {
+    id,
+    createdAt: now,
+    updatedAt: now,
+    name: meta.title,
+    video,
+    transcript: null,
+    clips: [],
+    prompt: ''
+  }
+  await saveProject(project)
+  onProgress({ progress: 1, message: 'Done' })
   return project
 }
 
@@ -71,6 +106,21 @@ export async function analyzeProject(
     }
     project.clips = clips
     project.prompt = options.prompt
+
+    onProgress({ stage: 'reframe', progress: 0.72, message: 'Tracking faces for auto reframing…' })
+    for (let i = 0; i < clips.length; i++) {
+      const clip = clips[i]
+      clip.focusTrack = await analyzeClipFocus(project.video.path, clip.suggestedStart, clip.suggestedEnd)
+      if (clip.focusTrack) {
+        clip.edit.framing = 'auto'
+        clip.edit.focusX = clip.focusTrack[0]?.x ?? 0.5
+      }
+      onProgress({
+        stage: 'reframe',
+        progress: 0.72 + ((i + 1) / clips.length) * 0.1,
+        message: 'Tracking faces for auto reframing…'
+      })
+    }
 
     onProgress({ stage: 'thumbnails', progress: 0.82, message: 'Creating thumbnails…' })
     const thumbsDir = join(projectDir(project.id), 'thumbs')

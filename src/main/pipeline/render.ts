@@ -33,10 +33,32 @@ function escapeFilterPath(p: string): string {
   return p.replace(/\\/g, '/').replace(/:/g, '\\:').replace(/'/g, "\\'")
 }
 
+/**
+ * Build the crop x-position expression. Manual framing is a constant focus;
+ * auto framing becomes a piecewise-constant expression over t (clip-relative)
+ * so the crop hard-cuts between speaker positions like a camera switch.
+ */
+function focusExpression(clip: Clip): string {
+  const track = clip.focusTrack
+  if (clip.edit.framing !== 'auto' || !track || track.length === 0) {
+    return Math.max(0, Math.min(1, clip.edit.focusX)).toFixed(4)
+  }
+  // Keyframes are in source time; renders seek with -ss so t starts at 0.
+  const steps = track
+    .map((kf) => ({ t: kf.t - clip.edit.start, x: Math.max(0, Math.min(1, kf.x)) }))
+    .filter((kf, i) => i === 0 || kf.t > 0)
+  if (steps.length === 0) return '0.5'
+  let expr = steps[steps.length - 1].x.toFixed(4)
+  for (let i = steps.length - 2; i >= 0; i--) {
+    expr = `if(lt(t,${Math.max(0, steps[i + 1].t).toFixed(3)}),${steps[i].x.toFixed(4)},${expr})`
+  }
+  return expr
+}
+
 function buildVideoFilter(clip: Clip, source: VideoInfo, assPath: string | null): string {
   const { w, h } = targetDims(clip.edit.aspect, source)
   const ratio = (w / h).toFixed(6)
-  const focus = Math.max(0, Math.min(1, clip.edit.focusX)).toFixed(4)
+  const focus = focusExpression(clip)
   const filters: string[] = []
 
   if (clip.edit.aspect === 'original') {

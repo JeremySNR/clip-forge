@@ -5,6 +5,7 @@ import {
   Crop,
   GalleryVerticalEnd,
   Quote,
+  ScanFace,
   Scissors
 } from 'lucide-react'
 import { useStore } from '../store'
@@ -14,7 +15,7 @@ import ScoreBadge from './ScoreBadge'
 import { ExportButton } from './ClipsScreen'
 import { CAPTION_STYLES } from '@shared/captionStyles'
 import { wordsInRange } from '@shared/captionLayout'
-import type { AspectRatio, Clip, ReframeMode } from '@shared/types'
+import type { AspectRatio, Clip, FramingMode, ReframeMode } from '@shared/types'
 
 const ASPECTS: Array<{ value: AspectRatio; label: string }> = [
   { value: '9:16', label: '9:16' },
@@ -129,22 +130,55 @@ export default function EditorScreen(): React.JSX.Element {
                 ))}
               </div>
               {clip.edit.reframeMode === 'crop' && (
-                <div className="mt-3">
-                  <div className="mb-1.5 flex justify-between text-[11px] text-zinc-500">
-                    <span>Focus left</span>
-                    <span>Focus right</span>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={Math.round(clip.edit.focusX * 100)}
-                    onChange={(e) => setLocal({ focusX: Number(e.target.value) / 100 })}
-                    onMouseUp={() => void updateClip(clip)}
-                    onTouchEnd={() => void updateClip(clip)}
-                    className="w-full"
-                  />
-                </div>
+                <>
+                  {clip.focusTrack && (
+                    <div className="mt-3 grid grid-cols-2 gap-1.5">
+                      {(
+                        [
+                          { value: 'auto', label: 'Auto (AI faces)' },
+                          { value: 'manual', label: 'Manual' }
+                        ] as Array<{ value: FramingMode; label: string }>
+                      ).map((f) => (
+                        <button
+                          key={f.value}
+                          onClick={() => set({ framing: f.value })}
+                          className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition ${
+                            clip.edit.framing === f.value
+                              ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                              : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
+                          }`}
+                        >
+                          {f.value === 'auto' && <ScanFace size={13} />}
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {clip.edit.framing === 'auto' && clip.focusTrack ? (
+                    <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+                      Following {clip.focusTrack.length} tracked speaker position
+                      {clip.focusTrack.length === 1 ? '' : 's'} — the crop cuts automatically when
+                      the speaker moves.
+                    </p>
+                  ) : (
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex justify-between text-[11px] text-zinc-500">
+                        <span>Focus left</span>
+                        <span>Focus right</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={Math.round(clip.edit.focusX * 100)}
+                        onChange={(e) => setLocal({ focusX: Number(e.target.value) / 100 })}
+                        onMouseUp={() => void updateClip(clip)}
+                        onTouchEnd={() => void updateClip(clip)}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}

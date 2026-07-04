@@ -109,9 +109,18 @@ async function main(): Promise<void> {
       viralityReason: d.viralityReason,
       hashtags: d.hashtags,
       thumbnailPath,
+      focusTrack:
+        i === 0
+          ? [
+              { t: d.start, x: 0.3 },
+              { t: d.start + 8, x: 0.68 },
+              { t: d.start + 16, x: 0.32 }
+            ]
+          : null,
       edit: {
         aspect: '9:16',
         reframeMode: 'crop',
+        framing: i === 0 ? 'auto' : 'manual',
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,

@@ -16,7 +16,8 @@
   },
   "dependencies": {
     "ffmpeg-static": "^5.2.0",
-    "ffprobe-static": "^3.1.0"
+    "ffprobe-static": "^3.1.0",
+    "onnxruntime-node": "^1.27.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.0",
@@ -47,7 +48,14 @@
     ],
     "asarUnpack": [
       "node_modules/ffmpeg-static/**",
-      "node_modules/ffprobe-static/**"
+      "node_modules/ffprobe-static/**",
+      "node_modules/onnxruntime-node/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/models",
+        "to": "models"
+      }
     ],
     "mac": {
       "target": "dmg",

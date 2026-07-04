@@ -46,9 +46,11 @@ function makeClip(overrides: Partial<Clip['edit']> = {}): Clip {
     viralityReason: 'Strong hook',
     hashtags: ['test'],
     thumbnailPath: null,
+    focusTrack: null,
     edit: {
       aspect: '9:16',
       reframeMode: 'crop',
+      framing: 'manual',
       focusX: 0.5,
       captionsEnabled: true,
       captionStyleId: 'beast',
@@ -152,7 +154,21 @@ async function main(): Promise<void> {
     console.log(`✓ render ${c.name}: ${rendered.width}x${rendered.height}, ${rendered.durationSec.toFixed(1)}s`)
   }
 
-  // 8. Sanity check: burned captions actually change pixels vs no-captions render.
+  // 8. Auto-framed render: piecewise crop expression from a focus track.
+  const autoClip = makeClip({ framing: 'auto' })
+  autoClip.focusTrack = [
+    { t: 1, x: 0.15 },
+    { t: 6, x: 0.85 },
+    { t: 11, x: 0.4 }
+  ]
+  const autoOut = join(WORK, 'render-auto-framed.mp4')
+  await renderClip({ clip: autoClip, source: info, transcript, outputPath: autoOut })
+  const autoInfo = await probeVideo(autoOut)
+  assert.equal(autoInfo.width, 1080)
+  assert.equal(autoInfo.height, 1920)
+  console.log('✓ render auto-framed (piecewise focus track)')
+
+  // 9. Sanity check: burned captions actually change pixels vs no-captions render.
   const withCaps = await readFile(join(WORK, 'render-vertical-crop.mp4'))
   const noCaps = await readFile(join(WORK, 'render-no-captions.mp4'))
   assert.notEqual(withCaps.length, noCaps.length)

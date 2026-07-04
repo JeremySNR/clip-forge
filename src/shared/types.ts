@@ -35,9 +35,20 @@ export type AspectRatio = '9:16' | '1:1' | '16:9' | 'original'
 /** How the source frame is fitted into the target aspect ratio. */
 export type ReframeMode = 'crop' | 'fit-blur'
 
+/** Auto = follow the AI face track; manual = fixed focusX slider. */
+export type FramingMode = 'auto' | 'manual'
+
+/** One step of the piecewise-constant focus track (t in source seconds). */
+export interface FocusKeyframe {
+  t: number
+  /** Horizontal face centre, 0 = far left, 1 = far right. */
+  x: number
+}
+
 export interface ClipEditState {
   aspect: AspectRatio
   reframeMode: ReframeMode
+  framing: FramingMode
   /** Horizontal focus for cropping, 0 = far left, 0.5 = centre, 1 = far right. */
   focusX: number
   captionsEnabled: boolean
@@ -60,6 +71,8 @@ export interface Clip {
   viralityReason: string
   hashtags: string[]
   thumbnailPath: string | null
+  /** AI face track for auto reframing; null when no usable faces were found. */
+  focusTrack: FocusKeyframe[] | null
   edit: ClipEditState
 }
 
@@ -92,6 +105,7 @@ export type PipelineStage =
   | 'audio'
   | 'transcribe'
   | 'analyze'
+  | 'reframe'
   | 'thumbnails'
   | 'done'
 
@@ -144,4 +158,10 @@ export interface SettingsUpdate {
 export interface PipelineError {
   message: string
   stage: PipelineStage
+}
+
+export interface ImportProgress {
+  /** 0..1, or -1 when indeterminate. */
+  progress: number
+  message: string
 }

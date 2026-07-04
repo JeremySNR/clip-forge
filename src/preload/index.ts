@@ -6,6 +6,7 @@ import type {
   ExportOptions,
   ExportProgress,
   ExportResult,
+  ImportProgress,
   PipelineProgress,
   Project,
   ProjectSummary,
@@ -17,6 +18,8 @@ const api = {
   selectDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectDirectory'),
 
   createProject: (videoPath: string): Promise<Project> => ipcRenderer.invoke('project:create', videoPath),
+  createProjectFromUrl: (url: string): Promise<Project> =>
+    ipcRenderer.invoke('project:createFromUrl', url),
   analyzeProject: (projectId: string, options: AnalyzeOptions): Promise<Project> =>
     ipcRenderer.invoke('project:analyze', projectId, options),
   listProjects: (): Promise<ProjectSummary[]> => ipcRenderer.invoke('project:list'),
@@ -43,6 +46,11 @@ const api = {
     const listener = (_e: Electron.IpcRendererEvent, p: ExportProgress): void => cb(p)
     ipcRenderer.on('export:progress', listener)
     return () => ipcRenderer.removeListener('export:progress', listener)
+  },
+  onImportProgress: (cb: (p: ImportProgress) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: ImportProgress): void => cb(p)
+    ipcRenderer.on('import:progress', listener)
+    return () => ipcRenderer.removeListener('import:progress', listener)
   },
 
   /** Build a media:// URL the renderer can use in <video>/<img> tags. */

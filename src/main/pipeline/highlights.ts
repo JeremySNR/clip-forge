@@ -193,9 +193,11 @@ export async function detectHighlights(
       viralityReason: raw.virality_reason,
       hashtags: (raw.hashtags ?? []).map((h) => h.replace(/^#/, '').toLowerCase()),
       thumbnailPath: null,
+      focusTrack: null,
       edit: {
         aspect: '9:16',
         reframeMode: 'crop',
+        framing: 'manual',
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,
