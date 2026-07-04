@@ -11,7 +11,8 @@ import type {
   PipelineProgress,
   Project,
   ProjectSummary,
-  SettingsUpdate
+  SettingsUpdate,
+  TimelineData
 } from '@shared/types'
 
 const api = {
@@ -44,6 +45,9 @@ const api = {
   exportClip: (projectId: string, opts: ExportOptions): Promise<ExportResult> =>
     ipcRenderer.invoke('clip:export', projectId, opts),
   cancelExport: (clipId: string): Promise<void> => ipcRenderer.invoke('clip:cancelExport', clipId),
+
+  getTimeline: (videoPath: string, startSec: number, endSec: number): Promise<TimelineData> =>
+    ipcRenderer.invoke('video:timeline', videoPath, startSec, endSec),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (update: SettingsUpdate): Promise<AppSettings> => ipcRenderer.invoke('settings:update', update),

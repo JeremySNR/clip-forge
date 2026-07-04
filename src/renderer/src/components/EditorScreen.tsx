@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   Captions,
   CaseUpper,
@@ -9,6 +10,7 @@ import {
   Scissors,
   Trash2
 } from 'lucide-react'
+import type { TimelineData } from '@shared/types'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
@@ -37,6 +39,35 @@ export default function EditorScreen(): React.JSX.Element {
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
+  const videoPath = project?.video.path
+  const sourceMissing = project?.sourceMissing ?? false
+  const windowStart = clip ? Math.max(0, clip.suggestedStart - 15) : 0
+  const windowEnd =
+    project && clip
+      ? Math.min(project.video.durationSec, clip.suggestedEnd + 15)
+      : 0
+
+  // Filmstrip + waveform for the trim window (cached in the main process).
+  // Keyed so a stale window's data never renders for the current clip.
+  const timelineKey = `${videoPath}|${windowStart.toFixed(2)}|${windowEnd.toFixed(2)}`
+  const [loadedTimeline, setLoadedTimeline] = useState<{ key: string; data: TimelineData } | null>(
+    null
+  )
+  useEffect(() => {
+    if (!videoPath || sourceMissing) return
+    let alive = true
+    window.clipforge
+      .getTimeline(videoPath, windowStart, windowEnd)
+      .then((data) => {
+        if (alive) setLoadedTimeline({ key: timelineKey, data })
+      })
+      .catch(() => undefined) // timeline is progressive enhancement
+    return () => {
+      alive = false
+    }
+  }, [videoPath, sourceMissing, windowStart, windowEnd, timelineKey])
+  const timeline = loadedTimeline?.key === timelineKey ? loadedTimeline.data : null
+
   if (!project || !clip) return <div />
 
   const set = (edit: Partial<Clip['edit']>): void => {
@@ -56,8 +87,6 @@ export default function EditorScreen(): React.JSX.Element {
   }
 
   const entry = exports[clip.id]
-  const windowStart = Math.max(0, clip.suggestedStart - 15)
-  const windowEnd = Math.min(project.video.durationSec, clip.suggestedEnd + 15)
   const cropDisabled = clip.edit.aspect === 'original'
 
   return (
@@ -98,6 +127,7 @@ export default function EditorScreen(): React.JSX.Element {
             windowEnd={windowEnd}
             start={clip.edit.start}
             end={clip.edit.end}
+            timeline={timeline}
             onChange={(start, end) => setLocal({ start, end })}
             onCommit={() => void updateClip(clip)}
           />
@@ -351,6 +381,16 @@ export default function EditorScreen(): React.JSX.Element {
               transcript={project.transcript}
               clipStart={clip.edit.start}
               clipEnd={clip.edit.end}
+              onTrim={(start, end) => {
+                void updateClip({
+                  ...clip,
+                  edit: {
+                    ...clip.edit,
+                    start: Math.max(windowStart, start),
+                    end: Math.min(windowEnd, end)
+                  }
+                })
+              }}
             />
           ) : (
             <p className="text-xs leading-relaxed text-zinc-500">No transcript available.</p>

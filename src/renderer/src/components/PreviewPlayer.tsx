@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Play, Pause, RotateCcw } from 'lucide-react'
 import type { Clip, Project } from '@shared/types'
 import { getCaptionStyle } from '@shared/captionStyles'
@@ -6,6 +6,7 @@ import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
 import { focusAt } from '@shared/focusTrack'
 import { formatTimecode } from '../lib/format'
+import { usePreviewBus } from '../lib/previewBus'
 
 /**
  * Live preview that mimics the exported result: bounded playback of the clip
@@ -22,7 +23,17 @@ export default function PreviewPlayer({
   const videoRef = useRef<HTMLVideoElement>(null)
   const rafRef = useRef<number>(0)
   const [playing, setPlaying] = useState(false)
-  const [time, setTime] = useState(clip.edit.start)
+  const [time, setTimeState] = useState(clip.edit.start)
+  const setBusTime = usePreviewBus((s) => s.setTime)
+  const setSeekHandler = usePreviewBus((s) => s.setSeekHandler)
+
+  const setTime = useCallback(
+    (t: number): void => {
+      setTimeState(t)
+      setBusTime(t)
+    },
+    [setBusTime]
+  )
 
   const { start, end } = clip.edit
   const duration = Math.max(0.1, end - start)
@@ -52,7 +63,19 @@ export default function PreviewPlayer({
       video.currentTime = start
       setTime(start)
     }
-  }, [start, end])
+  }, [start, end, setTime])
+
+  // Let the sidebar (timeline, transcript) seek the preview.
+  useEffect(() => {
+    setSeekHandler((t: number) => {
+      const video = videoRef.current
+      if (!video) return
+      const clamped = Math.max(start, Math.min(end, t))
+      video.currentTime = clamped
+      setTime(clamped)
+    })
+    return () => setSeekHandler(null)
+  }, [start, end, setSeekHandler, setTime])
 
   // Mirrors the export's tighten-cuts behaviour by skipping removed spans.
   const timeMap = useMemo(() => {
@@ -77,7 +100,7 @@ export default function PreviewPlayer({
     }
     if (playing) rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [playing, start, end, timeMap])
+  }, [playing, start, end, timeMap, setTime])
 
   const togglePlay = (): void => {
     const video = videoRef.current

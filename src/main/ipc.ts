@@ -10,7 +10,9 @@ import type {
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
 import { downloadGpuFfmpeg } from './pipeline/encoders'
 import { probeVideo } from './pipeline/ffmpeg'
+import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
+import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
 import { getExportPreferences, getSettings, updateSettings } from './settings'
@@ -198,6 +200,12 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('clip:cancelExport', async (_e, clipId: string) => {
     runningExports.get(clipId)?.abort()
+  })
+
+  ipcMain.handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {
+    // Same trust boundary as media://: only registered project media.
+    if (!isMediaPathAllowed(videoPath)) throw new Error('Not a project video')
+    return getTimeline(videoPath, startSec, endSec)
   })
 
   ipcMain.handle('settings:downloadGpuFfmpeg', async (event) => {

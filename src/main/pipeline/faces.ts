@@ -7,12 +7,14 @@ import * as ort from 'onnxruntime-node'
 import type { FocusKeyframe } from '@shared/types'
 import { mapLimit } from './concurrency'
 import { runFfmpeg } from './ffmpeg'
+import { chooseFocusCentres, iou, mouthActivity, type FaceBox } from './speaker'
 
 /**
  * Face-based auto reframing. Samples clip frames with ffmpeg, detects faces
- * with UltraFace RFB-320 (ONNX, CPU) and builds a piecewise-constant focus
- * track: stable segments with hard cuts between speaker positions, the way
- * social clipping tools reframe multi-speaker footage.
+ * with UltraFace RFB-320 (ONNX, CPU), infers the active speaker from mouth
+ * movement (see speaker.ts) and builds a piecewise-constant focus track:
+ * stable segments with hard cuts between speaker positions, the way social
+ * clipping tools reframe multi-speaker footage.
  */
 
 const MODEL_W = 320
@@ -26,14 +28,6 @@ const SEGMENT_SHIFT_THRESHOLD = 0.1
 const SEGMENT_MIN_FRAMES = 3
 /** Concurrent UltraFace inferences per clip (each is small; 4 keeps CPU busy). */
 const FACE_INFERENCE_CONCURRENCY = 4
-
-interface FaceBox {
-  x1: number
-  y1: number
-  x2: number
-  y2: number
-  score: number
-}
 
 let sessionPromise: Promise<ort.InferenceSession> | null = null
 
@@ -49,15 +43,6 @@ function modelPath(): string {
 function getSession(): Promise<ort.InferenceSession> {
   sessionPromise ??= ort.InferenceSession.create(modelPath(), { logSeverityLevel: 3 })
   return sessionPromise
-}
-
-function iou(a: FaceBox, b: FaceBox): number {
-  const ix = Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1))
-  const iy = Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1))
-  const inter = ix * iy
-  const areaA = (a.x2 - a.x1) * (a.y2 - a.y1)
-  const areaB = (b.x2 - b.x1) * (b.y2 - b.y1)
-  return inter / Math.max(1e-9, areaA + areaB - inter)
 }
 
 function nms(boxes: FaceBox[]): FaceBox[] {
@@ -152,25 +137,29 @@ async function sampleFaceCentres(
     )
 
     // Scene cuts need consecutive frame pairs; this pass is cheap.
-    const cuts: number[] = []
+    const sceneCuts: number[] = []
     for (let f = 1; f < frameCount; f++) {
-      if (frameDifference(frames[f - 1], frames[f]) > SCENE_CUT_THRESHOLD) cuts.push(f)
+      if (frameDifference(frames[f - 1], frames[f]) > SCENE_CUT_THRESHOLD) sceneCuts.push(f)
     }
 
     // Face detection per frame is independent — run inferences concurrently
     // (ONNX Runtime queues session.run calls safely across its thread pool).
-    const centres: Array<number | null> = new Array(frameCount).fill(null)
+    const facesPerFrame: FaceBox[][] = new Array(frameCount).fill(null).map(() => [])
     await mapLimit(frames, FACE_INFERENCE_CONCURRENCY, async (frame, f) => {
       signal?.throwIfAborted()
-      const faces = await detectFaces(frame)
-      if (faces.length === 0) return
-      // Primary face: biggest weighted by confidence (the speaker on screen).
-      const primary = faces.reduce((best, cur) => {
-        const area = (b: FaceBox): number => (b.x2 - b.x1) * (b.y2 - b.y1)
-        return area(cur) * cur.score > area(best) * best.score ? cur : best
-      })
-      centres[f] = (primary.x1 + primary.x2) / 2
+      facesPerFrame[f] = await detectFaces(frame)
     })
+
+    // Mouth-movement activity per face — the visual speech signal that lets
+    // the focus follow whoever is talking rather than whoever is biggest.
+    const activityPerFrame: number[][] = facesPerFrame.map((faces, f) =>
+      f === 0 || sceneCuts.includes(f)
+        ? faces.map(() => 0)
+        : faces.map((box) => mouthActivity(frames[f - 1], frames[f], box, MODEL_W, MODEL_H))
+    )
+
+    const { centres, switchCuts } = chooseFocusCentres(facesPerFrame, activityPerFrame, sceneCuts)
+    const cuts = [...new Set([...sceneCuts, ...switchCuts])].sort((a, b) => a - b)
     return { centres, cuts }
   } finally {
     await rm(rawPath, { force: true }).catch(() => undefined)

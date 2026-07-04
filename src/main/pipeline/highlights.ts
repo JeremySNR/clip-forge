@@ -272,13 +272,12 @@ async function requestHighlights(
     start = Math.max(0, snap(start, wordStarts, 1.5) - 0.25)
     end = Math.min(videoDurationSec, snap(end, wordEnds, 1.5) + 0.45)
     // Models often under-shoot durations: extend short clips to the next
-    // sentence boundary until they satisfy the length preference.
+    // sentence boundary that satisfies the length preference — or to the end
+    // of the video when no sentence boundary is late enough.
     if (end - start < minDur) {
       const targetEnd = start + minDur
       const nextSentenceEnd = segmentEnds.find((e) => e >= targetEnd)
-      if (nextSentenceEnd !== undefined) {
-        end = Math.min(videoDurationSec, nextSentenceEnd + 0.45)
-      }
+      end = Math.min(videoDurationSec, (nextSentenceEnd ?? targetEnd) + 0.45)
     }
     if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
       if (process.env.CLIPFORGE_DEBUG) {

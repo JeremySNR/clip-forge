@@ -224,3 +224,11 @@ export interface ImportProgress {
   progress: number
   message: string
 }
+
+/** Editor timeline data for a window of the source video. */
+export interface TimelineData {
+  /** Absolute paths of filmstrip frames, in time order. */
+  frames: string[]
+  /** Normalised 0..1 RMS per bucket across the window (empty when no audio). */
+  waveform: number[]
+}
