@@ -1,8 +1,9 @@
-import { app, BrowserWindow, protocol, shell } from 'electron'
+import { app, BrowserWindow, protocol, screen, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { registerIpcHandlers } from './ipc'
 import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
+import { initialWindowSize, MIN_WINDOW } from './windowSize'
 
 async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
@@ -40,11 +41,15 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 function createWindow(): void {
+  // A floating window with margin around it, never edge-to-edge (and never
+  // larger than the work area on small laptop displays).
+  const { width, height } = initialWindowSize(screen.getPrimaryDisplay().workAreaSize)
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1080,
-    minHeight: 700,
+    width,
+    height,
+    minWidth: MIN_WINDOW.width,
+    minHeight: MIN_WINDOW.height,
+    center: true,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: '#09090b',
