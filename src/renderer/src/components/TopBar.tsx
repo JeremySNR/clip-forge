@@ -13,7 +13,7 @@ export default function TopBar(): React.JSX.Element {
   const showBack = screen === 'clips' || screen === 'editor'
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-surface-950/70 px-4 backdrop-blur-xl">
+    <header className="app-topbar flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-surface-950/70 px-4 backdrop-blur-xl">
       {showBack ? (
         <button
           onClick={() => (screen === 'editor' ? closeEditor() : goHome())}

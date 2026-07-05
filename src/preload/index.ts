@@ -94,7 +94,10 @@ const api = {
   },
 
   /** Build a media:// URL the renderer can use in <video>/<img> tags. */
-  mediaUrl: (absolutePath: string): string => `media://file/${encodeURIComponent(absolutePath)}`
+  mediaUrl: (absolutePath: string): string => `media://file/${encodeURIComponent(absolutePath)}`,
+
+  /** OS platform, for platform-specific chrome (mac vibrancy, drag regions). */
+  platform: process.env.CLIPFORGE_FORCE_GLASS ? 'darwin' : process.platform
 }
 
 export type ClipForgeApi = typeof api

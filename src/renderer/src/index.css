@@ -48,6 +48,33 @@ body {
   overflow: hidden;
 }
 
+/*
+ * macOS glass: the window is created with native vibrancy and a transparent
+ * background, so the surface palette switches to translucent variants that
+ * let the system blur show through while keeping the same hierarchy. Video
+ * areas stay opaque black (bg-black) for accurate playback contrast.
+ */
+body.mac-glass {
+  --color-surface-950: rgba(9, 9, 11, 0.55);
+  --color-surface-900: rgba(17, 17, 18, 0.68);
+  --color-surface-850: rgba(22, 22, 23, 0.7);
+  --color-surface-800: rgba(28, 28, 30, 0.72);
+  --color-surface-700: rgba(58, 58, 64, 0.65);
+  --color-surface-600: rgba(82, 82, 90, 0.65);
+}
+
+/* The top bar doubles as the title bar under titleBarStyle: hiddenInset —
+   draggable, with room for the traffic lights on the left. */
+body.mac-glass .app-topbar {
+  -webkit-app-region: drag;
+  padding-left: 84px;
+}
+body.mac-glass .app-topbar button,
+body.mac-glass .app-topbar a,
+body.mac-glass .app-topbar input {
+  -webkit-app-region: no-drag;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
