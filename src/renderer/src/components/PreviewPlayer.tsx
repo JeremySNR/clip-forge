@@ -4,7 +4,7 @@ import type { Clip, Project, WatermarkPosition } from '@shared/types'
 import { getCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
-import { computeZoomEvents, zoomAt } from '@shared/zoom'
+import { computeZoomEvents, remapZoomEvents, zoomAt } from '@shared/zoom'
 import { focusAt } from '@shared/focusTrack'
 import { formatTimecode } from '../lib/format'
 import { usePreviewBus } from '../lib/previewBus'
@@ -113,13 +113,15 @@ export default function PreviewPlayer({
   }, [clip.edit.tightenCuts, project.transcript, start, end])
   const timeMap = useMemo(() => (keptSegments ? new TimeMap(keptSegments) : null), [keptSegments])
 
-  // Mirrors the export's auto-zoom plan (same shared generator).
+  // Mirrors the export's auto-zoom plan (same shared generator and timeline).
   const zoomEvents = useMemo(() => {
     if (!clip.edit.autoZoom) return null
-    const events = computeZoomEvents(project.transcript, start, end, keptSegments)
+    const planned = computeZoomEvents(project.transcript, start, end, keptSegments)
+    const events = remapZoomEvents(planned, (t) => (timeMap ? timeMap.toOutput(t) : t - start))
     return events.length > 0 ? events : null
-  }, [clip.edit.autoZoom, project.transcript, start, end, keptSegments])
-  const zoom = zoomEvents ? zoomAt(zoomEvents, time) : 1
+  }, [clip.edit.autoZoom, project.transcript, start, end, keptSegments, timeMap])
+  const zoomTime = timeMap ? timeMap.toOutput(time) : time - start
+  const zoom = zoomEvents ? zoomAt(zoomEvents, zoomTime) : 1
 
   useEffect(() => {
     const tick = (): void => {

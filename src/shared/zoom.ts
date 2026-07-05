@@ -161,6 +161,9 @@ export function computeZoomEvents(
     }
   }
 
+  // Keep events time-ordered before zoomAt checks stretches for existing zoom.
+  events.sort((a, b) => a.start - b.start || a.end - b.end)
+
   // 4. Slow creep across long still stretches (no event within them), in
   // cycles: ramp in over ~8s, snap back to wide, ramp again. The final cycle
   // releases INTO the next zoom event when one follows — that step itself
