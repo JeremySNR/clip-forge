@@ -45,6 +45,14 @@ describe('evaluateUpdate', () => {
     expect(res.releaseUrl).toBeNull()
   })
 
+  it('carries the auto-update capability flag through', () => {
+    const release = { tag_name: 'v0.2.0' }
+    expect(evaluateUpdate('0.1.0', release, true).autoUpdateSupported).toBe(true)
+    expect(evaluateUpdate('0.1.0', release, false).autoUpdateSupported).toBe(false)
+    // Source checkouts default to no self-update.
+    expect(evaluateUpdate('0.1.0', release).autoUpdateSupported).toBe(false)
+  })
+
   it('ignores drafts and pre-releases', () => {
     expect(
       evaluateUpdate('0.1.0', { tag_name: 'v9.9.9', draft: true }).updateAvailable

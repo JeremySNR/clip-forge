@@ -43,16 +43,14 @@ export default function TopBar(): React.JSX.Element {
 
       <div className="flex items-center gap-2">
         {updateCheck?.updateAvailable && updateCheck.releaseUrl && (
-          <a
-            href={updateCheck.releaseUrl}
-            target="_blank"
-            rel="noreferrer"
-            title={`ClipForge v${updateCheck.latestVersion} is available — open the release page`}
+          <button
+            onClick={() => setSettingsOpen(true)}
+            title={`ClipForge v${updateCheck.latestVersion} is available — update from Settings`}
             className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
           >
             <ArrowUpCircle size={14} />
             Update available
-          </a>
+          </button>
         )}
         {settings && !settings.hasApiKey && (
           <button
