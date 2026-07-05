@@ -94,6 +94,8 @@ export interface Clip {
   title: string
   hook: string
   summary: string
+  /** AI-generated social post caption (TikTok-style); null until generated. */
+  caption?: string | null
   viralityScore: number
   viralityReason: string
   /** One-line LLM assessment of what the visuals add/cost; null until scored. */
@@ -198,6 +200,21 @@ export interface BrandingSettings {
   scale: number
 }
 
+/**
+ * Browser whose cookie store yt-dlp borrows for URL imports that need a
+ * login (private/unlisted videos, enterprise Vimeo behind SSO). Empty string
+ * = no login. Values map 1:1 to yt-dlp's --cookies-from-browser.
+ */
+export type BrowserCookieSource =
+  | ''
+  | 'chrome'
+  | 'edge'
+  | 'firefox'
+  | 'brave'
+  | 'opera'
+  | 'vivaldi'
+  | 'safari'
+
 /** Result of comparing the running app against the latest GitHub release. */
 export interface UpdateCheckResult {
   currentVersion: string
@@ -245,6 +262,8 @@ export interface AppSettings {
   gpu: GpuEncoderStatus
   branding: BrandingSettings
   appVersion: string
+  /** Browser to borrow login cookies from for URL imports ('' = none). */
+  importCookiesBrowser: BrowserCookieSource
 }
 
 export interface SettingsUpdate {
@@ -254,6 +273,7 @@ export interface SettingsUpdate {
   encoder?: EncoderPreference
   quality?: QualityPreference
   branding?: Partial<BrandingSettings>
+  importCookiesBrowser?: BrowserCookieSource
 }
 
 export interface PipelineError {
