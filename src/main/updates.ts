@@ -71,12 +71,18 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
 
   const version = currentVersion()
   try {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      // GitHub's API rejects requests without a User-Agent.
+      'User-Agent': `ClipForge/${version}`
+    }
+    // While the repository is private, unauthenticated requests 404; a token
+    // from the environment lets those installs see releases too.
+    const token = process.env.CLIPFORGE_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN
+    if (token) headers.Authorization = `Bearer ${token}`
+
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        // GitHub's API rejects requests without a User-Agent.
-        'User-Agent': `ClipForge/${version}`
-      },
+      headers,
       signal: AbortSignal.timeout(CHECK_TIMEOUT_MS)
     })
     if (res.status === 404) {
