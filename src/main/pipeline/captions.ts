@@ -86,10 +86,13 @@ export interface CaptionOptions {
   clipEnd: number
   /** Optional title overlaid near the top for the first seconds of the clip. */
   title?: string
+  /** Custom font family overriding the style's font (must exist in fontsdir). */
+  fontFamily?: string
 }
 
 export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
-  const style = getCaptionStyle(opts.styleId)
+  const preset = getCaptionStyle(opts.styleId)
+  const style = opts.fontFamily ? { ...preset, fontFamily: opts.fontFamily } : preset
   const fontSize = Math.round(style.fontScale * opts.height)
   const marginV = Math.round((1 - style.positionY) * opts.height)
   const primary = assStyleColor(style.textColor)

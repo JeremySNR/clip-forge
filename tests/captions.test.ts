@@ -52,4 +52,11 @@ describe('buildAss', () => {
     const ass = buildAss(transcript, base)
     expect(ass).toContain('HELLO')
   })
+
+  it('uses the style font by default and honours a custom font override', () => {
+    expect(buildAss(transcript, base)).toContain('Style: Caption,Anton,')
+    const ass = buildAss(transcript, { ...base, fontFamily: 'My Brand Font' })
+    expect(ass).toContain('Style: Caption,My Brand Font,')
+    expect(ass).toContain('Style: Title,My Brand Font,')
+  })
 })

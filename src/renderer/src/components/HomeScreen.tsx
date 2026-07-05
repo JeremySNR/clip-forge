@@ -147,7 +147,8 @@ function SetupPanel(): React.JSX.Element {
   const pipelineError = useStore((s) => s.pipelineError)
   const [prompt, setPrompt] = useState(project.prompt)
   const [clipLength, setClipLength] = useState<ClipLengthPreference>('auto')
-  const [broll, setBroll] = useState(true)
+  // Off by default: B-roll costs extra LLM/image calls and splits opinion.
+  const [broll, setBroll] = useState(false)
 
   const needsKey = settings !== null && !settings.hasApiKey
 

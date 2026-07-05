@@ -101,6 +101,16 @@ function formatTimestamp(sec: number): string {
 
 const MIN_CLIP_SEC = 8
 
+/** Breathing room added before the first word of a clip. */
+const START_PRE_ROLL_SEC = 0.25
+/**
+ * Tail padding after the last word so endings land softly instead of cutting
+ * the instant the word finishes (the export adds an audio fade inside it).
+ */
+const END_POST_ROLL_SEC = 0.6
+/** How far the clip end may move to land on a sentence boundary. */
+const SENTENCE_SNAP_SEC = 2.5
+
 /** Hard floor per length preference, enforced after the LLM responds. */
 function minDurationFor(pref: ClipLengthPreference): number {
   switch (pref) {
@@ -146,6 +156,14 @@ Virality scoring rubric (0-99), grounded in sharing research (Berger & Milkman 2
 - Completeness as a standalone story (0-15)
 - Shareability — would someone tag a friend, argue in the comments, or repost to signal identity? (0-9)
 Sum the parts for the final score. Be honest and discriminating: most clips score 40-75, reserve 85+ for exceptional moments.`
+
+/**
+ * How many clips to ask the LLM for: roughly one per minute of source video.
+ * Exported for tests.
+ */
+export function targetClipCount(videoDurationSec: number): number {
+  return Math.max(4, Math.min(40, Math.round(videoDurationSec / 60)))
+}
 
 /** Snap a time to the nearest transcript word boundary within a tolerance. */
 function snap(time: number, boundaries: number[], toleranceSec: number): number {
@@ -220,14 +238,14 @@ async function requestHighlights(
     })
     .join('\n')
 
-  const targetCount = Math.max(3, Math.min(12, Math.round(videoDurationSec / 240)))
+  const targetCount = targetClipCount(videoDurationSec)
 
   const userPrompt = [
     `Video duration: ${videoDurationSec.toFixed(1)} seconds.`,
     lengthGuidance(options.clipLength),
     insist
       ? 'You MUST return at least 3 clips. Even if no moment feels exceptional, select the 3 strongest available moments and score them honestly (low scores are fine). All timestamps are in seconds from the start of the video. Express "start" and "end" as plain seconds (e.g. 132.4).'
-      : `Aim for ${Math.max(targetCount, 4)} clips spread across the whole video (at least 3; fewer only if the material genuinely cannot support more). All timestamps are in seconds from the start of the video. Express "start" and "end" as plain seconds (e.g. 132.4).`,
+      : `Aim for about ${targetCount} clips spread across the whole video. Be generous: return every distinct moment strong enough to stand alone as a clip and let honest scores rank them — err on the side of more clips rather than fewer (at least ${Math.min(4, targetCount)}; fewer only if the material genuinely cannot support more). All timestamps are in seconds from the start of the video. Express "start" and "end" as plain seconds (e.g. 132.4).`,
     options.prompt.trim()
       ? `The creator gave these special instructions, which take priority when choosing moments: "${options.prompt.trim()}"`
       : '',
@@ -268,16 +286,22 @@ async function requestHighlights(
   for (const raw of res.clips ?? []) {
     let start = Math.max(0, Math.min(raw.start, videoDurationSec - 1))
     let end = Math.max(start + 1, Math.min(raw.end, videoDurationSec))
-    // Snap to word boundaries for clean cuts, with a little pre/post roll.
-    start = Math.max(0, snap(start, wordStarts, 1.5) - 0.25)
-    end = Math.min(videoDurationSec, snap(end, wordEnds, 1.5) + 0.45)
+    // Snap the start to a word boundary for a clean cut, with a little pre-roll.
+    start = Math.max(0, snap(start, wordStarts, 1.5) - START_PRE_ROLL_SEC)
+    // Ends feel natural when they land on a sentence boundary; only fall back
+    // to the nearest word end when no sentence finishes nearby.
+    const sentenceEnd = snap(end, segmentEnds, SENTENCE_SNAP_SEC)
+    end = Math.min(
+      videoDurationSec,
+      (sentenceEnd !== end ? sentenceEnd : snap(end, wordEnds, 1.5)) + END_POST_ROLL_SEC
+    )
     // Models often under-shoot durations: extend short clips to the next
     // sentence boundary that satisfies the length preference — or to the end
     // of the video when no sentence boundary is late enough.
     if (end - start < minDur) {
       const targetEnd = start + minDur
       const nextSentenceEnd = segmentEnds.find((e) => e >= targetEnd)
-      end = Math.min(videoDurationSec, (nextSentenceEnd ?? targetEnd) + 0.45)
+      end = Math.min(videoDurationSec, (nextSentenceEnd ?? targetEnd) + END_POST_ROLL_SEC)
     }
     if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
       if (process.env.CLIPFORGE_DEBUG) {

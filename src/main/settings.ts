@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type {
   AppSettings,
+  BrandingSettings,
   EncoderPreference,
   QualityPreference,
   SettingsUpdate
@@ -16,6 +17,15 @@ interface StoredSettings {
   analysisModel: string
   encoder: EncoderPreference
   quality: QualityPreference
+  branding: BrandingSettings
+}
+
+const DEFAULT_BRANDING: BrandingSettings = {
+  enabled: false,
+  imagePath: null,
+  position: 'bottom-right',
+  opacity: 0.8,
+  scale: 0.16
 }
 
 const DEFAULTS: StoredSettings = {
@@ -23,7 +33,8 @@ const DEFAULTS: StoredSettings = {
   transcriptionModel: 'whisper-1',
   analysisModel: 'gpt-4o-mini',
   encoder: 'auto',
-  quality: 'standard'
+  quality: 'standard',
+  branding: DEFAULT_BRANDING
 }
 
 function settingsPath(): string {
@@ -36,7 +47,13 @@ function load(): StoredSettings {
   if (cache) return cache
   try {
     if (existsSync(settingsPath())) {
-      cache = { ...DEFAULTS, ...(JSON.parse(readFileSync(settingsPath(), 'utf8')) as Partial<StoredSettings>) }
+      const parsed = JSON.parse(readFileSync(settingsPath(), 'utf8')) as Partial<StoredSettings>
+      cache = {
+        ...DEFAULTS,
+        ...parsed,
+        // Nested object: merge so settings saved before new fields stay valid.
+        branding: { ...DEFAULT_BRANDING, ...(parsed.branding ?? {}) }
+      }
       return cache
     }
   } catch {
@@ -90,8 +107,14 @@ export async function getSettings(): Promise<AppSettings> {
     analysisModel: s.analysisModel,
     encoder: s.encoder,
     quality: s.quality,
-    gpu: await getGpuStatus()
+    gpu: await getGpuStatus(),
+    branding: s.branding
   }
+}
+
+/** Synchronous access to the stored branding preferences. */
+export function getBrandingSettings(): BrandingSettings {
+  return load().branding
 }
 
 /** Synchronous access to the stored encoder/quality preferences. */
@@ -117,6 +140,7 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   }
   if (update.encoder !== undefined) s.encoder = update.encoder
   if (update.quality !== undefined) s.quality = update.quality
+  if (update.branding !== undefined) s.branding = { ...s.branding, ...update.branding }
   persist(s)
   return getSettings()
 }
