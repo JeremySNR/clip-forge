@@ -54,6 +54,11 @@ export interface ClipEditState {
   framing: FramingMode
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
   tightenCuts: boolean
+  /**
+   * Scene-aware auto zoom: jump zooms covering tighten-cut joins, fast
+   * punch-ins on energetic lines, slow creep on long static stretches.
+   */
+  autoZoom?: boolean
   /** Horizontal focus for cropping, 0 = far left, 0.5 = centre, 1 = far right. */
   focusX: number
   captionsEnabled: boolean

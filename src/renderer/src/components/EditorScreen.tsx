@@ -153,6 +153,13 @@ export default function EditorScreen(): React.JSX.Element {
               onChange={(v) => set({ tightenCuts: v })}
             />
           </div>
+          <div className="mt-2">
+            <Toggle
+              label="Auto zoom — punch-ins on emphasis, jump zooms covering cuts"
+              checked={clip.edit.autoZoom ?? false}
+              onChange={(v) => set({ autoZoom: v })}
+            />
+          </div>
         </Section>
 
         <Section icon={Crop} title="Layout">
