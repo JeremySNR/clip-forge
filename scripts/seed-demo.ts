@@ -34,7 +34,9 @@ function makeTranscript(durationSec: number): Transcript {
       text: slice.map((w) => w.text).join(' '),
       start: slice[0].start,
       end: slice[slice.length - 1].end,
-      words: slice
+      words: slice,
+      // Alternate delivery energy so auto-zoom punch-ins have targets.
+      energy: segments.length % 2 === 1 ? 0.9 : 0.4
     })
   }
   return { language: 'english', durationSec, segments }
@@ -147,6 +149,7 @@ async function main(): Promise<void> {
         reframeMode: 'crop',
         framing: i === 0 ? 'auto' : 'manual',
         tightenCuts: false,
+        autoZoom: true,
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,

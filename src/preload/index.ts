@@ -14,7 +14,8 @@ import type {
   ProjectSummary,
   SettingsUpdate,
   TimelineData,
-  UpdateCheckResult
+  UpdateCheckResult,
+  UpdateDownloadProgress
 } from '@shared/types'
 
 const api = {
@@ -60,6 +61,13 @@ const api = {
   removeFont: (fileName: string): Promise<CustomFont[]> => ipcRenderer.invoke('fonts:remove', fileName),
   selectBrandingLogo: (): Promise<AppSettings> => ipcRenderer.invoke('branding:selectLogo'),
   checkForUpdates: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updates:check'),
+  downloadUpdate: (): Promise<string> => ipcRenderer.invoke('updates:download'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('updates:install'),
+  onUpdateDownloadProgress: (cb: (p: UpdateDownloadProgress) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: UpdateDownloadProgress): void => cb(p)
+    ipcRenderer.on('update:downloadProgress', listener)
+    return () => ipcRenderer.removeListener('update:downloadProgress', listener)
+  },
   downloadGpuFfmpeg: (): Promise<GpuEncoderStatus> => ipcRenderer.invoke('settings:downloadGpuFfmpeg'),
   onGpuProgress: (cb: (p: ImportProgress) => void): (() => void) => {
     const listener = (_e: Electron.IpcRendererEvent, p: ImportProgress): void => cb(p)

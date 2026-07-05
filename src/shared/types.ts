@@ -54,6 +54,11 @@ export interface ClipEditState {
   framing: FramingMode
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
   tightenCuts: boolean
+  /**
+   * Scene-aware auto zoom: jump zooms covering tighten-cut joins, fast
+   * punch-ins on energetic lines, slow creep on long static stretches.
+   */
+  autoZoom?: boolean
   /** Horizontal focus for cropping, 0 = far left, 0.5 = centre, 1 = far right. */
   focusX: number
   captionsEnabled: boolean
@@ -223,9 +228,21 @@ export interface UpdateCheckResult {
   updateAvailable: boolean
   /** GitHub release page to download the update from. */
   releaseUrl: string | null
+  /**
+   * True when the app can download and install the update itself (packaged
+   * build). False when running from a source checkout, where updating means
+   * pulling and rebuilding.
+   */
+  autoUpdateSupported: boolean
   /** Human-readable failure (offline, rate limited); null on success. */
   error: string | null
   checkedAt: number
+}
+
+/** Renderer-facing state of an in-app update download. */
+export interface UpdateDownloadProgress {
+  /** 0..1 downloaded fraction. */
+  progress: number
 }
 
 /** A user-uploaded caption font stored in userData/fonts. */
