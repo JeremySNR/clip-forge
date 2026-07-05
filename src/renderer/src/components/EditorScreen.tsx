@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Captions,
   CaseUpper,
@@ -10,13 +10,14 @@ import {
   Scissors,
   Trash2
 } from 'lucide-react'
+import type { TimelineData } from '@shared/types'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
 import ScoreBadge from './ScoreBadge'
+import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
 import { CAPTION_STYLES } from '@shared/captionStyles'
-import { wordsInRange } from '@shared/captionLayout'
 import { formatTimecode } from '../lib/format'
 import type { AspectRatio, BrollItem, BrollMode, Clip, FramingMode, ReframeMode } from '@shared/types'
 
@@ -33,16 +34,39 @@ export default function EditorScreen(): React.JSX.Element {
   const updateClip = useStore((s) => s.updateClip)
   const updateClipLocal = useStore((s) => s.updateClipLocal)
   const exportClip = useStore((s) => s.exportClip)
+  const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
-  const clipText = useMemo(() => {
-    if (!project?.transcript || !clip) return ''
-    return wordsInRange(project.transcript, clip.edit.start, clip.edit.end)
-      .map((w) => w.text)
-      .join(' ')
-  }, [project?.transcript, clip])
+  const videoPath = project?.video.path
+  const sourceMissing = project?.sourceMissing ?? false
+  const windowStart = clip ? Math.max(0, clip.suggestedStart - 15) : 0
+  const windowEnd =
+    project && clip
+      ? Math.min(project.video.durationSec, clip.suggestedEnd + 15)
+      : 0
+
+  // Filmstrip + waveform for the trim window (cached in the main process).
+  // Keyed so a stale window's data never renders for the current clip.
+  const timelineKey = `${videoPath}|${windowStart.toFixed(2)}|${windowEnd.toFixed(2)}`
+  const [loadedTimeline, setLoadedTimeline] = useState<{ key: string; data: TimelineData } | null>(
+    null
+  )
+  useEffect(() => {
+    if (!videoPath || sourceMissing) return
+    let alive = true
+    window.clipforge
+      .getTimeline(videoPath, windowStart, windowEnd)
+      .then((data) => {
+        if (alive) setLoadedTimeline({ key: timelineKey, data })
+      })
+      .catch(() => undefined) // timeline is progressive enhancement
+    return () => {
+      alive = false
+    }
+  }, [videoPath, sourceMissing, windowStart, windowEnd, timelineKey])
+  const timeline = loadedTimeline?.key === timelineKey ? loadedTimeline.data : null
 
   if (!project || !clip) return <div />
 
@@ -63,8 +87,6 @@ export default function EditorScreen(): React.JSX.Element {
   }
 
   const entry = exports[clip.id]
-  const windowStart = Math.max(0, clip.suggestedStart - 15)
-  const windowEnd = Math.min(project.video.durationSec, clip.suggestedEnd + 15)
   const cropDisabled = clip.edit.aspect === 'original'
 
   return (
@@ -80,7 +102,7 @@ export default function EditorScreen(): React.JSX.Element {
               value={clip.title}
               onChange={(e) => updateClipLocal({ ...clip, title: e.target.value })}
               onBlur={() => void updateClip(clip)}
-              className="w-full rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[15px] font-semibold focus:border-surface-600 focus:bg-surface-850 focus:outline-none"
+              className="w-full text-ellipsis rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[15px] font-semibold focus:border-surface-600 focus:bg-surface-850 focus:outline-none"
             />
             <p className="mt-1 px-1 text-xs leading-relaxed text-zinc-500">{clip.summary}</p>
           </div>
@@ -105,8 +127,16 @@ export default function EditorScreen(): React.JSX.Element {
             windowEnd={windowEnd}
             start={clip.edit.start}
             end={clip.edit.end}
+            timeline={timeline}
             onChange={(start, end) => setLocal({ start, end })}
-            onCommit={() => void updateClip(clip)}
+            onCommit={() => {
+              // Read the live clip: the pointerup closure inside TrimBar was
+              // created at drag start, so `clip` here would be pre-drag.
+              const current = useStore
+                .getState()
+                .project?.clips.find((c) => c.id === clip.id)
+              if (current) void updateClip(current)
+            }}
           />
           <div className="mt-3">
             <Toggle
@@ -125,7 +155,7 @@ export default function EditorScreen(): React.JSX.Element {
                 onClick={() => set({ aspect: a.value })}
                 className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
                   clip.edit.aspect === a.value
-                    ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                    ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                     : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                 }`}
               >
@@ -147,7 +177,7 @@ export default function EditorScreen(): React.JSX.Element {
                     onClick={() => set({ reframeMode: m.value })}
                     className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
                       clip.edit.reframeMode === m.value
-                        ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                        ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                         : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                     }`}
                   >
@@ -170,7 +200,7 @@ export default function EditorScreen(): React.JSX.Element {
                           onClick={() => set({ framing: f.value })}
                           className={`flex items-center justify-center gap-1.5 rounded-lg border px-2 py-2 text-xs font-medium transition ${
                             clip.edit.framing === f.value
-                              ? 'border-accent-500 bg-accent-500/10 text-zinc-100'
+                              ? 'border-white/30 bg-white/[0.07] text-zinc-100'
                               : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
                           }`}
                         >
@@ -224,7 +254,7 @@ export default function EditorScreen(): React.JSX.Element {
                   onClick={() => set({ captionStyleId: style.id })}
                   className={`rounded-xl border px-3 py-2.5 text-left transition ${
                     clip.edit.captionStyleId === style.id
-                      ? 'border-accent-500 bg-accent-500/10'
+                      ? 'border-white/30 bg-white/[0.07]'
                       : 'border-surface-600 hover:bg-surface-800'
                   }`}
                 >
@@ -269,7 +299,7 @@ export default function EditorScreen(): React.JSX.Element {
                 value={clip.hook}
                 onChange={(e) => updateClipLocal({ ...clip, hook: e.target.value })}
                 onBlur={() => void updateClip(clip)}
-                className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-accent-500 focus:outline-none"
+                className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-white/25 focus:outline-none"
               />
             </div>
           )}
@@ -315,7 +345,7 @@ export default function EditorScreen(): React.JSX.Element {
                           onClick={() => updateBroll(item.id, { mode: m.value })}
                           className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
                             item.mode === m.value
-                              ? 'border-accent-500 bg-accent-500/10 text-zinc-200'
+                              ? 'border-white/30 bg-white/[0.07] text-zinc-200'
                               : 'border-surface-600 text-zinc-500 hover:bg-surface-800'
                           }`}
                         >
@@ -329,12 +359,12 @@ export default function EditorScreen(): React.JSX.Element {
                       onClick={() => updateBroll(item.id, { enabled: !item.enabled })}
                       title={item.enabled ? 'Disable this insert' : 'Enable this insert'}
                       className={`relative h-5 w-9 rounded-full transition ${
-                        item.enabled ? 'bg-accent-500' : 'bg-surface-600'
+                        item.enabled ? 'bg-zinc-100' : 'bg-surface-600'
                       }`}
                     >
                       <span
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
-                          item.enabled ? 'left-[18px]' : 'left-0.5'
+                        className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${
+                          item.enabled ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'
                         }`}
                       />
                     </button>
@@ -353,9 +383,25 @@ export default function EditorScreen(): React.JSX.Element {
         </Section>
 
         <Section icon={Quote} title="Transcript">
-          <p className="max-h-36 select-text overflow-y-auto text-xs leading-relaxed text-zinc-400">
-            {clipText || 'No speech in this range.'}
-          </p>
+          {project.transcript ? (
+            <TranscriptEditor
+              transcript={project.transcript}
+              clipStart={clip.edit.start}
+              clipEnd={clip.edit.end}
+              onTrim={(start, end) => {
+                void updateClip({
+                  ...clip,
+                  edit: {
+                    ...clip.edit,
+                    start: Math.max(windowStart, start),
+                    end: Math.min(windowEnd, end)
+                  }
+                })
+              }}
+            />
+          ) : (
+            <p className="text-xs leading-relaxed text-zinc-500">No transcript available.</p>
+          )}
         </Section>
 
         <Section icon={GalleryVerticalEnd} title="Hashtags">
@@ -363,7 +409,7 @@ export default function EditorScreen(): React.JSX.Element {
             {clip.hashtags.map((h) => (
               <span
                 key={h}
-                className="select-text rounded-full bg-surface-800 px-2.5 py-1 text-[11px] text-accent-400"
+                className="select-text rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-300"
               >
                 #{h}
               </span>
@@ -371,7 +417,7 @@ export default function EditorScreen(): React.JSX.Element {
           </div>
         </Section>
 
-        <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-surface-700 bg-surface-900 p-4">
+        <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-white/[0.06] bg-surface-900/80 p-4 backdrop-blur-xl">
           <div className="flex">
             <ExportButton
               status={entry?.status}
@@ -379,6 +425,7 @@ export default function EditorScreen(): React.JSX.Element {
               outputPath={entry?.outputPath}
               error={entry?.error}
               onExport={() => void exportClip(clip.id)}
+              onCancel={() => void cancelExport(clip.id)}
             />
           </div>
           {entry?.status === 'error' && entry.error && (
@@ -422,14 +469,14 @@ function Toggle({
   return (
     <button
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between rounded-lg border border-surface-600 px-3 py-2.5 text-left text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2.5 text-left text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
     >
       {label}
       <span
-        className={`relative h-5 w-9 rounded-full transition ${checked ? 'bg-accent-500' : 'bg-surface-600'}`}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition ${checked ? 'bg-zinc-100' : 'bg-surface-600'}`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${checked ? 'left-[18px]' : 'left-0.5'}`}
+          className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${checked ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
         />
       </span>
     </button>

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import type { AnalyzeOptions, ImportProgress, PipelineProgress, Project } from '@shared/types'
+import { mapLimit } from './concurrency'
 import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
@@ -10,7 +11,7 @@ import { analyzeClipFocus } from './faces'
 import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
-import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta } from './ytdlp'
+import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta, withSelfUpdateRetry } from './ytdlp'
 import { getApiKey, getModelPreferences } from '../settings'
 import { projectDir, saveProject } from '../projects'
 
@@ -37,14 +38,16 @@ export async function createProjectFromUrl(
 ): Promise<Project> {
   const binPath = await ensureYtDlp(onProgress)
   onProgress({ progress: -1, message: 'Checking the video…' })
-  const meta = await fetchUrlMeta(binPath, url)
+  const meta = await withSelfUpdateRetry(binPath, onProgress, () => fetchUrlMeta(binPath, url))
 
   const id = randomUUID()
   const dir = projectDir(id)
   await mkdir(dir, { recursive: true })
   const videoPath = join(dir, 'source.mp4')
   onProgress({ progress: 0.15, message: 'Downloading video…' })
-  await downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress)
+  await withSelfUpdateRetry(binPath, onProgress, () =>
+    downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress)
+  )
 
   onProgress({ progress: 0.97, message: 'Reading video…' })
   const video = await probeVideo(videoPath)
@@ -65,23 +68,6 @@ export async function createProjectFromUrl(
 }
 
 type ProgressFn = (p: PipelineProgress) => void
-
-/** Run `fn` over items with bounded concurrency, preserving order. */
-async function mapLimit<T>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<void>
-): Promise<void> {
-  let next = 0
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    for (;;) {
-      const index = next++
-      if (index >= items.length) return
-      await fn(items[index], index)
-    }
-  })
-  await Promise.all(workers)
-}
 
 /**
  * The full "get clips" pipeline: audio extraction -> Whisper transcription ->

@@ -17,6 +17,14 @@ import { FFMPEG_PATH } from './ffmpeg'
 
 type ProgressFn = (p: ImportProgress) => void
 
+/** Failure of the yt-dlp process itself (as opposed to our own validation). */
+export class YtDlpError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'YtDlpError'
+  }
+}
+
 function binaryName(): string {
   switch (process.platform) {
     case 'win32':
@@ -107,9 +115,36 @@ function runYtDlp(
     child.on('error', reject)
     child.on('close', (code) => {
       if (code === 0) resolve(stdout)
-      else reject(new Error(cleanYtDlpError(stderr) || `yt-dlp exited with code ${code}`))
+      else reject(new YtDlpError(cleanYtDlpError(stderr) || `yt-dlp exited with code ${code}`))
     })
   })
+}
+
+let selfUpdatedThisRun = false
+
+/**
+ * Sites change their players constantly and an out-of-date yt-dlp is the most
+ * common cause of extractor failures. When a yt-dlp invocation fails, run the
+ * binary's built-in self-updater once per app session and retry.
+ */
+export async function withSelfUpdateRetry<T>(
+  binPath: string,
+  onProgress: ProgressFn,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn()
+  } catch (err) {
+    if (!(err instanceof YtDlpError) || selfUpdatedThisRun) throw err
+    selfUpdatedThisRun = true
+    onProgress({ progress: -1, message: 'Updating yt-dlp…' })
+    try {
+      await runYtDlp(binPath, ['-U'])
+    } catch {
+      throw err // updater itself failed; surface the original error
+    }
+    return fn()
+  }
 }
 
 function cleanYtDlpError(stderr: string): string {

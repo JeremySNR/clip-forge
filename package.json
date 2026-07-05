@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
+    "test": "vitest run",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "start": "electron-vite preview",
     "package": "electron-vite build && electron-builder",
@@ -20,6 +22,7 @@
     "onnxruntime-node": "^1.27.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.1.0",
     "@types/ffprobe-static": "^2.0.3",
     "@types/node": "^22.13.0",
@@ -29,12 +32,17 @@
     "electron": "^35.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.0.0",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "lucide-react": "^0.487.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.1.0",
+    "tsx": "^4.23.0",
     "typescript": "^5.8.0",
+    "typescript-eslint": "^8.62.1",
     "vite": "^6.2.0",
+    "vitest": "^4.1.9",
     "zustand": "^5.0.3"
   },
   "build": {

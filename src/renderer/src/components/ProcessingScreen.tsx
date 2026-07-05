@@ -33,7 +33,7 @@ export default function ProcessingScreen(): React.JSX.Element {
 
         <div className="mt-8 h-2 overflow-hidden rounded-full bg-surface-700">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-accent-500 to-fuchsia-500 transition-all duration-500"
+            className="h-full rounded-full bg-zinc-200 transition-all duration-500"
             style={{ width: `${Math.max(2, pct)}%` }}
           />
         </div>
@@ -50,7 +50,7 @@ export default function ProcessingScreen(): React.JSX.Element {
                 key={stage.id}
                 className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition ${
                   isActive
-                    ? 'border-accent-500/40 bg-accent-500/5'
+                    ? 'border-white/20 bg-white/[0.04]'
                     : isDone
                       ? 'border-surface-700 bg-surface-900'
                       : 'border-surface-800 bg-transparent opacity-50'
@@ -58,7 +58,7 @@ export default function ProcessingScreen(): React.JSX.Element {
               >
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                    isDone ? 'bg-emerald-500/15 text-emerald-400' : isActive ? 'bg-accent-500/15 text-accent-400' : 'bg-surface-800 text-zinc-600'
+                    isDone ? 'bg-emerald-500/15 text-emerald-400' : isActive ? 'bg-white/10 text-zinc-100' : 'bg-surface-800 text-zinc-600'
                   }`}
                 >
                   {isDone ? (

@@ -12,7 +12,7 @@ export default function TopBar(): React.JSX.Element {
   const showBack = screen === 'clips' || screen === 'editor'
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-surface-700 bg-surface-900 px-4">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-white/[0.06] bg-surface-950/70 px-4 backdrop-blur-xl">
       {showBack ? (
         <button
           onClick={() => (screen === 'editor' ? closeEditor() : goHome())}
@@ -23,8 +23,8 @@ export default function TopBar(): React.JSX.Element {
         </button>
       ) : (
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-500 to-fuchsia-600">
-            <Clapperboard size={17} className="text-white" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] shadow-inner shadow-white/5">
+            <Clapperboard size={17} className="text-zinc-100" />
           </div>
           <span className="text-[15px] font-semibold tracking-tight">ClipForge</span>
           <span className="rounded-full border border-surface-600 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">

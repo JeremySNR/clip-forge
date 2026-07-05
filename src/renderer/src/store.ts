@@ -30,6 +30,7 @@ interface AppState {
   importProgress: ImportProgress | null
   selectedClipId: string | null
   exports: Record<string, ExportEntry>
+  exportDir: string | null
 
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
@@ -37,6 +38,7 @@ interface AppState {
   importVideoFromUrl: (url: string) => Promise<void>
   openProject: (id: string) => Promise<void>
   deleteProject: (id: string) => Promise<void>
+  relinkVideo: () => Promise<void>
   goHome: () => void
   setSettingsOpen: (open: boolean) => void
   saveSettings: (update: SettingsUpdate) => Promise<void>
@@ -47,17 +49,12 @@ interface AppState {
   closeEditor: () => void
   updateClip: (clip: Clip) => Promise<void>
   updateClipLocal: (clip: Clip) => void
+  updateTranscriptWord: (segmentId: number, wordIndex: number, text: string) => Promise<void>
   exportClip: (clipId: string) => Promise<void>
+  cancelExport: (clipId: string) => Promise<void>
   exportAll: () => Promise<void>
+  chooseExportDir: () => Promise<void>
   clearExport: (clipId: string) => void
-}
-
-let exportDir: string | null = null
-
-async function ensureExportDir(): Promise<string | null> {
-  if (exportDir) return exportDir
-  exportDir = await window.clipforge.selectDirectory()
-  return exportDir
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -71,6 +68,7 @@ export const useStore = create<AppState>((set, get) => ({
   importProgress: null,
   selectedClipId: null,
   exports: {},
+  exportDir: null,
 
   init: async () => {
     const [settings, projects] = await Promise.all([
@@ -130,6 +128,17 @@ export const useStore = create<AppState>((set, get) => ({
     await window.clipforge.deleteProject(id)
     if (get().project?.id === id) set({ project: null, screen: 'home' })
     await get().refreshProjects()
+  },
+
+  relinkVideo: async () => {
+    const project = get().project
+    if (!project) return
+    try {
+      const updated = await window.clipforge.relinkVideo(project.id)
+      set({ project: updated, pipelineError: null })
+    } catch (err) {
+      set({ pipelineError: err instanceof Error ? cleanIpcError(err.message) : String(err) })
+    }
   },
 
   goHome: () => set({ screen: 'home', selectedClipId: null, pipelineError: null }),
@@ -194,11 +203,31 @@ export const useStore = create<AppState>((set, get) => ({
     await window.clipforge.updateClip(project.id, clip)
   },
 
+  updateTranscriptWord: async (segmentId, wordIndex, text) => {
+    const project = get().project
+    if (!project) return
+    const updated = await window.clipforge.updateTranscriptWord(
+      project.id,
+      segmentId,
+      wordIndex,
+      text
+    )
+    // Only replace the transcript: clip edits in flight must not be clobbered.
+    const current = get().project
+    if (current?.id === updated.id) {
+      set({ project: { ...current, transcript: updated.transcript } })
+    }
+  },
+
   exportClip: async (clipId) => {
     const project = get().project
     if (!project) return
-    const dir = await ensureExportDir()
-    if (!dir) return
+    let dir = get().exportDir
+    if (!dir) {
+      dir = await window.clipforge.selectDirectory()
+      if (!dir) return
+      set({ exportDir: dir })
+    }
     set({ exports: { ...get().exports, [clipId]: { status: 'exporting', progress: 0 } } })
     try {
       const result = await window.clipforge.exportClip(project.id, { clipId, outputDir: dir })
@@ -209,29 +238,39 @@ export const useStore = create<AppState>((set, get) => ({
         }
       })
     } catch (err) {
+      const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
+      if (message.includes('Export cancelled')) {
+        get().clearExport(clipId)
+        return
+      }
       set({
         exports: {
           ...get().exports,
-          [clipId]: {
-            status: 'error',
-            progress: 0,
-            error: err instanceof Error ? cleanIpcError(err.message) : String(err)
-          }
+          [clipId]: { status: 'error', progress: 0, error: message }
         }
       })
     }
   },
 
+  cancelExport: async (clipId) => {
+    await window.clipforge.cancelExport(clipId)
+  },
+
   exportAll: async () => {
     const project = get().project
     if (!project) return
-    const dir = await ensureExportDir()
-    if (!dir) return
     for (const clip of project.clips) {
       const status = get().exports[clip.id]?.status
       if (status === 'exporting' || status === 'done') continue
       await get().exportClip(clip.id)
+      // The folder picker was dismissed — don't re-prompt for every clip.
+      if (!get().exportDir) return
     }
+  },
+
+  chooseExportDir: async () => {
+    const dir = await window.clipforge.selectDirectory()
+    if (dir) set({ exportDir: dir })
   },
 
   clearExport: (clipId) => {

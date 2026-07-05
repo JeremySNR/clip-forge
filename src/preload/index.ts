@@ -11,7 +11,8 @@ import type {
   PipelineProgress,
   Project,
   ProjectSummary,
-  SettingsUpdate
+  SettingsUpdate,
+  TimelineData
 } from '@shared/types'
 
 const api = {
@@ -29,11 +30,24 @@ const api = {
   loadProject: (id: string): Promise<Project> => ipcRenderer.invoke('project:load', id),
   deleteProject: (id: string): Promise<void> => ipcRenderer.invoke('project:delete', id),
   renameProject: (id: string, name: string): Promise<Project> => ipcRenderer.invoke('project:rename', id, name),
+  relinkVideo: (projectId: string): Promise<Project> =>
+    ipcRenderer.invoke('project:relinkVideo', projectId),
   updateClip: (projectId: string, clip: Clip): Promise<Project> =>
     ipcRenderer.invoke('project:updateClip', projectId, clip),
+  updateTranscriptWord: (
+    projectId: string,
+    segmentId: number,
+    wordIndex: number,
+    text: string
+  ): Promise<Project> =>
+    ipcRenderer.invoke('project:updateTranscriptWord', projectId, segmentId, wordIndex, text),
 
   exportClip: (projectId: string, opts: ExportOptions): Promise<ExportResult> =>
     ipcRenderer.invoke('clip:export', projectId, opts),
+  cancelExport: (clipId: string): Promise<void> => ipcRenderer.invoke('clip:cancelExport', clipId),
+
+  getTimeline: (videoPath: string, startSec: number, endSec: number): Promise<TimelineData> =>
+    ipcRenderer.invoke('video:timeline', videoPath, startSec, endSec),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (update: SettingsUpdate): Promise<AppSettings> => ipcRenderer.invoke('settings:update', update),

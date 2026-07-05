@@ -85,6 +85,7 @@ export async function getSettings(): Promise<AppSettings> {
   return {
     hasApiKey: key.length > 0,
     apiKeyMasked: key.length > 8 ? `${key.slice(0, 5)}…${key.slice(-4)}` : key ? '•••' : '',
+    keyStorageSecure: safeStorage.isEncryptionAvailable(),
     transcriptionModel: s.transcriptionModel,
     analysisModel: s.analysisModel,
     encoder: s.encoder,

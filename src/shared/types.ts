@@ -115,6 +115,11 @@ export interface Project {
   clips: Clip[]
   /** Custom instructions the user gave the AI, if any. */
   prompt: string
+  /**
+   * True when the source video no longer exists on disk (moved/deleted).
+   * Transient — recomputed on load, never persisted.
+   */
+  sourceMissing?: boolean
 }
 
 export interface ProjectSummary {
@@ -189,6 +194,11 @@ export interface AppSettings {
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
   hasApiKey: boolean
+  /**
+   * True when the OS keychain (Electron safeStorage) protects the API key;
+   * false when it is stored only obfuscated on disk (e.g. headless Linux).
+   */
+  keyStorageSecure: boolean
   transcriptionModel: string
   analysisModel: string
   encoder: EncoderPreference
@@ -213,4 +223,12 @@ export interface ImportProgress {
   /** 0..1, or -1 when indeterminate. */
   progress: number
   message: string
+}
+
+/** Editor timeline data for a window of the source video. */
+export interface TimelineData {
+  /** Absolute paths of filmstrip frames, in time order. */
+  frames: string[]
+  /** Normalised 0..1 RMS per bucket across the window (empty when no audio). */
+  waveform: number[]
 }

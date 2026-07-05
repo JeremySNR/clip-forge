@@ -1,14 +1,28 @@
 import { useState } from 'react'
-import { Download, Pencil, Check, Loader2, AlertTriangle, FolderOpen, RefreshCw, Sparkles } from 'lucide-react'
+import {
+  Download,
+  Pencil,
+  Check,
+  Loader2,
+  AlertTriangle,
+  FolderOpen,
+  FolderCog,
+  RefreshCw,
+  Sparkles,
+  X
+} from 'lucide-react'
 import { useStore } from '../store'
 import { formatDuration } from '../lib/format'
 import ScoreBadge from './ScoreBadge'
+import MissingSourceBanner from './MissingSourceBanner'
 import type { Clip } from '@shared/types'
 
 export default function ClipsScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
   const exportAll = useStore((s) => s.exportAll)
   const exports = useStore((s) => s.exports)
+  const exportDir = useStore((s) => s.exportDir)
+  const chooseExportDir = useStore((s) => s.chooseExportDir)
   const goHome = useStore((s) => s.goHome)
   const [exportingAll, setExportingAll] = useState(false)
 
@@ -40,6 +54,17 @@ export default function ClipsScreen(): React.JSX.Element {
               Regenerate
             </button>
             <button
+              onClick={() => void chooseExportDir()}
+              title={
+                exportDir
+                  ? `Exports go to ${exportDir} — click to change`
+                  : 'Choose the export folder'
+              }
+              className="flex items-center gap-2 rounded-xl border border-surface-600 px-3 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-surface-800"
+            >
+              <FolderCog size={15} />
+            </button>
+            <button
               onClick={async () => {
                 setExportingAll(true)
                 try {
@@ -49,13 +74,15 @@ export default function ClipsScreen(): React.JSX.Element {
                 }
               }}
               disabled={exportingAll}
-              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-accent-600 to-fuchsia-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent-600/25 transition hover:brightness-110 disabled:opacity-60"
+              className="flex items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-black/40 transition hover:bg-white disabled:opacity-60"
             >
               {exportingAll ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
               {exportingAll ? `Exporting… (${doneCount}/${project.clips.length})` : 'Export all'}
             </button>
           </div>
         </div>
+
+        <MissingSourceBanner />
 
         <div className="mt-6 grid grid-cols-2 gap-5 xl:grid-cols-3">
           {project.clips.map((clip, i) => (
@@ -70,6 +97,7 @@ export default function ClipsScreen(): React.JSX.Element {
 function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Element {
   const openEditor = useStore((s) => s.openEditor)
   const exportClip = useStore((s) => s.exportClip)
+  const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
   const entry = exports[clip.id]
   const duration = clip.edit.end - clip.edit.start
@@ -106,7 +134,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
         <p className="mt-1.5 line-clamp-2 min-h-[2.2rem] text-xs leading-relaxed text-zinc-500">
           {clip.summary}
         </p>
-        <div className="mt-2 line-clamp-1 text-[11px] text-accent-400/80">
+        <div className="mt-2 line-clamp-1 text-[11px] text-zinc-500">
           {clip.hashtags.map((h) => `#${h}`).join(' ')}
         </div>
 
@@ -123,6 +151,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
             outputPath={entry?.outputPath}
             error={entry?.error}
             onExport={() => void exportClip(clip.id)}
+            onCancel={() => void cancelExport(clip.id)}
           />
         </div>
       </div>
@@ -135,23 +164,32 @@ export function ExportButton({
   progress,
   outputPath,
   error,
-  onExport
+  onExport,
+  onCancel
 }: {
   status?: 'exporting' | 'done' | 'error'
   progress: number
   outputPath?: string
   error?: string
   onExport: () => void
+  onCancel: () => void
 }): React.JSX.Element {
   if (status === 'exporting') {
     return (
       <div className="relative flex flex-1 items-center justify-center gap-1.5 overflow-hidden rounded-lg bg-surface-800 px-3 py-2 text-xs font-medium text-zinc-300">
         <div
-          className="absolute inset-y-0 left-0 bg-accent-600/30 transition-all"
+          className="absolute inset-y-0 left-0 bg-white/15 transition-all"
           style={{ width: `${Math.round(progress * 100)}%` }}
         />
         <Loader2 size={13} className="relative animate-spin" />
         <span className="relative tabular-nums">{Math.round(progress * 100)}%</span>
+        <button
+          onClick={onCancel}
+          title="Cancel this export"
+          className="relative rounded p-0.5 text-zinc-400 transition hover:bg-surface-600 hover:text-red-400"
+        >
+          <X size={13} />
+        </button>
       </div>
     )
   }
@@ -181,7 +219,7 @@ export function ExportButton({
   return (
     <button
       onClick={onExport}
-      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-accent-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-accent-500"
+      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-zinc-100 px-3 py-2 text-xs font-semibold text-zinc-900 transition hover:bg-white"
     >
       <Download size={13} /> Export
     </button>
