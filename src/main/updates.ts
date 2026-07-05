@@ -1,10 +1,16 @@
 import { app } from 'electron'
-import type { UpdateCheckResult } from '@shared/types'
+import { autoUpdater } from 'electron-updater'
+import type { UpdateCheckResult, UpdateDownloadProgress } from '@shared/types'
 
 /**
- * Update checking against GitHub Releases. The app has no auto-updater
- * infrastructure, so "updating" means sending the user to the release page;
- * this module only answers "is there a newer published version?".
+ * Update checking and in-app updating.
+ *
+ * Discovery always goes through the GitHub Releases REST API (works in every
+ * run mode and drives the "Update available" UI). Installing depends on how
+ * the app runs: packaged builds (AppImage/NSIS) download and swap themselves
+ * via electron-updater using the release's electron-builder metadata
+ * (latest-linux.yml etc.); source checkouts cannot self-update, so the UI
+ * links to the release page and suggests pulling instead.
  */
 
 const REPO = 'JeremySNR/j-clip'
@@ -40,10 +46,20 @@ export function compareVersions(a: string, b: string): number {
   return 0
 }
 
+/**
+ * True when this process can replace itself with a downloaded update:
+ * packaged builds only. The env hook lets tests exercise the download flow
+ * from a source checkout via electron-updater's dev-update config.
+ */
+export function isAutoUpdateSupported(): boolean {
+  return app?.isPackaged === true || process.env.CLIPFORGE_FORCE_DEV_UPDATES === '1'
+}
+
 /** Pure decision step, separated from the network fetch for tests. */
 export function evaluateUpdate(
   currentVersion: string,
-  release: GithubRelease | null
+  release: GithubRelease | null,
+  autoUpdateSupported = false
 ): UpdateCheckResult {
   const tag = release?.tag_name?.trim() || null
   const usable = tag !== null && !release?.draft && !release?.prerelease
@@ -53,6 +69,7 @@ export function evaluateUpdate(
     latestVersion,
     updateAvailable: latestVersion !== null && compareVersions(latestVersion, currentVersion) > 0,
     releaseUrl: (usable ? release?.html_url : null) ?? (latestVersion ? RELEASES_PAGE : null),
+    autoUpdateSupported,
     error: null,
     checkedAt: Date.now()
   }
@@ -66,7 +83,11 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   // Test hook: force a fake latest version without hitting the network.
   const fake = process.env.CLIPFORGE_FAKE_LATEST
   if (fake) {
-    return evaluateUpdate(currentVersion(), { tag_name: fake, html_url: RELEASES_PAGE })
+    return evaluateUpdate(
+      currentVersion(),
+      { tag_name: fake, html_url: RELEASES_PAGE },
+      isAutoUpdateSupported()
+    )
   }
 
   const version = currentVersion()
@@ -76,8 +97,8 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
       // GitHub's API rejects requests without a User-Agent.
       'User-Agent': `ClipForge/${version}`
     }
-    // While the repository is private, unauthenticated requests 404; a token
-    // from the environment lets those installs see releases too.
+    // Unauthenticated requests 404 on private repos; a token from the
+    // environment lets installs of a private fork see releases too.
     const token = process.env.CLIPFORGE_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN
     if (token) headers.Authorization = `Bearer ${token}`
 
@@ -87,20 +108,80 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     })
     if (res.status === 404) {
       // No published releases yet: nothing to update to.
-      return evaluateUpdate(version, null)
+      return evaluateUpdate(version, null, isAutoUpdateSupported())
     }
     if (!res.ok) {
       throw new Error(`GitHub responded with HTTP ${res.status}`)
     }
-    return evaluateUpdate(version, (await res.json()) as GithubRelease)
+    return evaluateUpdate(version, (await res.json()) as GithubRelease, isAutoUpdateSupported())
   } catch (err) {
     return {
       currentVersion: version,
       latestVersion: null,
       updateAvailable: false,
       releaseUrl: null,
+      autoUpdateSupported: isAutoUpdateSupported(),
       error: `Could not check for updates: ${err instanceof Error ? err.message : String(err)}`,
       checkedAt: Date.now()
     }
   }
+}
+
+let downloading = false
+let downloadedVersion: string | null = null
+
+function configureAutoUpdater(): typeof autoUpdater {
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.fullChangelog = false
+  if (process.env.CLIPFORGE_FORCE_DEV_UPDATES === '1') {
+    // Dev/test only: read the feed from dev-app-update.yml instead of the
+    // packaged app-update.yml.
+    autoUpdater.forceDevUpdateConfig = true
+  }
+  return autoUpdater
+}
+
+/**
+ * Download the pending update in the background. Resolves with the version
+ * that is ready to install; the renderer then offers "Restart to update".
+ */
+export async function downloadUpdate(
+  onProgress: (p: UpdateDownloadProgress) => void
+): Promise<string> {
+  if (!isAutoUpdateSupported()) {
+    throw new Error(
+      'This copy runs from a source checkout and cannot update itself — run "git pull", then rebuild.'
+    )
+  }
+  if (downloading) throw new Error('An update download is already running.')
+  if (downloadedVersion) return downloadedVersion
+
+  const updater = configureAutoUpdater()
+  downloading = true
+  try {
+    const check = await updater.checkForUpdates()
+    const next = check?.updateInfo?.version
+    if (!next || compareVersions(next, currentVersion()) <= 0) {
+      throw new Error('No newer packaged build is available to download yet.')
+    }
+    const progressListener = (p: { percent: number }): void =>
+      onProgress({ progress: Math.min(1, p.percent / 100) })
+    updater.on('download-progress', progressListener)
+    try {
+      await updater.downloadUpdate()
+    } finally {
+      updater.removeListener('download-progress', progressListener)
+    }
+    downloadedVersion = next
+    return next
+  } finally {
+    downloading = false
+  }
+}
+
+/** Quit and swap in the downloaded update (no-op if none is downloaded). */
+export function installUpdate(): void {
+  if (!downloadedVersion) throw new Error('No downloaded update to install.')
+  configureAutoUpdater().quitAndInstall()
 }

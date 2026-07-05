@@ -61,6 +61,11 @@ interface AppState {
   customFonts: CustomFont[]
   updateCheck: UpdateCheckResult | null
   checkingForUpdates: boolean
+  updateDownload: {
+    status: 'idle' | 'downloading' | 'downloaded' | 'error'
+    progress: number
+    error?: string
+  }
 
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
@@ -91,6 +96,8 @@ interface AppState {
   removeFont: (fileName: string) => Promise<void>
   selectBrandingLogo: () => Promise<void>
   checkForUpdates: (silent?: boolean) => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -108,6 +115,7 @@ export const useStore = create<AppState>((set, get) => ({
   customFonts: [],
   updateCheck: null,
   checkingForUpdates: false,
+  updateDownload: { status: 'idle', progress: 0 },
   captionBusy: {},
 
   init: async () => {
@@ -378,6 +386,34 @@ export const useStore = create<AppState>((set, get) => ({
     } finally {
       set({ checkingForUpdates: false })
     }
+  },
+
+  downloadUpdate: async () => {
+    if (get().updateDownload.status === 'downloading') return
+    set({ updateDownload: { status: 'downloading', progress: 0 } })
+    const unsubscribe = window.clipforge.onUpdateDownloadProgress((p) => {
+      if (get().updateDownload.status === 'downloading') {
+        set({ updateDownload: { status: 'downloading', progress: p.progress } })
+      }
+    })
+    try {
+      await window.clipforge.downloadUpdate()
+      set({ updateDownload: { status: 'downloaded', progress: 1 } })
+    } catch (err) {
+      set({
+        updateDownload: {
+          status: 'error',
+          progress: 0,
+          error: err instanceof Error ? cleanIpcError(err.message) : String(err)
+        }
+      })
+    } finally {
+      unsubscribe()
+    }
+  },
+
+  installUpdate: async () => {
+    await window.clipforge.installUpdate()
   }
 }))
 

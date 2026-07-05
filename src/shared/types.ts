@@ -228,9 +228,21 @@ export interface UpdateCheckResult {
   updateAvailable: boolean
   /** GitHub release page to download the update from. */
   releaseUrl: string | null
+  /**
+   * True when the app can download and install the update itself (packaged
+   * build). False when running from a source checkout, where updating means
+   * pulling and rebuilding.
+   */
+  autoUpdateSupported: boolean
   /** Human-readable failure (offline, rate limited); null on success. */
   error: string | null
   checkedAt: number
+}
+
+/** Renderer-facing state of an in-app update download. */
+export interface UpdateDownloadProgress {
+  /** 0..1 downloaded fraction. */
+  progress: number
 }
 
 /** A user-uploaded caption font stored in userData/fonts. */

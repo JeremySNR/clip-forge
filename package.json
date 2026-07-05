@@ -17,6 +17,7 @@
     "package:dir": "electron-vite build && electron-builder --dir"
   },
   "dependencies": {
+    "electron-updater": "^6.8.9",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
     "onnxruntime-node": "^1.27.0"
@@ -50,6 +51,11 @@
     "productName": "ClipForge",
     "directories": {
       "output": "release"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "JeremySNR",
+      "repo": "j-clip"
     },
     "files": [
       "out/**"

@@ -442,6 +442,9 @@ function UpdatesSection(): React.JSX.Element {
   const updateCheck = useStore((s) => s.updateCheck)
   const checking = useStore((s) => s.checkingForUpdates)
   const checkForUpdates = useStore((s) => s.checkForUpdates)
+  const updateDownload = useStore((s) => s.updateDownload)
+  const downloadUpdate = useStore((s) => s.downloadUpdate)
+  const installUpdate = useStore((s) => s.installUpdate)
 
   return (
     <div className="mt-5 border-t border-surface-700 pt-5">
@@ -454,15 +457,32 @@ function UpdatesSection(): React.JSX.Element {
       </p>
 
       {updateCheck?.updateAvailable && updateCheck.releaseUrl ? (
-        <a
-          href={updateCheck.releaseUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
-        >
-          <Download size={13} />
-          Update to v{updateCheck.latestVersion} — open the release page
-        </a>
+        updateCheck.autoUpdateSupported ? (
+          <UpdateInstaller
+            latestVersion={updateCheck.latestVersion ?? ''}
+            releaseUrl={updateCheck.releaseUrl}
+            download={updateDownload}
+            onDownload={() => void downloadUpdate()}
+            onInstall={() => void installUpdate()}
+          />
+        ) : (
+          <>
+            <a
+              href={updateCheck.releaseUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+            >
+              <Download size={13} />
+              Update to v{updateCheck.latestVersion} — open the release page
+            </a>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+              This copy runs from a source checkout, so it can’t update itself. Grab the packaged
+              app from the release page, or update the checkout with{' '}
+              <span className="font-mono text-zinc-400">git pull && npm install && npm run build</span>.
+            </p>
+          </>
+        )
       ) : (
         updateCheck &&
         !checking && (
@@ -493,4 +513,77 @@ function UpdatesSection(): React.JSX.Element {
       </button>
     </div>
   )
+}
+
+function UpdateInstaller({
+  latestVersion,
+  releaseUrl,
+  download,
+  onDownload,
+  onInstall
+}: {
+  latestVersion: string
+  releaseUrl: string
+  download: { status: 'idle' | 'downloading' | 'downloaded' | 'error'; progress: number; error?: string }
+  onDownload: () => void
+  onInstall: () => void
+}): React.JSX.Element {
+  switch (download.status) {
+    case 'downloading':
+      return (
+        <div className="mt-2.5 rounded-lg border border-surface-600 px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-zinc-300">
+            <Loader2 size={13} className="animate-spin" />
+            Downloading v{latestVersion}… {Math.round(download.progress * 100)}%
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-700">
+            <div
+              className="h-full rounded-full bg-emerald-400 transition-all"
+              style={{ width: `${Math.round(download.progress * 100)}%` }}
+            />
+          </div>
+        </div>
+      )
+    case 'downloaded':
+      return (
+        <button
+          onClick={onInstall}
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/20 px-3 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/30"
+        >
+          <RefreshCw size={13} />
+          Restart to finish updating to v{latestVersion}
+        </button>
+      )
+    case 'error':
+      return (
+        <>
+          <p className="mt-2.5 rounded-lg bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-400">
+            {download.error}
+          </p>
+          <a
+            href={releaseUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+          >
+            <ExternalLink size={13} />
+            Get v{latestVersion} from the release page instead
+          </a>
+        </>
+      )
+    case 'idle':
+      return (
+        <button
+          onClick={onDownload}
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+        >
+          <Download size={13} />
+          Download and install v{latestVersion}
+        </button>
+      )
+    default: {
+      const exhaustive: never = download.status
+      return exhaustive
+    }
+  }
 }
