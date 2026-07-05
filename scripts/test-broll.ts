@@ -93,7 +93,7 @@ async function main(): Promise<void> {
   }
 
   console.log('4. Suggesting B-roll moments (LLM)…')
-  const suggestions = await suggestBroll(API_KEY, 'gpt-4o-mini', transcript, clip)
+  const suggestions = await suggestBroll(API_KEY, 'gpt-5.4-mini', transcript, clip)
   assert.ok(suggestions.length >= 1, 'expected at least one B-roll suggestion')
   const triggers = suggestions.map((s) => s.trigger.toLowerCase()).join(', ')
   console.log(`   ${suggestions.length} suggestions: ${suggestions.map((s) => `"${s.trigger}" @${s.start.toFixed(1)}s (${s.mode})`).join(', ')}`)

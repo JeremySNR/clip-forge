@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   console.log(`   "${transcript.segments.map((s) => s.text).join(' ').slice(0, 120)}…"`)
 
   console.log('6. Detecting highlights…')
-  const clips = await detectHighlights(apiKey, 'gpt-4o-mini', transcript, { prompt: '', clipLength: 'short', broll: false }, info.durationSec)
+  const clips = await detectHighlights(apiKey, 'gpt-5.4-mini', transcript, { prompt: '', clipLength: 'short', broll: false }, info.durationSec)
   assert.ok(clips.length >= 1, 'no clips found')
   for (const c of clips) {
     const dur = c.suggestedEnd - c.suggestedStart
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
 
   console.log('7. Visual rescoring (frames + LLM)…')
   const top: Clip = clips[0]
-  const visual = await assessClipVisuals(apiKey, 'gpt-4o-mini', videoPath, transcript, top)
+  const visual = await assessClipVisuals(apiKey, 'gpt-5.4-mini', videoPath, transcript, top)
   assert.ok(visual, 'visual assessment should succeed')
   assert.ok(visual.visualScore >= 0 && visual.visualScore <= 99)
   assert.ok(visual.visualSummary.length > 5)

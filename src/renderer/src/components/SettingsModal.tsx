@@ -22,7 +22,7 @@ import type {
   WatermarkPosition
 } from '@shared/types'
 
-const ANALYSIS_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1']
+const ANALYSIS_MODELS = ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'gpt-4o-mini']
 
 const ENCODERS: Array<{ value: EncoderPreference; label: string; hint: string }> = [
   { value: 'auto', label: 'Auto', hint: 'GPU when ready' },
@@ -49,7 +49,7 @@ export default function SettingsModal(): React.JSX.Element {
   const saveSettings = useStore((s) => s.saveSettings)
   const refreshSettings = useStore((s) => s.refreshSettings)
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-4o-mini')
+  const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-5.4-mini')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [gpuProgress, setGpuProgress] = useState<ImportProgress | null>(null)
@@ -142,7 +142,8 @@ export default function SettingsModal(): React.JSX.Element {
             Analysis model
           </label>
           <p className="mt-1 text-xs text-zinc-500">
-            gpt-4o-mini is fast and cheap; larger models pick moments more carefully.
+            gpt-5.4-mini is fast and cheap; gpt-5.4 and gpt-5.5 pick moments more carefully.
+            gpt-4o-mini is the budget legacy option.
           </p>
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             {ANALYSIS_MODELS.map((m) => (

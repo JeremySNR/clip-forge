@@ -31,7 +31,7 @@ const DEFAULT_BRANDING: BrandingSettings = {
 const DEFAULTS: StoredSettings = {
   apiKeyEncrypted: '',
   transcriptionModel: 'whisper-1',
-  analysisModel: 'gpt-4o-mini',
+  analysisModel: 'gpt-5.4-mini',
   encoder: 'auto',
   quality: 'standard',
   branding: DEFAULT_BRANDING
