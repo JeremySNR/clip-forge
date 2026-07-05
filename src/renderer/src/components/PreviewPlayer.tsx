@@ -4,6 +4,7 @@ import type { Clip, Project, WatermarkPosition } from '@shared/types'
 import { getCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
+import { computeZoomEvents, zoomAt } from '@shared/zoom'
 import { focusAt } from '@shared/focusTrack'
 import { formatTimecode } from '../lib/format'
 import { usePreviewBus } from '../lib/previewBus'
@@ -106,11 +107,19 @@ export default function PreviewPlayer({
   }, [start, end, setSeekHandler, requestSeek])
 
   // Mirrors the export's tighten-cuts behaviour by skipping removed spans.
-  const timeMap = useMemo(() => {
+  const keptSegments = useMemo(() => {
     if (!clip.edit.tightenCuts || !project.transcript) return null
-    const segments = computeKeptSegments(project.transcript, start, end)
-    return segments ? new TimeMap(segments) : null
+    return computeKeptSegments(project.transcript, start, end)
   }, [clip.edit.tightenCuts, project.transcript, start, end])
+  const timeMap = useMemo(() => (keptSegments ? new TimeMap(keptSegments) : null), [keptSegments])
+
+  // Mirrors the export's auto-zoom plan (same shared generator).
+  const zoomEvents = useMemo(() => {
+    if (!clip.edit.autoZoom) return null
+    const events = computeZoomEvents(project.transcript, start, end, keptSegments)
+    return events.length > 0 ? events : null
+  }, [clip.edit.autoZoom, project.transcript, start, end, keptSegments])
+  const zoom = zoomEvents ? zoomAt(zoomEvents, time) : 1
 
   useEffect(() => {
     const tick = (): void => {
@@ -182,7 +191,10 @@ export default function PreviewPlayer({
           className="relative h-full w-full"
           style={{
             objectFit: isCrop ? 'cover' : 'contain',
-            objectPosition: isCrop ? `${previewFocusX * 100}% 50%` : '50% 50%'
+            objectPosition: isCrop ? `${previewFocusX * 100}% 50%` : '50% 50%',
+            // Auto zoom, anchored where faces sit in vertical framing.
+            transform: zoom > 1.0001 ? `scale(${zoom.toFixed(4)})` : undefined,
+            transformOrigin: '50% 42%'
           }}
           onClick={togglePlay}
           onEnded={() => setPlaying(false)}

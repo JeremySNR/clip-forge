@@ -497,6 +497,7 @@ async function requestHighlights(
         reframeMode: 'crop',
         framing: 'manual',
         tightenCuts: true,
+        autoZoom: true,
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,

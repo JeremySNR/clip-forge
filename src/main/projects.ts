@@ -32,6 +32,7 @@ export async function loadProject(id: string): Promise<Project> {
     clip.focusTrack ??= null
     clip.edit.framing ??= 'manual'
     clip.edit.tightenCuts ??= false
+    clip.edit.autoZoom ??= false
     clip.broll ??= []
     clip.visualSummary ??= null
   }

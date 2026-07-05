@@ -13,6 +13,7 @@ import type {
 } from '@shared/types'
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
+import { computeZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { runFfmpegWith } from './ffmpeg'
 import { buildAss, fontsDir } from './captions'
 import { audioArgs, encoderArgs, resolveEncoder } from './encoders'
@@ -132,6 +133,56 @@ function tightenGraph(segments: KeptSegment[], clipStart: number, hasAudio: bool
 
 const BROLL_FADE_SEC = 0.25
 
+function fmtZ(v: number): string {
+  return v.toFixed(4)
+}
+
+/**
+ * Piecewise zoom factor z(t) as a zoompan expression. Events are
+ * clip-relative and sorted; between events the level holds at the previous
+ * event's target. `on` is the output frame index, so t = on/fps (d=1 keeps
+ * frames 1:1).
+ */
+export function zoomExpression(events: ZoomEvent[], fps: number): string {
+  const T = `(on/${fps.toFixed(3)})`
+  const ramp = (e: ZoomEvent): string => {
+    if (e.end - e.start < 0.01) return fmtZ(e.to)
+    const p = `min(1,max(0,(${T}-${e.start.toFixed(3)})/${(e.end - e.start).toFixed(3)}))`
+    // Punches ease out; creeps and anything else stay linear.
+    const eased = e.style === 'punch' ? `(${p}*(2-${p}))` : p
+    return `(${fmtZ(e.from)}+${fmtZ(e.to - e.from)}*${eased})`
+  }
+  // For t >= last event start: ramp then hold its target.
+  const last = events[events.length - 1]
+  let expr =
+    last.end - last.start < 0.01
+      ? fmtZ(last.to)
+      : `if(lt(${T},${last.end.toFixed(3)}),${ramp(last)},${fmtZ(last.to)})`
+  for (let i = events.length - 2; i >= 0; i--) {
+    const e = events[i]
+    const within =
+      e.end - e.start < 0.01
+        ? fmtZ(e.to)
+        : `if(lt(${T},${e.end.toFixed(3)}),${ramp(e)},${fmtZ(e.to)})`
+    expr = `if(lt(${T},${events[i + 1].start.toFixed(3)}),${within},${expr})`
+  }
+  return `if(lt(${T},${events[0].start.toFixed(3)}),1,${expr})`
+}
+
+/**
+ * Maps [reframed] to [zoomed]: 2x pre-scale (zoompan pans on integer pixels,
+ * so extra resolution keeps slow zooms smooth) then per-frame zoom centred
+ * slightly above middle, where faces sit in vertical framing.
+ */
+function zoomGraph(events: ZoomEvent[], w: number, h: number, fps: number): string {
+  const safeFps = fps > 1 && fps < 240 ? fps : 30
+  return (
+    `[reframed]scale=${w * 2}:${h * 2}:flags=lanczos,` +
+    `zoompan=z='${zoomExpression(events, safeFps)}'` +
+    `:x='(iw-iw/zoom)/2':y='(ih-ih/zoom)*0.42':d=1:s=${w}x${h}:fps=${safeFps.toFixed(3)}[zoomed]`
+  )
+}
+
 /** Watermark corner margin as a fraction of the output width. */
 const WATERMARK_MARGIN = 0.03
 
@@ -172,7 +223,12 @@ export function buildFilterGraph(
   assPath: string | null,
   clipDuration: number,
   tighten: { segments: KeptSegment[]; clipStart: number } | null,
-  options?: { branding?: BrandingSettings | null; fontsDirPath?: string }
+  options?: {
+    branding?: BrandingSettings | null
+    fontsDirPath?: string
+    /** Clip-relative auto-zoom plan; null/empty disables the zoom stage. */
+    zoomEvents?: ZoomEvent[] | null
+  }
 ): FilterGraph {
   const { w, h } = targetDims(clip.edit.aspect, source)
   const parts: string[] = []
@@ -194,6 +250,14 @@ export function buildFilterGraph(
     }
   }
 
+  const zoomEvents = options?.zoomEvents
+  let current = 'reframed'
+  if (zoomEvents && zoomEvents.length > 0) {
+    parts.push(zoomGraph(zoomEvents, w, h, source.fps))
+    current = 'zoomed'
+  }
+  const initial = current
+
   const items = clip.broll.filter(
     (b) =>
       b.enabled &&
@@ -201,8 +265,6 @@ export function buildFilterGraph(
       b.end > clip.edit.start &&
       b.start < clip.edit.end
   )
-
-  let current = 'reframed'
   items.forEach((item, i) => {
     const input = i + 1
     const s = Math.max(0, item.start - clip.edit.start)
@@ -255,8 +317,8 @@ export function buildFilterGraph(
     parts.push(
       `[${current}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDirPath)}'[vout]`
     )
-  } else if (current === 'reframed') {
-    parts.push(`[reframed]null[vout]`)
+  } else if (current === initial) {
+    parts.push(`[${current}]null[vout]`)
   } else {
     // Rename the last overlay output to [vout].
     const last = parts.pop()!
@@ -337,13 +399,22 @@ export async function renderClip(job: RenderJob): Promise<string> {
     await writeFile(assPath, ass, 'utf8')
   }
 
+  // Auto zoom: plan in source time (shared with the preview), then remap to
+  // the clip-relative output timeline the filters run on.
+  let zoomEvents: ZoomEvent[] | null = null
+  if (clip.edit.autoZoom) {
+    const planned = computeZoomEvents(transcript, start, clip.edit.end, segments)
+    zoomEvents = remapZoomEvents(planned, (t) => (map ? map.toOutput(t) : t - start))
+    if (zoomEvents.length === 0) zoomEvents = null
+  }
+
   const graph = buildFilterGraph(
     effectiveClip,
     source,
     assPath,
     outputDuration,
     segments ? { segments, clipStart: start } : null,
-    { branding: job.branding, fontsDirPath: job.fontsDirPath }
+    { branding: job.branding, fontsDirPath: job.fontsDirPath, zoomEvents }
   )
   const buildArgs = (videoArgs: string[]): string[] => [
     '-ss', start.toFixed(3),
