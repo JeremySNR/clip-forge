@@ -44,6 +44,7 @@ function createWindow(): void {
   // A floating window with margin around it, never edge-to-edge (and never
   // larger than the work area on small laptop displays).
   const { width, height } = initialWindowSize(screen.getPrimaryDisplay().workAreaSize)
+  const isMac = process.platform === 'darwin'
   const win = new BrowserWindow({
     width,
     height,
@@ -52,8 +53,20 @@ function createWindow(): void {
     center: true,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: '#09090b',
     title: 'ClipForge',
+    // macOS gets the native frosted-glass treatment: system vibrancy showing
+    // through a translucent shell (the renderer lightens its surfaces via the
+    // `mac-glass` body class), an inset title bar and our top bar as the drag
+    // region. Other platforms keep the solid dark background.
+    ...(isMac
+      ? {
+          backgroundColor: '#00000000',
+          vibrancy: 'under-window' as const,
+          visualEffectState: 'active' as const,
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 18, y: 20 }
+        }
+      : { backgroundColor: '#09090b' }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,

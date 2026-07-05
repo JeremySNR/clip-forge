@@ -31,6 +31,9 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     void init()
+    // macOS renders with native vibrancy behind a translucent shell; the
+    // class switches the surface palette to translucent variants (index.css).
+    if (window.clipforge.platform === 'darwin') document.body.classList.add('mac-glass')
   }, [init])
 
   return (
