@@ -12,25 +12,29 @@ import type {
   UpdateCheckResult
 } from '@shared/types'
 
-/** Families already registered with document.fonts (FontFace API). */
-const loadedFontFamilies = new Set<string>()
+/** Font faces already registered with document.fonts (FontFace API). */
+const loadedFontFaces = new Map<string, FontFace>()
 
 /** Register custom fonts with the renderer so previews match exports. */
 async function registerFonts(fonts: CustomFont[]): Promise<void> {
-  await Promise.all(
-    fonts
-      .filter((f) => !loadedFontFamilies.has(f.family))
-      .map(async (f) => {
-        try {
-          const face = new FontFace(f.family, `url("${window.clipforge.mediaUrl(f.path)}")`)
-          await face.load()
-          document.fonts.add(face)
-          loadedFontFamilies.add(f.family)
-        } catch {
-          /* unloadable font: preview falls back to sans-serif */
-        }
-      })
-  )
+  for (const f of fonts) {
+    if (loadedFontFaces.has(f.family)) continue
+    try {
+      const face = new FontFace(f.family, `url("${window.clipforge.mediaUrl(f.path)}")`)
+      await face.load()
+      document.fonts.add(face)
+      loadedFontFaces.set(f.family, face)
+    } catch {
+      /* unloadable font: preview falls back to sans-serif */
+    }
+  }
+}
+
+function unregisterFontFamily(family: string): void {
+  const face = loadedFontFaces.get(family)
+  if (!face) return
+  document.fonts.delete(face)
+  loadedFontFaces.delete(family)
 }
 
 export type Screen = 'home' | 'processing' | 'clips' | 'editor'
@@ -84,7 +88,7 @@ interface AppState {
   addFonts: () => Promise<void>
   removeFont: (fileName: string) => Promise<void>
   selectBrandingLogo: () => Promise<void>
-  checkForUpdates: () => Promise<void>
+  checkForUpdates: (silent?: boolean) => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -113,7 +117,7 @@ export const useStore = create<AppState>((set, get) => ({
     void registerFonts(customFonts)
     // Automatic update check on launch; failures stay silent here and are
     // only surfaced when the user checks manually from Settings.
-    void get().checkForUpdates()
+    void get().checkForUpdates(true)
     window.clipforge.onPipelineProgress((p) => set({ pipelineProgress: p }))
     window.clipforge.onImportProgress((p) => {
       if (get().importProgress !== null) set({ importProgress: p })
@@ -324,18 +328,24 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   removeFont: async (fileName) => {
-    set({ customFonts: await window.clipforge.removeFont(fileName) })
+    const removed = get().customFonts.find((f) => f.fileName === fileName)
+    const customFonts = await window.clipforge.removeFont(fileName)
+    if (removed && !customFonts.some((f) => f.family === removed.family)) {
+      unregisterFontFamily(removed.family)
+    }
+    set({ customFonts })
   },
 
   selectBrandingLogo: async () => {
     set({ settings: await window.clipforge.selectBrandingLogo() })
   },
 
-  checkForUpdates: async () => {
+  checkForUpdates: async (silent = false) => {
     if (get().checkingForUpdates) return
     set({ checkingForUpdates: true })
     try {
-      set({ updateCheck: await window.clipforge.checkForUpdates() })
+      const updateCheck = await window.clipforge.checkForUpdates()
+      if (!silent || !updateCheck.error) set({ updateCheck })
     } finally {
       set({ checkingForUpdates: false })
     }

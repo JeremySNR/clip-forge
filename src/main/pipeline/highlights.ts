@@ -14,6 +14,7 @@ interface RawHighlight {
   title: string
   hook: string
   summary: string
+  payoff: string
   virality_score: number
   virality_reason: string
   hashtags: string[]
@@ -39,6 +40,7 @@ const RESPONSE_SCHEMA = {
           'title',
           'hook',
           'summary',
+          'payoff',
           'virality_score',
           'virality_reason',
           'hashtags'
@@ -55,6 +57,11 @@ const RESPONSE_SCHEMA = {
             description: 'Scroll-stopping first line to overlay during the first seconds'
           },
           summary: { type: 'string', description: 'One sentence describing the moment' },
+          payoff: {
+            type: 'string',
+            description:
+              'The closing line or idea the clip ends on and why it lands (resolution, punchline, answer, takeaway, or pointed question). A clip whose ending does not land should not be selected.'
+          },
           virality_score: {
             type: 'integer',
             description: 'Predicted engagement 0-99 using the scoring rubric'
@@ -143,6 +150,9 @@ function minDurationFor(pref: ClipLengthPreference): number {
 const SYSTEM_PROMPT = `You are an expert short-form video editor who selects moments most likely to go viral as standalone vertical clips. You receive the timestamped transcript of a long video. Some lines carry a [delivery: ...] tag measured from the actual audio — "energetic" marks the speaker's most aroused, animated delivery, "subdued" the flattest.
 
 Selection rules:
+- Every clip MUST have the shape of a complete micro-video: a HOOK that grabs in the first sentence, a BUILD that develops or escalates it, and an ENDING THAT LANDS. A statement or observation on its own — however interesting — is not a clip.
+- What "lands" depends on the material. A story lands on its resolution or emotional beat. Comedy lands on the punchline. An argument lands on its sharpest, most quotable formulation. A reveal lands on the answer. Practical content lands on the takeaway. A deliberately provocative clip can even land on a pointed question that throws back to the hook. All of these are valid endings.
+- What never lands: trailing setup or scene-setting, context that introduces an idea and stops, the middle of a list, or an aside (ending right after "People were experimenting with ChatGPT for the first time" leaves the thought hanging — the sentence exists to set up whatever comes next). If the beat that completes the thought arrives one or two sentences after the moment you picked, extend the clip to include it.
 - Every clip MUST start at the beginning of a sentence or thought and end at a natural conclusion. Never cut mid-sentence.
 - Prefer moments with a strong hook in the first 3 seconds: bold claims, surprising facts, emotional peaks, controversy, humour, actionable value, or compelling storytelling.
 - Clips must be self-contained: a viewer with zero context must understand them.
@@ -153,7 +163,7 @@ Virality scoring rubric (0-99), grounded in sharing research (Berger & Milkman 2
 - Hook strength in the first sentence — curiosity gap, bold claim, or open question (0-30)
 - High-arousal emotion — awe, amusement, excitement, anger, anxiety, surprise. Weight moments tagged [delivery: energetic] upward; a flat, deactivating or sad moment scores low here even if well-worded (0-25)
 - Value — practical utility the viewer can apply, or novel insight that makes the sharer look smart (0-20)
-- Completeness as a standalone story (0-15)
+- Structure — a clear hook -> build -> landing arc; a clip that is just a statement, or whose final sentence is setup rather than a landing, scores 0 here (0-15)
 - Shareability — would someone tag a friend, argue in the comments, or repost to signal identity? (0-9)
 Sum the parts for the final score. Be honest and discriminating: most clips score 40-75, reserve 85+ for exceptional moments.`
 
@@ -177,6 +187,160 @@ function snap(time: number, boundaries: number[], toleranceSec: number): number 
     }
   }
   return best
+}
+
+/** How far the ending review may move a clip's end. */
+const MAX_END_EXTEND_SEC = 45
+const MAX_END_TRIM_SEC = 20
+/** How much transcript beyond a clip's end the ending review gets to see. */
+const CONTINUATION_SEC = 45
+
+const REFINE_SYSTEM_PROMPT = `You quality-check the ENDINGS of short vertical clips cut from a longer video. A good clip has the shape of a complete micro-video — hook, build, and an ending that lands. What "lands" depends on the material: a story lands on its resolution or emotional beat, comedy on the punchline, an argument on its sharpest formulation, a reveal on the answer, practical content on the takeaway, and a provocative clip can land on a pointed question that throws back to the hook. An ending fails when the clip stops on setup, scene-setting context, the middle of a list, or a plain observation that promises more (e.g. ending on "People were experimenting with ChatGPT for the first time" — that sentence exists to set up whatever comes next).
+
+For each clip you receive its transcript and the sentences that follow it in the source video, each tagged with the time it ends. Judge the current ending strictly. When it fails, pick the tagged sentence end-time where the thought completes — usually extending slightly to include the beat that follows, occasionally trimming back to an earlier, stronger closer. Only use end times that appear in the tags.`
+
+interface RefinedEnding {
+  index: number
+  ends_with_payoff: boolean
+  better_end: number
+  reason: string
+}
+
+const REFINE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['endings'],
+  properties: {
+    endings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['index', 'ends_with_payoff', 'better_end', 'reason'],
+        properties: {
+          index: { type: 'integer', description: 'The clip number being judged' },
+          ends_with_payoff: {
+            type: 'boolean',
+            description:
+              'True when the current ending already lands (resolution, punchline, answer, takeaway, or pointed question)'
+          },
+          better_end: {
+            type: 'number',
+            description:
+              'End time (seconds) of the sentence that completes the thought; repeat the current end when ends_with_payoff is true'
+          },
+          reason: { type: 'string', description: 'One short sentence justifying the verdict' }
+        }
+      }
+    }
+  }
+} as const
+
+/**
+ * Clamp and snap an ending-review suggestion onto a sentence boundary, or
+ * return the clip unchanged when the suggestion is a no-op or implausible.
+ * Exported for tests.
+ */
+export function applyRefinedEnding(
+  clip: Clip,
+  betterEnd: number,
+  segmentEnds: number[],
+  videoDurationSec: number
+): Clip {
+  if (!Number.isFinite(betterEnd)) return clip
+  const snapped = snap(betterEnd, segmentEnds, SENTENCE_SNAP_SEC)
+  const newEnd = Math.min(videoDurationSec, snapped + END_POST_ROLL_SEC)
+  const current = clip.suggestedEnd
+  if (
+    Math.abs(newEnd - current) < 1 ||
+    newEnd > current + MAX_END_EXTEND_SEC ||
+    newEnd < current - MAX_END_TRIM_SEC ||
+    newEnd - clip.suggestedStart < MIN_CLIP_SEC
+  ) {
+    return clip
+  }
+  return { ...clip, suggestedEnd: newEnd, edit: { ...clip.edit, end: newEnd } }
+}
+
+/**
+ * Second LLM pass over the candidate clips: verify each one ends on a beat
+ * that lands and move the end to the sentence that completes the thought
+ * when it does not. Selection quality problems concentrate at clip tails —
+ * the first pass reliably finds hooks but often stops on setup. Failures
+ * never break the pipeline; the unrefined clips are returned instead.
+ */
+async function refineClipEndings(
+  apiKey: string,
+  model: string,
+  transcript: Transcript,
+  clips: Clip[],
+  videoDurationSec: number,
+  signal?: AbortSignal
+): Promise<Clip[]> {
+  if (clips.length === 0) return clips
+  const segmentEnds = transcript.segments.map((s) => s.end).sort((a, b) => a - b)
+
+  const blocks = clips.map((clip, i) => {
+    const inClip = transcript.segments.filter(
+      (s) => s.end > clip.suggestedStart + 0.2 && s.start < clip.suggestedEnd - 0.2
+    )
+    // Tag the closing sentences with end times; earlier text is context only.
+    const tail = inClip.slice(-3)
+    const head = inClip
+      .slice(0, -3)
+      .map((s) => s.text)
+      .join(' ')
+    const continuation = transcript.segments.filter(
+      (s) => s.start >= clip.suggestedEnd - 0.5 && s.start < clip.suggestedEnd + CONTINUATION_SEC
+    )
+    return [
+      `Clip ${i} — "${clip.title}" (currently ends at ${clip.suggestedEnd.toFixed(1)}s):`,
+      head ? `  …${head.slice(-500)}` : '',
+      ...tail.map((s) => `  [ends ${s.end.toFixed(1)}s] ${s.text}`),
+      continuation.length > 0
+        ? '  Continues after the current end:'
+        : '  (the video ends here — extending is not possible)',
+      ...continuation.map((s) => `  [ends ${s.end.toFixed(1)}s] ${s.text}`)
+    ]
+      .filter(Boolean)
+      .join('\n')
+  })
+
+  try {
+    const res = await chatJSON<{ endings: RefinedEnding[] }>(
+      apiKey,
+      model,
+      [
+        { role: 'system', content: REFINE_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Judge the ending of each clip below. Return one entry per clip, in order.\n\n${blocks.join('\n\n')}`
+        }
+      ],
+      'clip_endings',
+      REFINE_SCHEMA as unknown as Record<string, unknown>,
+      signal
+    )
+
+    const refined = [...clips]
+    for (const entry of res.endings ?? []) {
+      const clip = refined[entry.index]
+      if (!clip || entry.ends_with_payoff) continue
+      refined[entry.index] = applyRefinedEnding(clip, entry.better_end, segmentEnds, videoDurationSec)
+      if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
+        console.error(
+          `[highlights] ending review moved clip ${entry.index} end ` +
+            `${clip.suggestedEnd.toFixed(1)}s -> ${refined[entry.index].suggestedEnd.toFixed(1)}s: ${entry.reason}`
+        )
+      }
+    }
+    return refined
+  } catch (err) {
+    if (signal?.aborted) throw err
+    // The candidates are still usable without the ending review.
+    console.error('Clip ending review failed; keeping original endings:', err)
+    return clips
+  }
 }
 
 /**
@@ -211,8 +375,13 @@ export async function detectHighlights(
   // LLM output is nondeterministic: occasionally it returns an empty list on
   // perfectly clippable material, so retry once with a firmer instruction.
   const first = await requestHighlights(apiKey, model, transcript, options, videoDurationSec, false, signal)
-  if (first.length > 0) return first
-  return requestHighlights(apiKey, model, transcript, options, videoDurationSec, true, signal)
+  const clips =
+    first.length > 0
+      ? first
+      : await requestHighlights(apiKey, model, transcript, options, videoDurationSec, true, signal)
+  const refined = await refineClipEndings(apiKey, model, transcript, clips, videoDurationSec, signal)
+  // Refinement can pull two clips onto the same landing beat; dedupe again.
+  return dedupeClips(refined)
 }
 
 async function requestHighlights(
