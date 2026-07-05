@@ -1,5 +1,7 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { rm } from 'node:fs/promises'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { existsSync } from 'node:fs'
+import { copyFile, mkdir, rm } from 'node:fs/promises'
+import { basename, extname, join } from 'node:path'
 import type {
   AnalyzeOptions,
   Clip,
@@ -12,10 +14,12 @@ import { downloadGpuFfmpeg } from './pipeline/encoders'
 import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
+import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
+import { checkForUpdates } from './updates'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
-import { getExportPreferences, getSettings, updateSettings } from './settings'
+import { getBrandingSettings, getExportPreferences, getSettings, updateSettings } from './settings'
 
 const runningAnalyses = new Map<string, AbortController>()
 const runningExports = new Map<string, AbortController>()
@@ -169,6 +173,7 @@ export function registerIpcHandlers(): void {
     const suffix = clip.edit.aspect === 'original' ? '' : ` (${clip.edit.aspect.replace(':', 'x')})`
     const outputPath = uniqueOutputPath(opts.outputDir, `${sanitizeFileName(clip.title)}${suffix}`)
     const prefs = getExportPreferences()
+    const branding = getBrandingSettings()
     const controller = new AbortController()
     runningExports.set(clip.id, controller)
     try {
@@ -179,6 +184,11 @@ export function registerIpcHandlers(): void {
         outputPath,
         encoder: prefs.encoder,
         quality: prefs.quality,
+        branding:
+          branding.enabled && branding.imagePath && existsSync(branding.imagePath)
+            ? branding
+            : null,
+        fontsDirPath: await renderFontsDir(),
         signal: controller.signal,
         onProgress: (fraction) => {
           if (!event.sender.isDestroyed()) {
@@ -216,6 +226,59 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('settings:get', async () => getSettings())
   ipcMain.handle('settings:update', async (_e, update: SettingsUpdate) => updateSettings(update))
+
+  ipcMain.handle('fonts:list', async () => listCustomFonts())
+
+  ipcMain.handle('fonts:add', async (event) => {
+    // Headless/CI hook (like CLIPFORGE_SELECT_VIDEO): skip the native dialog.
+    let paths: string[]
+    if (process.env.CLIPFORGE_SELECT_FONTS) {
+      paths = process.env.CLIPFORGE_SELECT_FONTS.split(',')
+    } else {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const result = await dialog.showOpenDialog(win!, {
+        title: 'Choose font files',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: 'Fonts', extensions: ['ttf', 'otf'] }]
+      })
+      if (result.canceled) return listCustomFonts()
+      paths = result.filePaths
+    }
+    return addCustomFonts(paths)
+  })
+
+  ipcMain.handle('fonts:remove', async (_e, fileName: string) => removeCustomFont(fileName))
+
+  ipcMain.handle('branding:selectLogo', async (event) => {
+    // Headless/CI hook: skip the native dialog.
+    let picked: string | null
+    if (process.env.CLIPFORGE_SELECT_LOGO) {
+      picked = process.env.CLIPFORGE_SELECT_LOGO
+    } else {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      const result = await dialog.showOpenDialog(win!, {
+        title: 'Choose a watermark or logo image',
+        properties: ['openFile'],
+        filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'] }]
+      })
+      picked = result.canceled ? null : result.filePaths[0]
+    }
+    if (!picked) return getSettings()
+
+    // Copy into userData so the logo survives the source file moving and is
+    // reachable through the media:// allowlist for the preview.
+    const dir = join(app.getPath('userData'), 'branding')
+    await mkdir(dir, { recursive: true })
+    const dest = join(dir, `logo-${Date.now()}${extname(picked).toLowerCase()}`)
+    await copyFile(picked, dest)
+    const previous = getBrandingSettings().imagePath
+    if (previous && previous.startsWith(dir) && basename(previous) !== basename(dest)) {
+      await rm(previous, { force: true }).catch(() => undefined)
+    }
+    return updateSettings({ branding: { imagePath: dest, enabled: true } })
+  })
+
+  ipcMain.handle('updates:check', async () => checkForUpdates())
 
   ipcMain.handle('shell:showItemInFolder', async (_e, path: string) => {
     shell.showItemInFolder(path)

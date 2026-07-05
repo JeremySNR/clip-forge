@@ -3,6 +3,7 @@ import type {
   AnalyzeOptions,
   AppSettings,
   Clip,
+  CustomFont,
   ExportOptions,
   ExportProgress,
   ExportResult,
@@ -12,7 +13,8 @@ import type {
   Project,
   ProjectSummary,
   SettingsUpdate,
-  TimelineData
+  TimelineData,
+  UpdateCheckResult
 } from '@shared/types'
 
 const api = {
@@ -51,6 +53,11 @@ const api = {
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (update: SettingsUpdate): Promise<AppSettings> => ipcRenderer.invoke('settings:update', update),
+  listFonts: (): Promise<CustomFont[]> => ipcRenderer.invoke('fonts:list'),
+  addFonts: (): Promise<CustomFont[]> => ipcRenderer.invoke('fonts:add'),
+  removeFont: (fileName: string): Promise<CustomFont[]> => ipcRenderer.invoke('fonts:remove', fileName),
+  selectBrandingLogo: (): Promise<AppSettings> => ipcRenderer.invoke('branding:selectLogo'),
+  checkForUpdates: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updates:check'),
   downloadGpuFfmpeg: (): Promise<GpuEncoderStatus> => ipcRenderer.invoke('settings:downloadGpuFfmpeg'),
   onGpuProgress: (cb: (p: ImportProgress) => void): (() => void) => {
     const listener = (_e: Electron.IpcRendererEvent, p: ImportProgress): void => cb(p)

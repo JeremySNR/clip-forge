@@ -76,7 +76,7 @@ async function main(): Promise<void> {
   console.log('5. Detecting highlights with LLM…')
   const clips = await detectHighlights(
     API_KEY,
-    'gpt-4o-mini',
+    'gpt-5.4-mini',
     transcript,
     { prompt: '', clipLength: 'short', broll: false },
     info.durationSec

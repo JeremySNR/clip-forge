@@ -5,15 +5,25 @@ import {
   Brain,
   Check,
   ExternalLink,
+  ImagePlus,
   MonitorPlay,
+  RefreshCw,
+  Stamp,
+  Trash2,
+  Type,
   Zap,
   Download,
   Loader2
 } from 'lucide-react'
 import { useStore } from '../store'
-import type { EncoderPreference, ImportProgress, QualityPreference } from '@shared/types'
+import type {
+  EncoderPreference,
+  ImportProgress,
+  QualityPreference,
+  WatermarkPosition
+} from '@shared/types'
 
-const ANALYSIS_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1']
+const ANALYSIS_MODELS = ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'gpt-4o-mini']
 
 const ENCODERS: Array<{ value: EncoderPreference; label: string; hint: string }> = [
   { value: 'auto', label: 'Auto', hint: 'GPU when ready' },
@@ -27,13 +37,20 @@ const QUALITIES: Array<{ value: QualityPreference; label: string; hint: string }
   { value: 'high', label: 'High', hint: 'Best quality' }
 ]
 
+const WATERMARK_POSITIONS: Array<{ value: WatermarkPosition; label: string }> = [
+  { value: 'top-left', label: 'Top left' },
+  { value: 'top-right', label: 'Top right' },
+  { value: 'bottom-left', label: 'Bottom left' },
+  { value: 'bottom-right', label: 'Bottom right' }
+]
+
 export default function SettingsModal(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const saveSettings = useStore((s) => s.saveSettings)
   const refreshSettings = useStore((s) => s.refreshSettings)
   const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-4o-mini')
+  const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-5.4-mini')
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [gpuProgress, setGpuProgress] = useState<ImportProgress | null>(null)
@@ -126,7 +143,8 @@ export default function SettingsModal(): React.JSX.Element {
             Analysis model
           </label>
           <p className="mt-1 text-xs text-zinc-500">
-            gpt-4o-mini is fast and cheap; larger models pick moments more carefully.
+            gpt-5.4-mini is fast and cheap; gpt-5.4 and gpt-5.5 pick moments more carefully.
+            gpt-4o-mini is the budget legacy option.
           </p>
           <div className="mt-2.5 grid grid-cols-2 gap-2">
             {ANALYSIS_MODELS.map((m) => (
@@ -226,6 +244,10 @@ export default function SettingsModal(): React.JSX.Element {
           </div>
         </div>
 
+        <BrandingSection />
+        <FontsSection />
+        <UpdatesSection />
+
         <button
           onClick={() => void save()}
           disabled={saving}
@@ -235,6 +257,240 @@ export default function SettingsModal(): React.JSX.Element {
           {saved ? 'Saved' : saving ? 'Saving…' : 'Save settings'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function BrandingSection(): React.JSX.Element {
+  const settings = useStore((s) => s.settings)
+  const saveSettings = useStore((s) => s.saveSettings)
+  const selectBrandingLogo = useStore((s) => s.selectBrandingLogo)
+  const branding = settings?.branding
+
+  return (
+    <div className="mt-5 border-t border-surface-700 pt-5">
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <Stamp size={15} className="text-accent-400" />
+        Branding
+      </label>
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        Overlay your logo or watermark on every clip — shown in the preview and burned into
+        exports, underneath the captions.
+      </p>
+
+      <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2.5">
+        <span className="text-xs font-medium text-zinc-300">Watermark on exports</span>
+        <button
+          onClick={() => void saveSettings({ branding: { enabled: !branding?.enabled } })}
+          className={`relative h-5 w-9 shrink-0 rounded-full transition ${branding?.enabled ? 'bg-zinc-100' : 'bg-surface-600'}`}
+        >
+          <span
+            className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${branding?.enabled ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
+          />
+        </button>
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-3">
+        {branding?.imagePath ? (
+          <img
+            src={window.clipforge.mediaUrl(branding.imagePath)}
+            alt="Watermark"
+            className="h-12 w-12 shrink-0 rounded-lg border border-surface-600 bg-black/40 object-contain p-1"
+          />
+        ) : (
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-surface-600 text-zinc-600">
+            <ImagePlus size={16} />
+          </div>
+        )}
+        <button
+          onClick={() => void selectBrandingLogo()}
+          className="flex-1 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+        >
+          {branding?.imagePath ? 'Replace logo image…' : 'Choose logo image…'}
+        </button>
+        {branding?.imagePath && (
+          <button
+            onClick={() => void saveSettings({ branding: { imagePath: null, enabled: false } })}
+            title="Remove logo"
+            className="rounded-lg p-2 text-zinc-500 transition hover:bg-surface-800 hover:text-red-400"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+
+      {branding?.imagePath && (
+        <>
+          <div className="mt-2.5 grid grid-cols-4 gap-2">
+            {WATERMARK_POSITIONS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => void saveSettings({ branding: { position: p.value } })}
+                className={`rounded-xl border px-1 py-2 text-center text-[11px] font-medium transition ${
+                  branding.position === p.value
+                    ? 'border-white/30 bg-white/[0.07] text-zinc-100'
+                    : 'border-surface-600 text-zinc-400 hover:bg-surface-800'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-4">
+            <div>
+              <div className="mb-1 flex justify-between text-[11px] text-zinc-500">
+                <span>Size</span>
+                <span>{Math.round(branding.scale * 100)}% width</span>
+              </div>
+              <input
+                type="range"
+                min={4}
+                max={40}
+                value={Math.round(branding.scale * 100)}
+                onChange={(e) =>
+                  void saveSettings({ branding: { scale: Number(e.target.value) / 100 } })
+                }
+                className="w-full"
+              />
+            </div>
+            <div>
+              <div className="mb-1 flex justify-between text-[11px] text-zinc-500">
+                <span>Opacity</span>
+                <span>{Math.round(branding.opacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={5}
+                max={100}
+                value={Math.round(branding.opacity * 100)}
+                onChange={(e) =>
+                  void saveSettings({ branding: { opacity: Number(e.target.value) / 100 } })
+                }
+                className="w-full"
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function FontsSection(): React.JSX.Element {
+  const customFonts = useStore((s) => s.customFonts)
+  const addFonts = useStore((s) => s.addFonts)
+  const removeFont = useStore((s) => s.removeFont)
+  const [adding, setAdding] = useState(false)
+
+  return (
+    <div className="mt-5 border-t border-surface-700 pt-5">
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <Type size={15} className="text-accent-400" />
+        Custom fonts
+      </label>
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        Upload TTF/OTF fonts to use for captions. Pick them per clip in the editor’s Captions
+        section — previews and exports both use them.
+      </p>
+
+      {customFonts.length > 0 && (
+        <div className="mt-2.5 space-y-1.5">
+          {customFonts.map((f) => (
+            <div
+              key={f.fileName}
+              className="flex items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-xs font-medium text-zinc-200" style={{ fontFamily: `'${f.family}', sans-serif` }}>
+                  {f.family}
+                </div>
+                <div className="truncate text-[10px] text-zinc-600">{f.fileName}</div>
+              </div>
+              <button
+                onClick={() => void removeFont(f.fileName)}
+                title="Remove this font"
+                className="shrink-0 rounded-md p-1.5 text-zinc-600 transition hover:bg-surface-700 hover:text-red-400"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        onClick={async () => {
+          setAdding(true)
+          try {
+            await addFonts()
+          } finally {
+            setAdding(false)
+          }
+        }}
+        disabled={adding}
+        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+      >
+        {adding ? <Loader2 size={13} className="animate-spin" /> : <Type size={13} />}
+        Add font files (.ttf / .otf)
+      </button>
+    </div>
+  )
+}
+
+function UpdatesSection(): React.JSX.Element {
+  const settings = useStore((s) => s.settings)
+  const updateCheck = useStore((s) => s.updateCheck)
+  const checking = useStore((s) => s.checkingForUpdates)
+  const checkForUpdates = useStore((s) => s.checkForUpdates)
+
+  return (
+    <div className="mt-5 border-t border-surface-700 pt-5">
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <RefreshCw size={15} className="text-accent-400" />
+        App updates
+      </label>
+      <p className="mt-1 text-xs text-zinc-500">
+        ClipForge v{settings?.appVersion ?? '…'} — updates are checked automatically on launch.
+      </p>
+
+      {updateCheck?.updateAvailable && updateCheck.releaseUrl ? (
+        <a
+          href={updateCheck.releaseUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+        >
+          <Download size={13} />
+          Update to v{updateCheck.latestVersion} — open the release page
+        </a>
+      ) : (
+        updateCheck &&
+        !checking && (
+          <p
+            className={`mt-2.5 rounded-lg px-3 py-2 text-xs leading-relaxed ${
+              updateCheck.error ? 'bg-amber-500/10 text-amber-400' : 'bg-surface-850 text-zinc-400'
+            }`}
+          >
+            {updateCheck.error ??
+              (updateCheck.latestVersion
+                ? `You're up to date (latest release is v${updateCheck.latestVersion}).`
+                : "You're up to date — no newer release has been published.")}
+          </p>
+        )
+      )}
+
+      <button
+        onClick={() => void checkForUpdates()}
+        disabled={checking}
+        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+      >
+        {checking ? (
+          <Loader2 size={13} className="animate-spin" />
+        ) : (
+          <RefreshCw size={13} />
+        )}
+        {checking ? 'Checking…' : 'Check for updates'}
+      </button>
     </div>
   )
 }

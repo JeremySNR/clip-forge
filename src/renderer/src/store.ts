@@ -3,12 +3,35 @@ import type {
   AnalyzeOptions,
   AppSettings,
   Clip,
+  CustomFont,
   ImportProgress,
   PipelineProgress,
   Project,
   ProjectSummary,
-  SettingsUpdate
+  SettingsUpdate,
+  UpdateCheckResult
 } from '@shared/types'
+
+/** Families already registered with document.fonts (FontFace API). */
+const loadedFontFamilies = new Set<string>()
+
+/** Register custom fonts with the renderer so previews match exports. */
+async function registerFonts(fonts: CustomFont[]): Promise<void> {
+  await Promise.all(
+    fonts
+      .filter((f) => !loadedFontFamilies.has(f.family))
+      .map(async (f) => {
+        try {
+          const face = new FontFace(f.family, `url("${window.clipforge.mediaUrl(f.path)}")`)
+          await face.load()
+          document.fonts.add(face)
+          loadedFontFamilies.add(f.family)
+        } catch {
+          /* unloadable font: preview falls back to sans-serif */
+        }
+      })
+  )
+}
 
 export type Screen = 'home' | 'processing' | 'clips' | 'editor'
 
@@ -31,6 +54,9 @@ interface AppState {
   selectedClipId: string | null
   exports: Record<string, ExportEntry>
   exportDir: string | null
+  customFonts: CustomFont[]
+  updateCheck: UpdateCheckResult | null
+  checkingForUpdates: boolean
 
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
@@ -55,6 +81,10 @@ interface AppState {
   exportAll: () => Promise<void>
   chooseExportDir: () => Promise<void>
   clearExport: (clipId: string) => void
+  addFonts: () => Promise<void>
+  removeFont: (fileName: string) => Promise<void>
+  selectBrandingLogo: () => Promise<void>
+  checkForUpdates: () => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -69,13 +99,21 @@ export const useStore = create<AppState>((set, get) => ({
   selectedClipId: null,
   exports: {},
   exportDir: null,
+  customFonts: [],
+  updateCheck: null,
+  checkingForUpdates: false,
 
   init: async () => {
-    const [settings, projects] = await Promise.all([
+    const [settings, projects, customFonts] = await Promise.all([
       window.clipforge.getSettings(),
-      window.clipforge.listProjects()
+      window.clipforge.listProjects(),
+      window.clipforge.listFonts()
     ])
-    set({ settings, projects })
+    set({ settings, projects, customFonts })
+    void registerFonts(customFonts)
+    // Automatic update check on launch; failures stay silent here and are
+    // only surfaced when the user checks manually from Settings.
+    void get().checkForUpdates()
     window.clipforge.onPipelineProgress((p) => set({ pipelineProgress: p }))
     window.clipforge.onImportProgress((p) => {
       if (get().importProgress !== null) set({ importProgress: p })
@@ -277,6 +315,30 @@ export const useStore = create<AppState>((set, get) => ({
     const exports = { ...get().exports }
     delete exports[clipId]
     set({ exports })
+  },
+
+  addFonts: async () => {
+    const customFonts = await window.clipforge.addFonts()
+    set({ customFonts })
+    await registerFonts(customFonts)
+  },
+
+  removeFont: async (fileName) => {
+    set({ customFonts: await window.clipforge.removeFont(fileName) })
+  },
+
+  selectBrandingLogo: async () => {
+    set({ settings: await window.clipforge.selectBrandingLogo() })
+  },
+
+  checkForUpdates: async () => {
+    if (get().checkingForUpdates) return
+    set({ checkingForUpdates: true })
+    try {
+      set({ updateCheck: await window.clipforge.checkForUpdates() })
+    } finally {
+      set({ checkingForUpdates: false })
+    }
   }
 }))
 

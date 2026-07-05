@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dedupeClips } from '../src/main/pipeline/highlights'
+import { dedupeClips, targetClipCount } from '../src/main/pipeline/highlights'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import type { Clip } from '@shared/types'
 
@@ -54,5 +54,17 @@ describe('dedupeClips', () => {
     // The short clip sits fully inside the long one: 100% of the short clip.
     const clips = [clip('long', 0, 60, 90), clip('short', 20, 30, 85)]
     expect(dedupeClips(clips).map((c) => c.id)).toEqual(['long'])
+  })
+})
+
+describe('targetClipCount', () => {
+  it('asks for roughly one clip per minute of source', () => {
+    expect(targetClipCount(600)).toBe(10)
+    expect(targetClipCount(1800)).toBe(30)
+  })
+
+  it('never asks for fewer than 4 or more than 40', () => {
+    expect(targetClipCount(30)).toBe(4)
+    expect(targetClipCount(6 * 3600)).toBe(40)
   })
 })

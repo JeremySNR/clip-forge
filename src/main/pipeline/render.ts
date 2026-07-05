@@ -2,7 +2,15 @@ import { writeFile, mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { AspectRatio, Clip, QualityPreference, Transcript, VideoInfo } from '@shared/types'
+import type {
+  AspectRatio,
+  BrandingSettings,
+  Clip,
+  QualityPreference,
+  Transcript,
+  VideoInfo,
+  WatermarkPosition
+} from '@shared/types'
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { runFfmpegWith } from './ffmpeg'
@@ -11,6 +19,18 @@ import { audioArgs, encoderArgs, resolveEncoder } from './encoders'
 
 /** Social platforms normalise to ~-14 LUFS; master exports to match. */
 const LOUDNORM = 'loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000'
+
+/**
+ * Gentle audio fade at the clip tail so endings never cut off abruptly —
+ * short enough to stay inside the post-roll padding after the last word.
+ */
+const END_FADE_SEC = 0.4
+
+function audioChain(clipDuration: number): string {
+  if (clipDuration <= END_FADE_SEC * 3) return LOUDNORM
+  const st = (clipDuration - END_FADE_SEC).toFixed(3)
+  return `${LOUDNORM},afade=t=out:st=${st}:d=${END_FADE_SEC}`
+}
 
 function targetDims(aspect: AspectRatio, source: VideoInfo): { w: number; h: number } {
   switch (aspect) {
@@ -112,6 +132,26 @@ function tightenGraph(segments: KeptSegment[], clipStart: number, hasAudio: bool
 
 const BROLL_FADE_SEC = 0.25
 
+/** Watermark corner margin as a fraction of the output width. */
+const WATERMARK_MARGIN = 0.03
+
+function watermarkOverlayXY(position: WatermarkPosition, margin: number): string {
+  switch (position) {
+    case 'top-left':
+      return `${margin}:${margin}`
+    case 'top-right':
+      return `W-w-${margin}:${margin}`
+    case 'bottom-left':
+      return `${margin}:H-h-${margin}`
+    case 'bottom-right':
+      return `W-w-${margin}:H-h-${margin}`
+    default: {
+      const exhaustive: never = position
+      return exhaustive
+    }
+  }
+}
+
 interface FilterGraph {
   filterComplex: string
   /** Extra `-i` input args for the B-roll images (after the main input). */
@@ -122,15 +162,17 @@ interface FilterGraph {
 
 /**
  * Full filter graph: optional tighten trim+concat -> reframe -> timed B-roll
- * image overlays (fade in/out) -> caption burn-in on top, plus the loudness-
- * normalised audio chain.
+ * image overlays (fade in/out) -> branding watermark -> caption burn-in on
+ * top, plus the loudness-normalised audio chain with an end fade-out.
+ * Exported for tests.
  */
-function buildFilterGraph(
+export function buildFilterGraph(
   clip: Clip,
   source: VideoInfo,
   assPath: string | null,
   clipDuration: number,
-  tighten: { segments: KeptSegment[]; clipStart: number } | null
+  tighten: { segments: KeptSegment[]; clipStart: number } | null,
+  options?: { branding?: BrandingSettings | null; fontsDirPath?: string }
 ): FilterGraph {
   const { w, h } = targetDims(clip.edit.aspect, source)
   const parts: string[] = []
@@ -141,13 +183,13 @@ function buildFilterGraph(
     parts.push(tightenGraph(tighten.segments, tighten.clipStart, source.hasAudio))
     parts.push(reframeGraph(clip, source, 'vcat'))
     if (source.hasAudio) {
-      parts.push(`[acat]${LOUDNORM}[aout]`)
+      parts.push(`[acat]${audioChain(clipDuration)}[aout]`)
       audioLabel = 'aout'
     }
   } else {
     parts.push(reframeGraph(clip, source, '0:v'))
     if (source.hasAudio) {
-      parts.push(`[0:a]${LOUDNORM}[aout]`)
+      parts.push(`[0:a]${audioChain(clipDuration)}[aout]`)
       audioLabel = 'aout'
     }
   }
@@ -192,9 +234,26 @@ function buildFilterGraph(
     current = `v${i}`
   })
 
-  if (assPath) {
+  const branding = options?.branding
+  if (branding?.enabled && branding.imagePath) {
+    const input = items.length + 1
+    extraInputs.push('-loop', '1', '-t', clipDuration.toFixed(3), '-i', branding.imagePath)
+    const wmWidth = Math.max(2, Math.round(w * Math.min(0.5, Math.max(0.04, branding.scale))))
+    const opacity = Math.min(1, Math.max(0.05, branding.opacity))
+    const margin = Math.round(w * WATERMARK_MARGIN)
     parts.push(
-      `[${current}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDir())}'[vout]`
+      `[${input}:v]format=rgba,scale=${wmWidth}:-1:flags=lanczos,colorchannelmixer=aa=${opacity.toFixed(3)}[wm]`
+    )
+    parts.push(
+      `[${current}][wm]overlay=${watermarkOverlayXY(branding.position, margin)}[wmk]`
+    )
+    current = 'wmk'
+  }
+
+  if (assPath) {
+    const fontsDirPath = options?.fontsDirPath ?? fontsDir()
+    parts.push(
+      `[${current}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDirPath)}'[vout]`
     )
   } else if (current === 'reframed') {
     parts.push(`[reframed]null[vout]`)
@@ -214,6 +273,10 @@ export interface RenderJob {
   outputPath: string
   encoder?: EncoderPreference
   quality?: QualityPreference
+  /** App-wide watermark/logo composited under the captions. */
+  branding?: BrandingSettings | null
+  /** Directory libass loads fonts from; defaults to the bundled fonts. */
+  fontsDirPath?: string
   onProgress?: (fraction: number) => void
   signal?: AbortSignal
 }
@@ -265,7 +328,8 @@ export async function renderClip(job: RenderJob): Promise<string> {
       height: h,
       clipStart: captionStart,
       clipEnd: captionEnd,
-      title: clip.edit.showTitle ? clip.hook || clip.title : undefined
+      title: clip.edit.showTitle ? clip.hook || clip.title : undefined,
+      fontFamily: clip.edit.captionFontFamily ?? undefined
     })
     const dir = join(tmpdir(), 'clipforge')
     await mkdir(dir, { recursive: true })
@@ -278,7 +342,8 @@ export async function renderClip(job: RenderJob): Promise<string> {
     source,
     assPath,
     outputDuration,
-    segments ? { segments, clipStart: start } : null
+    segments ? { segments, clipStart: start } : null,
+    { branding: job.branding, fontsDirPath: job.fontsDirPath }
   )
   const buildArgs = (videoArgs: string[]): string[] => [
     '-ss', start.toFixed(3),

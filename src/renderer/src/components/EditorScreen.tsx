@@ -8,7 +8,8 @@ import {
   Quote,
   ScanFace,
   Scissors,
-  Trash2
+  Trash2,
+  Type
 } from 'lucide-react'
 import type { TimelineData } from '@shared/types'
 import { useStore } from '../store'
@@ -36,6 +37,7 @@ export default function EditorScreen(): React.JSX.Element {
   const exportClip = useStore((s) => s.exportClip)
   const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
+  const customFonts = useStore((s) => s.customFonts)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
@@ -281,6 +283,32 @@ export default function EditorScreen(): React.JSX.Element {
                   <div className="mt-1 text-[11px] text-zinc-500">{style.name}</div>
                 </button>
               ))}
+            </div>
+          )}
+          {clip.edit.captionsEnabled && (
+            <div className="mt-3">
+              <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+                <Type size={13} /> Caption font
+              </div>
+              {customFonts.length > 0 ? (
+                <select
+                  value={clip.edit.captionFontFamily ?? ''}
+                  onChange={(e) => set({ captionFontFamily: e.target.value || null })}
+                  className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-white/25 focus:outline-none"
+                >
+                  <option value="">Style default</option>
+                  {customFonts.map((f) => (
+                    <option key={f.fileName} value={f.family}>
+                      {f.family}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-[11px] leading-relaxed text-zinc-500">
+                  Using the style’s built-in font. Upload your own fonts in Settings → Custom
+                  fonts to pick them here.
+                </p>
+              )}
             </div>
           )}
           <div className="mt-3">

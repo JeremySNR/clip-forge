@@ -58,6 +58,8 @@ export interface ClipEditState {
   focusX: number
   captionsEnabled: boolean
   captionStyleId: string
+  /** Font family overriding the style's font (a custom uploaded font); null/absent = style default. */
+  captionFontFamily?: string | null
   showTitle: boolean
   /** Trim overrides (absolute seconds in the source video). */
   start: number
@@ -181,6 +183,43 @@ export interface ExportResult {
 export type EncoderPreference = 'auto' | 'cpu' | 'gpu'
 export type QualityPreference = 'draft' | 'standard' | 'high'
 
+/** Corner where the branding watermark is composited. */
+export type WatermarkPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+
+/** App-wide branding applied to the preview and burned into exports. */
+export interface BrandingSettings {
+  enabled: boolean
+  /** Absolute path of the watermark/logo image (copied into userData); null = none. */
+  imagePath: string | null
+  position: WatermarkPosition
+  /** 0..1 watermark opacity. */
+  opacity: number
+  /** Watermark width as a fraction of the output video width. */
+  scale: number
+}
+
+/** Result of comparing the running app against the latest GitHub release. */
+export interface UpdateCheckResult {
+  currentVersion: string
+  /** Version of the latest published release; null when none exist. */
+  latestVersion: string | null
+  updateAvailable: boolean
+  /** GitHub release page to download the update from. */
+  releaseUrl: string | null
+  /** Human-readable failure (offline, rate limited); null on success. */
+  error: string | null
+  checkedAt: number
+}
+
+/** A user-uploaded caption font stored in userData/fonts. */
+export interface CustomFont {
+  /** Family name parsed from the font file (what libass and CSS match on). */
+  family: string
+  fileName: string
+  /** Absolute path for renderer @font-face loading via media://. */
+  path: string
+}
+
 export interface GpuEncoderStatus {
   /** True when a working hardware encoder was verified with a test encode. */
   available: boolean
@@ -204,6 +243,8 @@ export interface AppSettings {
   encoder: EncoderPreference
   quality: QualityPreference
   gpu: GpuEncoderStatus
+  branding: BrandingSettings
+  appVersion: string
 }
 
 export interface SettingsUpdate {
@@ -212,6 +253,7 @@ export interface SettingsUpdate {
   analysisModel?: string
   encoder?: EncoderPreference
   quality?: QualityPreference
+  branding?: Partial<BrandingSettings>
 }
 
 export interface PipelineError {

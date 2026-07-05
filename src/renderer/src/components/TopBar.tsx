@@ -1,4 +1,4 @@
-import { Clapperboard, Settings, ChevronLeft } from 'lucide-react'
+import { Clapperboard, Settings, ChevronLeft, ArrowUpCircle } from 'lucide-react'
 import { useStore } from '../store'
 
 export default function TopBar(): React.JSX.Element {
@@ -8,6 +8,7 @@ export default function TopBar(): React.JSX.Element {
   const closeEditor = useStore((s) => s.closeEditor)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const settings = useStore((s) => s.settings)
+  const updateCheck = useStore((s) => s.updateCheck)
 
   const showBack = screen === 'clips' || screen === 'editor'
 
@@ -41,6 +42,18 @@ export default function TopBar(): React.JSX.Element {
       {!showBack && <div className="flex-1" />}
 
       <div className="flex items-center gap-2">
+        {updateCheck?.updateAvailable && updateCheck.releaseUrl && (
+          <a
+            href={updateCheck.releaseUrl}
+            target="_blank"
+            rel="noreferrer"
+            title={`ClipForge v${updateCheck.latestVersion} is available — open the release page`}
+            className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
+          >
+            <ArrowUpCircle size={14} />
+            Update available
+          </a>
+        )}
         {settings && !settings.hasApiKey && (
           <button
             onClick={() => setSettingsOpen(true)}
