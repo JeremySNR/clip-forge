@@ -1,0 +1,6 @@
+# electron-updater dev/test feed. Only read when the app runs with
+# CLIPFORGE_FORCE_DEV_UPDATES=1 (see src/main/updates.ts); packaged builds
+# use the GitHub publish config from package.json instead.
+provider: generic
+url: http://127.0.0.1:8099
+updaterCacheDirName: clipforge-updater-dev
