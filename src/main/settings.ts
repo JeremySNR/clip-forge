@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type {
   AppSettings,
   BrandingSettings,
+  BrowserCookieSource,
   EncoderPreference,
   QualityPreference,
   SettingsUpdate
@@ -18,6 +19,7 @@ interface StoredSettings {
   encoder: EncoderPreference
   quality: QualityPreference
   branding: BrandingSettings
+  importCookiesBrowser: BrowserCookieSource
 }
 
 const DEFAULT_BRANDING: BrandingSettings = {
@@ -34,7 +36,8 @@ const DEFAULTS: StoredSettings = {
   analysisModel: 'gpt-5.4-mini',
   encoder: 'auto',
   quality: 'standard',
-  branding: DEFAULT_BRANDING
+  branding: DEFAULT_BRANDING,
+  importCookiesBrowser: ''
 }
 
 function settingsPath(): string {
@@ -109,8 +112,14 @@ export async function getSettings(): Promise<AppSettings> {
     quality: s.quality,
     gpu: await getGpuStatus(),
     branding: s.branding,
-    appVersion: app.getVersion()
+    appVersion: app.getVersion(),
+    importCookiesBrowser: s.importCookiesBrowser
   }
+}
+
+/** Synchronous access to the URL-import preferences. */
+export function getImportPreferences(): { importCookiesBrowser: BrowserCookieSource } {
+  return { importCookiesBrowser: load().importCookiesBrowser }
 }
 
 /** Synchronous access to the stored branding preferences. */
@@ -142,6 +151,7 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   if (update.encoder !== undefined) s.encoder = update.encoder
   if (update.quality !== undefined) s.quality = update.quality
   if (update.branding !== undefined) s.branding = { ...s.branding, ...update.branding }
+  if (update.importCookiesBrowser !== undefined) s.importCookiesBrowser = update.importCookiesBrowser
   persist(s)
   return getSettings()
 }

@@ -14,12 +14,20 @@ import { downloadGpuFfmpeg } from './pipeline/encoders'
 import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
+import { generateSocialCaption } from './pipeline/socialCaption'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
 import { checkForUpdates } from './updates'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
-import { getBrandingSettings, getExportPreferences, getSettings, updateSettings } from './settings'
+import {
+  getApiKey,
+  getBrandingSettings,
+  getExportPreferences,
+  getModelPreferences,
+  getSettings,
+  updateSettings
+} from './settings'
 
 const runningAnalyses = new Map<string, AbortController>()
 const runningExports = new Map<string, AbortController>()
@@ -210,6 +218,23 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('clip:cancelExport', async (_e, clipId: string) => {
     runningExports.get(clipId)?.abort()
+  })
+
+  ipcMain.handle('clip:generateCaption', async (_e, projectId: string, clipId: string) => {
+    const project = await loadProject(projectId)
+    const clip = project.clips.find((c) => c.id === clipId)
+    if (!clip) throw new Error('Clip not found')
+    const apiKey = getApiKey()
+    if (!apiKey) throw new Error('Add your OpenAI API key in Settings first.')
+    const caption = await generateSocialCaption(
+      apiKey,
+      getModelPreferences().analysisModel,
+      clip,
+      project.transcript
+    )
+    clip.caption = caption
+    await saveProject(project)
+    return project
   })
 
   ipcMain.handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {

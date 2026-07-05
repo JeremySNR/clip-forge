@@ -14,7 +14,20 @@ import {
 import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
 import MissingSourceBanner from './MissingSourceBanner'
-import type { ClipLengthPreference } from '@shared/types'
+import type { BrowserCookieSource, ClipLengthPreference } from '@shared/types'
+
+const COOKIE_BROWSERS: Array<{ value: BrowserCookieSource; label: string }> = [
+  { value: '', label: 'No login' },
+  { value: 'chrome', label: 'Chrome' },
+  { value: 'edge', label: 'Edge' },
+  { value: 'firefox', label: 'Firefox' },
+  { value: 'brave', label: 'Brave' },
+  { value: 'opera', label: 'Opera' },
+  { value: 'vivaldi', label: 'Vivaldi' },
+  ...(navigator.platform.toLowerCase().includes('mac')
+    ? [{ value: 'safari' as BrowserCookieSource, label: 'Safari' }]
+    : [])
+]
 
 const LENGTH_OPTIONS: Array<{ value: ClipLengthPreference; label: string; hint: string }> = [
   { value: 'auto', label: 'Auto', hint: 'AI decides' },
@@ -109,30 +122,66 @@ function ImportHero(): React.JSX.Element {
             </div>
           </div>
         ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              if (canSubmitUrl) void importVideoFromUrl(url)
-            }}
-            className="flex items-center gap-2 rounded-2xl border border-surface-700 bg-surface-900 py-2 pl-4 pr-2 focus-within:border-white/25"
-          >
-            <Link2 size={16} className="shrink-0 text-zinc-500" />
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="…or paste a YouTube / Twitch / video URL"
-              className="min-w-0 flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={!canSubmitUrl}
-              className="shrink-0 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-900 transition hover:bg-white disabled:opacity-40"
+          <>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (canSubmitUrl) void importVideoFromUrl(url)
+              }}
+              className="flex items-center gap-2 rounded-2xl border border-surface-700 bg-surface-900 py-2 pl-4 pr-2 focus-within:border-white/25"
             >
-              Import
-            </button>
-          </form>
+              <Link2 size={16} className="shrink-0 text-zinc-500" />
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="…or paste a YouTube / Vimeo / TikTok / Twitch URL"
+                className="min-w-0 flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!canSubmitUrl}
+                className="shrink-0 rounded-xl bg-zinc-100 px-4 py-2 text-xs font-semibold text-zinc-900 transition hover:bg-white disabled:opacity-40"
+              >
+                Import
+              </button>
+            </form>
+            <CookieBrowserPicker />
+          </>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Private / SSO-protected videos (e.g. enterprise Vimeo): the import borrows
+ * the login session from a local browser, so signing in to the site there is
+ * the only setup needed — no server-side integration.
+ */
+function CookieBrowserPicker(): React.JSX.Element | null {
+  const settings = useStore((s) => s.settings)
+  const saveSettings = useStore((s) => s.saveSettings)
+  if (!settings) return null
+
+  return (
+    <div className="mt-2 flex items-center justify-between gap-3 px-1 text-left">
+      <span className="text-[11px] leading-relaxed text-zinc-500">
+        Video needs a login (private or company SSO, e.g. enterprise Vimeo)? Sign in to the site
+        in your browser, then borrow that login:
+      </span>
+      <select
+        value={settings.importCookiesBrowser}
+        onChange={(e) =>
+          void saveSettings({ importCookiesBrowser: e.target.value as BrowserCookieSource })
+        }
+        className="shrink-0 rounded-lg border border-surface-600 bg-surface-850 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-white/25 focus:outline-none"
+      >
+        {COOKIE_BROWSERS.map((b) => (
+          <option key={b.value} value={b.value}>
+            {b.label}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }

@@ -11,8 +11,8 @@ import { analyzeClipFocus } from './faces'
 import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
-import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta, withSelfUpdateRetry } from './ytdlp'
-import { getApiKey, getModelPreferences } from '../settings'
+import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta, isAuthError, withSelfUpdateRetry, YtDlpError } from './ytdlp'
+import { getApiKey, getImportPreferences, getModelPreferences } from '../settings'
 import { projectDir, saveProject } from '../projects'
 
 export async function createProject(videoPath: string): Promise<Project> {
@@ -37,8 +37,11 @@ export async function createProjectFromUrl(
   onProgress: (p: ImportProgress) => void
 ): Promise<Project> {
   const binPath = await ensureYtDlp(onProgress)
+  const cookies = getImportPreferences().importCookiesBrowser
   onProgress({ progress: -1, message: 'Checking the video…' })
-  const meta = await withSelfUpdateRetry(binPath, onProgress, () => fetchUrlMeta(binPath, url))
+  const meta = await withSelfUpdateRetry(binPath, onProgress, () =>
+    fetchUrlMeta(binPath, url, cookies)
+  ).catch(rethrowWithLoginHint(cookies))
 
   const id = randomUUID()
   const dir = projectDir(id)
@@ -46,8 +49,8 @@ export async function createProjectFromUrl(
   const videoPath = join(dir, 'source.mp4')
   onProgress({ progress: 0.15, message: 'Downloading video…' })
   await withSelfUpdateRetry(binPath, onProgress, () =>
-    downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress)
-  )
+    downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress, cookies)
+  ).catch(rethrowWithLoginHint(cookies))
 
   onProgress({ progress: 0.97, message: 'Reading video…' })
   const video = await probeVideo(videoPath)
@@ -65,6 +68,23 @@ export async function createProjectFromUrl(
   await saveProject(project)
   onProgress({ progress: 1, message: 'Done' })
   return project
+}
+
+/**
+ * When a site rejects the request for auth reasons (private/unlisted video,
+ * enterprise Vimeo behind SSO), point at the browser-login option instead of
+ * surfacing a bare extractor error.
+ */
+function rethrowWithLoginHint(cookies: string): (err: unknown) => never {
+  return (err: unknown): never => {
+    if (err instanceof YtDlpError && isAuthError(err.message)) {
+      const hint = cookies
+        ? `This video still refused the borrowed ${cookies} login — make sure you are signed in to the site in that browser (open the video there once), then retry.`
+        : 'This video seems to need a login (private, unlisted or behind company SSO). Sign in to the site in your browser, then set "Use browser login" on the import screen to that browser and retry.'
+      throw new YtDlpError(`${err.message} — ${hint}`)
+    }
+    throw err
+  }
 }
 
 type ProgressFn = (p: PipelineProgress) => void

@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react'
 import {
   Captions,
   CaseUpper,
+  Check,
+  Copy,
   Crop,
+  ExternalLink,
   GalleryVerticalEnd,
   ImagePlus,
+  Loader2,
   Quote,
   ScanFace,
   Scissors,
+  Share2,
+  Sparkles,
   Trash2,
   Type
 } from 'lucide-react'
@@ -445,6 +451,8 @@ export default function EditorScreen(): React.JSX.Element {
           </div>
         </Section>
 
+        <ShareSection clip={clip} />
+
         <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-white/[0.06] bg-surface-900/80 p-4 backdrop-blur-xl">
           <div className="flex">
             <ExportButton
@@ -462,6 +470,86 @@ export default function EditorScreen(): React.JSX.Element {
         </div>
       </aside>
     </div>
+  )
+}
+
+/**
+ * Post-to-social helpers. Direct in-app posting to TikTok needs an audited
+ * TikTok developer app (unaudited clients are forced to private-only posts),
+ * so the local-first flow is: generate the caption here, copy it, and hand
+ * off to TikTok Studio's upload page with the exported file.
+ */
+function ShareSection({ clip }: { clip: Clip }): React.JSX.Element {
+  const updateClip = useStore((s) => s.updateClip)
+  const updateClipLocal = useStore((s) => s.updateClipLocal)
+  const generateCaption = useStore((s) => s.generateCaption)
+  const busy = useStore((s) => s.captionBusy[clip.id] ?? false)
+  const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const generate = async (): Promise<void> => {
+    setError(null)
+    try {
+      await generateCaption(clip.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '') : String(err))
+    }
+  }
+
+  const copy = async (): Promise<void> => {
+    if (!clip.caption) return
+    await navigator.clipboard.writeText(clip.caption)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }
+
+  return (
+    <Section icon={Share2} title="Share">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-[11px] text-zinc-500">Post caption (AI)</span>
+        <button
+          onClick={() => void generate()}
+          disabled={busy}
+          className="flex items-center gap-1 rounded-md border border-surface-600 px-2 py-1 text-[11px] font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+        >
+          {busy ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+          {busy ? 'Writing…' : clip.caption ? 'Regenerate' : 'Generate caption'}
+        </button>
+      </div>
+      <textarea
+        value={clip.caption ?? ''}
+        onChange={(e) => updateClipLocal({ ...clip, caption: e.target.value })}
+        onBlur={() => void updateClip(clip)}
+        placeholder="Generate a scroll-stopping caption for TikTok / Reels / Shorts, or write your own."
+        rows={3}
+        className="w-full resize-none rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
+      />
+      {error && <p className="mt-1.5 text-[11px] leading-relaxed text-red-400">{error}</p>}
+      <div className="mt-2 flex gap-1.5">
+        <button
+          onClick={() => void copy()}
+          disabled={!clip.caption}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-40"
+        >
+          {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+          {copied ? 'Copied' : 'Copy caption'}
+        </button>
+        <a
+          href="https://www.tiktok.com/tiktokstudio/upload"
+          target="_blank"
+          rel="noreferrer"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+        >
+          <ExternalLink size={13} />
+          Open TikTok upload
+        </a>
+      </div>
+      <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+        Export the clip, then drop the file into TikTok Studio and paste the caption. TikTok
+        only allows fully public in-app posting for audited web services, so this hand-off is
+        the reliable local route.
+      </p>
+    </Section>
   )
 }
 

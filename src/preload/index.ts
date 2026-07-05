@@ -47,6 +47,8 @@ const api = {
   exportClip: (projectId: string, opts: ExportOptions): Promise<ExportResult> =>
     ipcRenderer.invoke('clip:export', projectId, opts),
   cancelExport: (clipId: string): Promise<void> => ipcRenderer.invoke('clip:cancelExport', clipId),
+  generateCaption: (projectId: string, clipId: string): Promise<Project> =>
+    ipcRenderer.invoke('clip:generateCaption', projectId, clipId),
 
   getTimeline: (videoPath: string, startSec: number, endSec: number): Promise<TimelineData> =>
     ipcRenderer.invoke('video:timeline', videoPath, startSec, endSec),

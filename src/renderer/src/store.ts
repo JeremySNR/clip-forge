@@ -79,6 +79,8 @@ interface AppState {
   closeEditor: () => void
   updateClip: (clip: Clip) => Promise<void>
   updateClipLocal: (clip: Clip) => void
+  generateCaption: (clipId: string) => Promise<void>
+  captionBusy: Record<string, boolean>
   updateTranscriptWord: (segmentId: number, wordIndex: number, text: string) => Promise<void>
   exportClip: (clipId: string) => Promise<void>
   cancelExport: (clipId: string) => Promise<void>
@@ -106,6 +108,7 @@ export const useStore = create<AppState>((set, get) => ({
   customFonts: [],
   updateCheck: null,
   checkingForUpdates: false,
+  captionBusy: {},
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -243,6 +246,32 @@ export const useStore = create<AppState>((set, get) => ({
     if (!project) return
     get().updateClipLocal(clip)
     await window.clipforge.updateClip(project.id, clip)
+  },
+
+  generateCaption: async (clipId) => {
+    const project = get().project
+    if (!project || get().captionBusy[clipId]) return
+    set({ captionBusy: { ...get().captionBusy, [clipId]: true } })
+    try {
+      const updated = await window.clipforge.generateCaption(project.id, clipId)
+      const fresh = updated.clips.find((c) => c.id === clipId)
+      const current = get().project
+      // Only graft the caption on: other clip edits may be in flight.
+      if (fresh && current?.id === updated.id) {
+        set({
+          project: {
+            ...current,
+            clips: current.clips.map((c) =>
+              c.id === clipId ? { ...c, caption: fresh.caption } : c
+            )
+          }
+        })
+      }
+    } finally {
+      const busy = { ...get().captionBusy }
+      delete busy[clipId]
+      set({ captionBusy: busy })
+    }
   },
 
   updateTranscriptWord: async (segmentId, wordIndex, text) => {

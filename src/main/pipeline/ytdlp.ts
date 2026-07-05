@@ -6,7 +6,7 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { app } from 'electron'
-import type { ImportProgress } from '@shared/types'
+import type { BrowserCookieSource, ImportProgress } from '@shared/types'
 import { FFMPEG_PATH } from './ffmpeg'
 
 /**
@@ -88,6 +88,23 @@ export interface UrlVideoMeta {
   webpageUrl: string
 }
 
+/**
+ * Args that let yt-dlp reuse the login session from the user's browser —
+ * how private/unlisted videos and enterprise Vimeo behind SSO work without
+ * any server-side integration: the user signs in once in their browser and
+ * the download borrows those cookies locally.
+ */
+function cookieArgs(cookiesFromBrowser: BrowserCookieSource | undefined): string[] {
+  return cookiesFromBrowser ? ['--cookies-from-browser', cookiesFromBrowser] : []
+}
+
+/** Surface a clear next step when a site refuses the anonymous request. */
+export function isAuthError(message: string): boolean {
+  return /log ?in|sign ?in|password|private|members only|purchase|cookies|401|403|authoriz/i.test(
+    message
+  )
+}
+
 function runYtDlp(
   binPath: string,
   args: string[],
@@ -165,8 +182,18 @@ interface YtDlpJson {
   entries?: YtDlpJson[]
 }
 
-export async function fetchUrlMeta(binPath: string, url: string): Promise<UrlVideoMeta> {
-  const out = await runYtDlp(binPath, ['-J', '--no-playlist', '--no-warnings', url])
+export async function fetchUrlMeta(
+  binPath: string,
+  url: string,
+  cookiesFromBrowser?: BrowserCookieSource
+): Promise<UrlVideoMeta> {
+  const out = await runYtDlp(binPath, [
+    '-J',
+    '--no-playlist',
+    '--no-warnings',
+    ...cookieArgs(cookiesFromBrowser),
+    url
+  ])
   let data = JSON.parse(out) as YtDlpJson
 
   // Some sites (e.g. archive.org items with several files) resolve to a
@@ -199,7 +226,8 @@ export async function downloadUrlVideo(
   binPath: string,
   url: string,
   outPath: string,
-  onProgress: ProgressFn
+  onProgress: ProgressFn,
+  cookiesFromBrowser?: BrowserCookieSource
 ): Promise<void> {
   await runYtDlp(
     binPath,
@@ -210,6 +238,7 @@ export async function downloadUrlVideo(
       '--no-playlist',
       '--no-warnings',
       '--newline',
+      ...cookieArgs(cookiesFromBrowser),
       '-o', outPath,
       url
     ],
