@@ -61,7 +61,8 @@ const api = {
   removeFont: (fileName: string): Promise<CustomFont[]> => ipcRenderer.invoke('fonts:remove', fileName),
   selectBrandingLogo: (): Promise<AppSettings> => ipcRenderer.invoke('branding:selectLogo'),
   checkForUpdates: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updates:check'),
-  downloadUpdate: (): Promise<string> => ipcRenderer.invoke('updates:download'),
+  downloadUpdate: (latestVersion?: string): Promise<string> =>
+    ipcRenderer.invoke('updates:download', latestVersion),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('updates:install'),
   onUpdateDownloadProgress: (cb: (p: UpdateDownloadProgress) => void): (() => void) => {
     const listener = (_e: Electron.IpcRendererEvent, p: UpdateDownloadProgress): void => cb(p)

@@ -79,6 +79,11 @@ function currentVersion(): string {
   return app?.getVersion?.() ?? '0.0.0'
 }
 
+function githubAuthToken(): string | undefined {
+  const token = process.env.CLIPFORGE_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN
+  return token?.trim() || undefined
+}
+
 export async function checkForUpdates(): Promise<UpdateCheckResult> {
   // Test hook: force a fake latest version without hitting the network.
   const fake = process.env.CLIPFORGE_FAKE_LATEST
@@ -99,7 +104,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     }
     // Unauthenticated requests 404 on private repos; a token from the
     // environment lets installs of a private fork see releases too.
-    const token = process.env.CLIPFORGE_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN
+    const token = githubAuthToken()
     if (token) headers.Authorization = `Bearer ${token}`
 
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
@@ -134,6 +139,11 @@ function configureAutoUpdater(): typeof autoUpdater {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.fullChangelog = false
+  const token = githubAuthToken()
+  if (token) {
+    if (!process.env.GH_TOKEN) process.env.GH_TOKEN = token
+    autoUpdater.addAuthHeader(`Bearer ${token}`)
+  }
   if (process.env.CLIPFORGE_FORCE_DEV_UPDATES === '1') {
     // Dev/test only: read the feed from dev-app-update.yml instead of the
     // packaged app-update.yml.
@@ -147,7 +157,8 @@ function configureAutoUpdater(): typeof autoUpdater {
  * that is ready to install; the renderer then offers "Restart to update".
  */
 export async function downloadUpdate(
-  onProgress: (p: UpdateDownloadProgress) => void
+  onProgress: (p: UpdateDownloadProgress) => void,
+  expectedVersion?: string
 ): Promise<string> {
   if (!isAutoUpdateSupported()) {
     throw new Error(
@@ -155,7 +166,13 @@ export async function downloadUpdate(
     )
   }
   if (downloading) throw new Error('An update download is already running.')
-  if (downloadedVersion) return downloadedVersion
+  const requestedVersion = expectedVersion?.trim() || null
+  if (
+    downloadedVersion &&
+    (requestedVersion === null || compareVersions(downloadedVersion, requestedVersion) === 0)
+  ) {
+    return downloadedVersion
+  }
 
   const updater = configureAutoUpdater()
   downloading = true
@@ -164,6 +181,12 @@ export async function downloadUpdate(
     const next = check?.updateInfo?.version
     if (!next || compareVersions(next, currentVersion()) <= 0) {
       throw new Error('No newer packaged build is available to download yet.')
+    }
+    if (requestedVersion !== null && compareVersions(next, requestedVersion) !== 0) {
+      throw new Error(
+        `Packaged update metadata is for v${next}, but GitHub latest is v${requestedVersion}. ` +
+          'Try again shortly or use the release page.'
+      )
     }
     const progressListener = (p: { percent: number }): void =>
       onProgress({ progress: Math.min(1, p.percent / 100) })

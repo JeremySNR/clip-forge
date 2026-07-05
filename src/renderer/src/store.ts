@@ -64,6 +64,7 @@ interface AppState {
   updateDownload: {
     status: 'idle' | 'downloading' | 'downloaded' | 'error'
     progress: number
+    version?: string
     error?: string
   }
 
@@ -382,7 +383,18 @@ export const useStore = create<AppState>((set, get) => ({
     set({ checkingForUpdates: true })
     try {
       const updateCheck = await window.clipforge.checkForUpdates()
-      if (!silent || !updateCheck.error) set({ updateCheck })
+      if (!silent || !updateCheck.error) {
+        const download = get().updateDownload
+        const staleDownloaded =
+          download.status === 'downloaded' &&
+          updateCheck.latestVersion !== null &&
+          (!download.version ||
+            normalizeVersion(download.version) !== normalizeVersion(updateCheck.latestVersion))
+        set({
+          updateCheck,
+          ...(staleDownloaded ? { updateDownload: { status: 'idle', progress: 0 } } : {})
+        })
+      }
     } finally {
       set({ checkingForUpdates: false })
     }
@@ -397,8 +409,10 @@ export const useStore = create<AppState>((set, get) => ({
       }
     })
     try {
-      await window.clipforge.downloadUpdate()
-      set({ updateDownload: { status: 'downloaded', progress: 1 } })
+      const version = await window.clipforge.downloadUpdate(
+        get().updateCheck?.latestVersion ?? undefined
+      )
+      set({ updateDownload: { status: 'downloaded', progress: 1, version } })
     } catch (err) {
       set({
         updateDownload: {
@@ -420,4 +434,8 @@ export const useStore = create<AppState>((set, get) => ({
 /** Electron prefixes IPC errors with "Error invoking remote method '...': Error:". */
 function cleanIpcError(message: string): string {
   return message.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '')
+}
+
+function normalizeVersion(version: string): string {
+  return version.trim().replace(/^v/i, '')
 }

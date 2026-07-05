@@ -305,10 +305,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('updates:check', async () => checkForUpdates())
 
-  ipcMain.handle('updates:download', async (event) => {
-    return downloadUpdate((p) => {
-      if (!event.sender.isDestroyed()) event.sender.send('update:downloadProgress', p)
-    })
+  ipcMain.handle('updates:download', async (event, latestVersion?: string) => {
+    return downloadUpdate(
+      (p) => {
+        if (!event.sender.isDestroyed()) event.sender.send('update:downloadProgress', p)
+      },
+      typeof latestVersion === 'string' ? latestVersion : undefined
+    )
   })
 
   ipcMain.handle('updates:install', async () => installUpdate())

@@ -524,10 +524,16 @@ function UpdateInstaller({
 }: {
   latestVersion: string
   releaseUrl: string
-  download: { status: 'idle' | 'downloading' | 'downloaded' | 'error'; progress: number; error?: string }
+  download: {
+    status: 'idle' | 'downloading' | 'downloaded' | 'error'
+    progress: number
+    version?: string
+    error?: string
+  }
   onDownload: () => void
   onInstall: () => void
 }): React.JSX.Element {
+  const downloadedVersion = download.version ?? latestVersion
   switch (download.status) {
     case 'downloading':
       return (
@@ -551,7 +557,7 @@ function UpdateInstaller({
           className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/20 px-3 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/30"
         >
           <RefreshCw size={13} />
-          Restart to finish updating to v{latestVersion}
+          Restart to finish updating to v{downloadedVersion}
         </button>
       )
     case 'error':
