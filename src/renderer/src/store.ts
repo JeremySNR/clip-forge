@@ -8,7 +8,8 @@ import type {
   PipelineProgress,
   Project,
   ProjectSummary,
-  SettingsUpdate
+  SettingsUpdate,
+  UpdateCheckResult
 } from '@shared/types'
 
 /** Families already registered with document.fonts (FontFace API). */
@@ -54,6 +55,8 @@ interface AppState {
   exports: Record<string, ExportEntry>
   exportDir: string | null
   customFonts: CustomFont[]
+  updateCheck: UpdateCheckResult | null
+  checkingForUpdates: boolean
 
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
@@ -81,6 +84,7 @@ interface AppState {
   addFonts: () => Promise<void>
   removeFont: (fileName: string) => Promise<void>
   selectBrandingLogo: () => Promise<void>
+  checkForUpdates: () => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -96,6 +100,8 @@ export const useStore = create<AppState>((set, get) => ({
   exports: {},
   exportDir: null,
   customFonts: [],
+  updateCheck: null,
+  checkingForUpdates: false,
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -105,6 +111,9 @@ export const useStore = create<AppState>((set, get) => ({
     ])
     set({ settings, projects, customFonts })
     void registerFonts(customFonts)
+    // Automatic update check on launch; failures stay silent here and are
+    // only surfaced when the user checks manually from Settings.
+    void get().checkForUpdates()
     window.clipforge.onPipelineProgress((p) => set({ pipelineProgress: p }))
     window.clipforge.onImportProgress((p) => {
       if (get().importProgress !== null) set({ importProgress: p })
@@ -320,6 +329,16 @@ export const useStore = create<AppState>((set, get) => ({
 
   selectBrandingLogo: async () => {
     set({ settings: await window.clipforge.selectBrandingLogo() })
+  },
+
+  checkForUpdates: async () => {
+    if (get().checkingForUpdates) return
+    set({ checkingForUpdates: true })
+    try {
+      set({ updateCheck: await window.clipforge.checkForUpdates() })
+    } finally {
+      set({ checkingForUpdates: false })
+    }
   }
 }))
 

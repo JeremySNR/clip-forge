@@ -108,7 +108,8 @@ export async function getSettings(): Promise<AppSettings> {
     encoder: s.encoder,
     quality: s.quality,
     gpu: await getGpuStatus(),
-    branding: s.branding
+    branding: s.branding,
+    appVersion: app.getVersion()
   }
 }
 

@@ -198,6 +198,19 @@ export interface BrandingSettings {
   scale: number
 }
 
+/** Result of comparing the running app against the latest GitHub release. */
+export interface UpdateCheckResult {
+  currentVersion: string
+  /** Version of the latest published release; null when none exist. */
+  latestVersion: string | null
+  updateAvailable: boolean
+  /** GitHub release page to download the update from. */
+  releaseUrl: string | null
+  /** Human-readable failure (offline, rate limited); null on success. */
+  error: string | null
+  checkedAt: number
+}
+
 /** A user-uploaded caption font stored in userData/fonts. */
 export interface CustomFont {
   /** Family name parsed from the font file (what libass and CSS match on). */
@@ -231,6 +244,7 @@ export interface AppSettings {
   quality: QualityPreference
   gpu: GpuEncoderStatus
   branding: BrandingSettings
+  appVersion: string
 }
 
 export interface SettingsUpdate {

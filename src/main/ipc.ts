@@ -15,6 +15,7 @@ import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
+import { checkForUpdates } from './updates'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
@@ -276,6 +277,8 @@ export function registerIpcHandlers(): void {
     }
     return updateSettings({ branding: { imagePath: dest, enabled: true } })
   })
+
+  ipcMain.handle('updates:check', async () => checkForUpdates())
 
   ipcMain.handle('shell:showItemInFolder', async (_e, path: string) => {
     shell.showItemInFolder(path)

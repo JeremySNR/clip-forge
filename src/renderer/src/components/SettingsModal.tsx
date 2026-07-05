@@ -7,6 +7,7 @@ import {
   ExternalLink,
   ImagePlus,
   MonitorPlay,
+  RefreshCw,
   Stamp,
   Trash2,
   Type,
@@ -245,6 +246,7 @@ export default function SettingsModal(): React.JSX.Element {
 
         <BrandingSection />
         <FontsSection />
+        <UpdatesSection />
 
         <button
           onClick={() => void save()}
@@ -430,6 +432,64 @@ function FontsSection(): React.JSX.Element {
       >
         {adding ? <Loader2 size={13} className="animate-spin" /> : <Type size={13} />}
         Add font files (.ttf / .otf)
+      </button>
+    </div>
+  )
+}
+
+function UpdatesSection(): React.JSX.Element {
+  const settings = useStore((s) => s.settings)
+  const updateCheck = useStore((s) => s.updateCheck)
+  const checking = useStore((s) => s.checkingForUpdates)
+  const checkForUpdates = useStore((s) => s.checkForUpdates)
+
+  return (
+    <div className="mt-5 border-t border-surface-700 pt-5">
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <RefreshCw size={15} className="text-accent-400" />
+        App updates
+      </label>
+      <p className="mt-1 text-xs text-zinc-500">
+        ClipForge v{settings?.appVersion ?? '…'} — updates are checked automatically on launch.
+      </p>
+
+      {updateCheck?.updateAvailable && updateCheck.releaseUrl ? (
+        <a
+          href={updateCheck.releaseUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+        >
+          <Download size={13} />
+          Update to v{updateCheck.latestVersion} — open the release page
+        </a>
+      ) : (
+        updateCheck &&
+        !checking && (
+          <p
+            className={`mt-2.5 rounded-lg px-3 py-2 text-xs leading-relaxed ${
+              updateCheck.error ? 'bg-amber-500/10 text-amber-400' : 'bg-surface-850 text-zinc-400'
+            }`}
+          >
+            {updateCheck.error ??
+              (updateCheck.latestVersion
+                ? `You're up to date (latest release is v${updateCheck.latestVersion}).`
+                : "You're up to date — no newer release has been published.")}
+          </p>
+        )
+      )}
+
+      <button
+        onClick={() => void checkForUpdates()}
+        disabled={checking}
+        className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+      >
+        {checking ? (
+          <Loader2 size={13} className="animate-spin" />
+        ) : (
+          <RefreshCw size={13} />
+        )}
+        {checking ? 'Checking…' : 'Check for updates'}
       </button>
     </div>
   )
