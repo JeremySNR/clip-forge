@@ -215,7 +215,8 @@ function runStep(
   cwd: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, windowsHide: true })
+    const shell = process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(cmd)
+    const child = spawn(cmd, args, { cwd, windowsHide: true, shell })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d: Buffer) => {
@@ -250,6 +251,7 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
   if (sourceUpdateRunning) throw new Error('An update is already running.')
   sourceUpdateRunning = true
   const root = app.getAppPath()
+  let relaunchScheduled = false
   try {
     onProgress({ progress: -1, message: 'Checking the local checkout…' })
     const dirty = (await runStep('git', ['status', '--porcelain'], root))
@@ -284,11 +286,12 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
 
     onProgress({ progress: 1, message: 'Restarting…' })
     // Let the IPC reply and the "Restarting…" frame land before swapping.
+    relaunchScheduled = true
     setTimeout(() => {
       app.relaunch()
       app.exit(0)
     }, 800)
   } finally {
-    sourceUpdateRunning = false
+    if (!relaunchScheduled) sourceUpdateRunning = false
   }
 }
