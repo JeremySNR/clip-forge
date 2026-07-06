@@ -6,6 +6,7 @@ import type {
   Transcript
 } from '@shared/types'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
+import { normalizeClipEnd, sentenceEndTimes } from '@shared/sentences'
 import { chatJSON } from './openai'
 
 interface RawHighlight {
@@ -195,9 +196,18 @@ const MAX_END_TRIM_SEC = 20
 /** How much transcript beyond a clip's end the ending review gets to see. */
 const CONTINUATION_SEC = 45
 
+function withNormalizedEnd(clip: Clip, transcript: Transcript, videoDurationSec: number): Clip {
+  const end = normalizeClipEnd(clip.suggestedStart, clip.suggestedEnd, transcript, videoDurationSec, {
+    postRollSec: END_POST_ROLL_SEC,
+    maxExtendSec: MAX_END_EXTEND_SEC
+  })
+  if (end === clip.suggestedEnd) return clip
+  return { ...clip, suggestedEnd: end, edit: { ...clip.edit, end } }
+}
+
 const REFINE_SYSTEM_PROMPT = `You quality-check the ENDINGS of short vertical clips cut from a longer video. A good clip has the shape of a complete micro-video — hook, build, and an ending that lands. What "lands" depends on the material: a story lands on its resolution or emotional beat, comedy on the punchline, an argument on its sharpest formulation, a reveal on the answer, practical content on the takeaway, and a provocative clip can land on a pointed question that throws back to the hook. An ending fails when the clip stops on setup, scene-setting context, the middle of a list, or a plain observation that promises more (e.g. ending on "People were experimenting with ChatGPT for the first time" — that sentence exists to set up whatever comes next).
 
-For each clip you receive its transcript and the sentences that follow it in the source video, each tagged with the time it ends. Judge the current ending strictly. When it fails, pick the tagged sentence end-time where the thought completes — usually extending slightly to include the beat that follows, occasionally trimming back to an earlier, stronger closer. Only use end times that appear in the tags.`
+For each clip you receive its transcript and the sentences that follow it in the source video, each tagged with the time it ends. Judge the current ending strictly. A clip whose last spoken word lacks terminal punctuation (. ! ?) has not finished its sentence and must be extended. When an ending fails, pick the tagged sentence end-time where the thought completes — usually extending slightly to include the beat that follows, occasionally trimming back to an earlier, stronger closer. Only use end times that appear in the tags.`
 
 interface RefinedEnding {
   index: number
@@ -244,11 +254,11 @@ const REFINE_SCHEMA = {
 export function applyRefinedEnding(
   clip: Clip,
   betterEnd: number,
-  segmentEnds: number[],
+  sentenceEnds: number[],
   videoDurationSec: number
 ): Clip {
   if (!Number.isFinite(betterEnd)) return clip
-  const snapped = snap(betterEnd, segmentEnds, SENTENCE_SNAP_SEC)
+  const snapped = snap(betterEnd, sentenceEnds, SENTENCE_SNAP_SEC)
   const newEnd = Math.min(videoDurationSec, snapped + END_POST_ROLL_SEC)
   const current = clip.suggestedEnd
   if (
@@ -278,7 +288,7 @@ async function refineClipEndings(
   signal?: AbortSignal
 ): Promise<Clip[]> {
   if (clips.length === 0) return clips
-  const segmentEnds = transcript.segments.map((s) => s.end).sort((a, b) => a - b)
+  const sentenceEnds = sentenceEndTimes(transcript)
 
   const blocks = clips.map((clip, i) => {
     const inClip = transcript.segments.filter(
@@ -326,7 +336,7 @@ async function refineClipEndings(
     for (const entry of res.endings ?? []) {
       const clip = refined[entry.index]
       if (!clip || entry.ends_with_payoff) continue
-      refined[entry.index] = applyRefinedEnding(clip, entry.better_end, segmentEnds, videoDurationSec)
+      refined[entry.index] = applyRefinedEnding(clip, entry.better_end, sentenceEnds, videoDurationSec)
       if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
         console.error(
           `[highlights] ending review moved clip ${entry.index} end ` +
@@ -334,12 +344,12 @@ async function refineClipEndings(
         )
       }
     }
-    return refined
+    return refined.map((c) => withNormalizedEnd(c, transcript, videoDurationSec))
   } catch (err) {
     if (signal?.aborted) throw err
     // The candidates are still usable without the ending review.
     console.error('Clip ending review failed; keeping original endings:', err)
-    return clips
+    return clips.map((c) => withNormalizedEnd(c, transcript, videoDurationSec))
   }
 }
 
@@ -444,8 +454,13 @@ async function requestHighlights(
       wordEnds.push(w.end)
     }
   }
-  const segmentEnds = transcript.segments.map((s) => s.end).sort((a, b) => a - b)
+  const sentenceEnds = sentenceEndTimes(transcript)
   const minDur = minDurationFor(options.clipLength)
+  const normalizeEnd = (start: number, end: number): number =>
+    normalizeClipEnd(start, end, transcript, videoDurationSec, {
+      postRollSec: END_POST_ROLL_SEC,
+      maxExtendSec: MAX_END_EXTEND_SEC
+    })
 
   if (process.env.CLIPFORGE_DEBUG) {
     console.error('[highlights] raw LLM response:', JSON.stringify(res, null, 2))
@@ -457,20 +472,21 @@ async function requestHighlights(
     let end = Math.max(start + 1, Math.min(raw.end, videoDurationSec))
     // Snap the start to a word boundary for a clean cut, with a little pre-roll.
     start = Math.max(0, snap(start, wordStarts, 1.5) - START_PRE_ROLL_SEC)
-    // Ends feel natural when they land on a sentence boundary; only fall back
-    // to the nearest word end when no sentence finishes nearby.
-    const sentenceEnd = snap(end, segmentEnds, SENTENCE_SNAP_SEC)
-    end = Math.min(
-      videoDurationSec,
-      (sentenceEnd !== end ? sentenceEnd : snap(end, wordEnds, 1.5)) + END_POST_ROLL_SEC
-    )
+    // Rough word snap, then extend to the next punctuated sentence end when the
+    // model (or Whisper segment boundary) stopped mid-thought.
+    end = Math.min(videoDurationSec, snap(end, wordEnds, 1.5) + END_POST_ROLL_SEC)
+    end = normalizeEnd(start, end)
     // Models often under-shoot durations: extend short clips to the next
     // sentence boundary that satisfies the length preference — or to the end
     // of the video when no sentence boundary is late enough.
     if (end - start < minDur) {
       const targetEnd = start + minDur
-      const nextSentenceEnd = segmentEnds.find((e) => e >= targetEnd)
-      end = Math.min(videoDurationSec, (nextSentenceEnd ?? targetEnd) + END_POST_ROLL_SEC)
+      const nextSentenceEnd = sentenceEnds.find((e) => e + END_POST_ROLL_SEC >= targetEnd)
+      const extended =
+        nextSentenceEnd !== undefined
+          ? Math.min(videoDurationSec, nextSentenceEnd + END_POST_ROLL_SEC)
+          : Math.min(videoDurationSec, targetEnd + END_POST_ROLL_SEC)
+      end = normalizeEnd(start, extended)
     }
     if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
       if (process.env.CLIPFORGE_DEBUG) {
