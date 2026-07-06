@@ -4,8 +4,32 @@ import {
   endsSentence,
   lastWordInClip,
   normalizeClipEnd,
-  sentenceEndTimes
+  sentenceEndTimes,
+  sentenceStartTimes
 } from '../src/shared/sentences'
+
+/** Two full sentences in one segment. */
+function twoSentences(): Transcript {
+  return {
+    language: 'english',
+    durationSec: 10,
+    segments: [
+      {
+        id: 0,
+        text: 'Hello there. This is next.',
+        start: 0,
+        end: 4,
+        words: [
+          { text: 'Hello', start: 0, end: 0.4 },
+          { text: 'there.', start: 0.5, end: 0.9 },
+          { text: 'This', start: 1.2, end: 1.5 },
+          { text: 'is', start: 1.6, end: 1.8 },
+          { text: 'next.', start: 1.9, end: 2.2 }
+        ]
+      }
+    ]
+  }
+}
 
 /** Whisper often breaks before the thought completes — e.g. segment ends on "so". */
 function transcriptEndingOnSo(): Transcript {
@@ -57,6 +81,16 @@ describe('sentenceEndTimes', () => {
   it('uses word punctuation, not Whisper segment ends', () => {
     const ends = sentenceEndTimes(transcriptEndingOnSo())
     expect(ends).toEqual([4.5])
+  })
+})
+
+describe('sentenceStartTimes', () => {
+  it('marks the first word and each word after a sentence end', () => {
+    expect(sentenceStartTimes(twoSentences())).toEqual([0, 1.2])
+  })
+
+  it('returns a single start for a one-sentence transcript', () => {
+    expect(sentenceStartTimes(transcriptEndingOnSo())).toEqual([0])
   })
 })
 

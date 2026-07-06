@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { applyRefinedEnding, dedupeClips, targetClipCount } from '../src/main/pipeline/highlights'
+import {
+  applyRefinedEnding,
+  applyRefinedStart,
+  dedupeClips,
+  targetClipCount
+} from '../src/main/pipeline/highlights'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import type { Clip } from '@shared/types'
 
@@ -105,5 +110,38 @@ describe('applyRefinedEnding', () => {
   it('clamps to the end of the video', () => {
     const c = applyRefinedEnding(clip('a', 270, 290, 90), 299.8, [299.8], 300)
     expect(c.suggestedEnd).toBe(300)
+  })
+})
+
+describe('applyRefinedStart', () => {
+  const sentenceStarts = [5, 12, 20, 40]
+
+  it('advances the start to the sentence where the hook begins', () => {
+    const c = applyRefinedStart(clip('a', 5, 60, 90), 12.3, sentenceStarts)
+    // Snapped to the 12s sentence start minus the 0.25s pre-roll.
+    expect(c.suggestedStart).toBeCloseTo(11.75, 3)
+    expect(c.edit.start).toBeCloseTo(11.75, 3)
+    expect(c.suggestedEnd).toBe(60)
+  })
+
+  it('never rewinds the start to add setup', () => {
+    const original = clip('a', 12, 60, 90)
+    expect(applyRefinedStart(original, 5, sentenceStarts)).toBe(original)
+  })
+
+  it('ignores no-op, too-far and too-short suggestions', () => {
+    // Same start re-suggested: below the change threshold.
+    const original = clip('a', 5, 60, 90)
+    expect(applyRefinedStart(original, 5, sentenceStarts)).toBe(original)
+    // Advance beyond the 20s cap.
+    expect(applyRefinedStart(clip('a', 5, 60, 90), 40, sentenceStarts)).toEqual(
+      clip('a', 5, 60, 90)
+    )
+    // Trim that would leave the clip shorter than the minimum.
+    expect(applyRefinedStart(clip('a', 5, 15, 90), 12, sentenceStarts)).toEqual(
+      clip('a', 5, 15, 90)
+    )
+    // Nonsense values.
+    expect(applyRefinedStart(original, Number.NaN, sentenceStarts)).toBe(original)
   })
 })
