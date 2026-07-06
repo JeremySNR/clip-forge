@@ -1,12 +1,15 @@
 /**
  * Speaker-aware focus selection. On multi-person footage the crop should
- * follow whoever is talking, not whoever is biggest in frame. UltraFace only
- * gives boxes, so speech is inferred visually: a talking face's mouth region
- * changes constantly between samples while a listener's stays still. Faces
- * are tracked across frames by IOU, each track carries an exponential moving
- * average of mouth activity, and the focus switches speaker only when a rival
- * clearly out-talks the current one for a sustained run (hysteresis), which
- * reads like a deliberate camera switch rather than jitter.
+ * follow whoever is talking, not whoever is biggest in frame.
+ *
+ * The primary signal is the LR-ASD audio-visual model (see asd.ts): every
+ * face track carries a per-frame speaking logit, and `chooseSpeakerByScores`
+ * turns those into focus centres with hysteresis so cuts read like deliberate
+ * camera switches.
+ *
+ * When the ASD models are unavailable, the legacy visual heuristic remains:
+ * a talking face's mouth region changes between samples while a listener's
+ * stays still (`mouthActivity` + `chooseFocusCentres`).
  */
 
 export interface FaceBox {
@@ -235,6 +238,167 @@ export function chooseFocusCentres(
 
     lastCentre = speaker.centre
     centres.push(speaker.centre)
+  }
+
+  return { centres, switchCuts }
+}
+
+// ---------------------------------------------------------------------------
+// Score-based selection (LR-ASD active speaker detection)
+// ---------------------------------------------------------------------------
+
+/** A face track with per-frame active-speaker logits (> 0 means speaking). */
+export interface SpeakerCandidate {
+  /** First analysis-frame index covered by the track. */
+  start: number
+  /** Horizontal face centre (0..1) per frame from `start`. */
+  centres: number[]
+  /** Normalised face box area per frame from `start`. */
+  areas: number[]
+  /** Active-speaker logit per frame from `start`. */
+  scores: number[]
+}
+
+/** Logit above which a face counts as actively speaking. */
+const SPEAK_ON = 0
+/** A speaking rival must persist this long before focus cuts to them. */
+const SWITCH_SEC = 0.4
+/**
+ * When the current speaker is *also* speaking, a rival must beat their score
+ * by this margin — two people talking over each other must not ping-pong.
+ */
+const OVERLAP_MARGIN = 1.0
+/** Minimum gap between deliberate switches away from a confirmed speaker. */
+const COOLDOWN_SEC = 1.0
+/**
+ * Focus held by someone who has not spoken yet (cold start on the biggest
+ * face) yields to an actual speaker after only this long.
+ */
+const UNCONFIRMED_SWITCH_SEC = 0.12
+
+/**
+ * Choose per-frame focus centres from active-speaker scores.
+ *
+ * Rules, in order of intent:
+ *  - the focus sits on the person the model says is speaking;
+ *  - it never leaves them for someone who merely moves — a switch requires
+ *    the rival to be *speaking* (score above SPEAK_ON) for a sustained run;
+ *  - when nobody speaks, the focus holds its position instead of wandering;
+ *  - on a cold start (nobody has spoken yet) the biggest face holds focus,
+ *    but surrenders it quickly the moment anyone actually speaks.
+ */
+export function chooseSpeakerByScores(
+  tracks: SpeakerCandidate[],
+  frameCount: number,
+  sceneCuts: number[],
+  fps: number
+): FocusSelection {
+  const switchFrames = Math.max(1, Math.round(SWITCH_SEC * fps))
+  const fastFrames = Math.max(1, Math.round(UNCONFIRMED_SWITCH_SEC * fps))
+  const cooldownFrames = Math.max(1, Math.round(COOLDOWN_SEC * fps))
+  const cutSet = new Set(sceneCuts)
+
+  // Per-frame candidate lists (indices into `tracks`).
+  const perFrame: number[][] = Array.from({ length: frameCount }, () => [])
+  tracks.forEach((track, i) => {
+    const end = Math.min(frameCount, track.start + track.centres.length)
+    for (let f = Math.max(0, track.start); f < end; f++) perFrame[f].push(i)
+  })
+
+  const at = (i: number, f: number): { centre: number; area: number; score: number } => {
+    const track = tracks[i]
+    const k = f - track.start
+    return { centre: track.centres[k], area: track.areas[k], score: track.scores[k] }
+  }
+
+  const centres: Array<number | null> = []
+  const switchCuts: number[] = []
+  let current = -1
+  /** Has the current focus target actually spoken while focused? */
+  let confirmed = false
+  let challenger = -1
+  let challengerStreak = 0
+  let cooldown = 0
+  let lastCentre: number | null = null
+
+  const reset = (): void => {
+    current = -1
+    confirmed = false
+    challenger = -1
+    challengerStreak = 0
+    cooldown = 0
+    lastCentre = null
+  }
+
+  for (let f = 0; f < frameCount; f++) {
+    if (cutSet.has(f)) reset()
+    const candidates = perFrame[f]
+    if (candidates.length === 0) {
+      centres.push(null)
+      continue
+    }
+    if (cooldown > 0) cooldown--
+
+    if (current === -1 || !candidates.includes(current)) {
+      // (Re)acquire focus: prefer whoever is speaking; otherwise stay near
+      // where the speaker just was (track lost to detection jitter); on a
+      // true cold start take the biggest face until someone speaks.
+      const speaking = candidates.filter((i) => at(i, f).score > SPEAK_ON)
+      if (speaking.length > 0) {
+        current = speaking.reduce((a, b) => (at(b, f).score > at(a, f).score ? b : a))
+        confirmed = true
+      } else if (lastCentre !== null) {
+        const anchor = lastCentre
+        current = candidates.reduce((a, b) =>
+          Math.abs(at(b, f).centre - anchor) < Math.abs(at(a, f).centre - anchor) ? b : a
+        )
+        // keep previous `confirmed` — continuity of the same person
+      } else {
+        current = candidates.reduce((a, b) => (at(b, f).area > at(a, f).area ? b : a))
+        confirmed = false
+      }
+      challenger = -1
+      challengerStreak = 0
+    } else {
+      const cur = at(current, f)
+      if (cur.score > SPEAK_ON) confirmed = true
+
+      const currentSpeaking = cur.score > SPEAK_ON
+      const bar = currentSpeaking ? cur.score + OVERLAP_MARGIN : SPEAK_ON
+      let rival = -1
+      let rivalScore = bar
+      for (const i of candidates) {
+        if (i === current) continue
+        const s = at(i, f).score
+        if (s > rivalScore) {
+          rival = i
+          rivalScore = s
+        }
+      }
+
+      const gated = confirmed && cooldown > 0
+      if (rival !== -1 && !gated) {
+        if (challenger === rival) challengerStreak++
+        else {
+          challenger = rival
+          challengerStreak = 1
+        }
+        if (challengerStreak >= (confirmed ? switchFrames : fastFrames)) {
+          current = rival
+          confirmed = true
+          switchCuts.push(f)
+          challenger = -1
+          challengerStreak = 0
+          cooldown = cooldownFrames
+        }
+      } else {
+        challenger = -1
+        challengerStreak = 0
+      }
+    }
+
+    lastCentre = at(current, f).centre
+    centres.push(lastCentre)
   }
 
   return { centres, switchCuts }

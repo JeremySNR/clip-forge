@@ -54,6 +54,55 @@ export function runFfmpeg(args: string[], opts: RunOptions = {}): Promise<string
   return runFfmpegWith(FFMPEG_PATH, args, opts)
 }
 
+/**
+ * Run ffmpeg producing raw frames on stdout and invoke `onFrame` for each
+ * complete frame of `frameBytes` bytes. Consuming via async iteration gives
+ * natural backpressure, so long clips never buffer more than a frame or two
+ * in memory. Returns the number of frames emitted.
+ */
+export async function streamRawFrames(
+  args: string[],
+  frameBytes: number,
+  onFrame: (frame: Buffer, index: number) => void | Promise<void>,
+  signal?: AbortSignal
+): Promise<number> {
+  const child = spawn(FFMPEG_PATH, ['-hide_banner', ...args, 'pipe:1'], {
+    windowsHide: true,
+    signal
+  })
+  let stderr = ''
+  child.stderr.on('data', (d: Buffer) => {
+    stderr += d.toString()
+    if (stderr.length > 65536) stderr = stderr.slice(-32768)
+  })
+  const exit = new Promise<number>((resolve, reject) => {
+    child.on('error', reject)
+    child.on('close', (code) => resolve(code ?? -1))
+  })
+
+  let pending: Buffer[] = []
+  let pendingBytes = 0
+  let index = 0
+  for await (const chunk of child.stdout as AsyncIterable<Buffer>) {
+    pending.push(chunk)
+    pendingBytes += chunk.length
+    if (pendingBytes < frameBytes) continue
+    const merged = pending.length === 1 ? pending[0] : Buffer.concat(pending)
+    let offset = 0
+    while (merged.length - offset >= frameBytes) {
+      await onFrame(merged.subarray(offset, offset + frameBytes), index++)
+      offset += frameBytes
+    }
+    pending = offset < merged.length ? [merged.subarray(offset)] : []
+    pendingBytes = merged.length - offset
+  }
+  const code = await exit
+  if (code !== 0) {
+    throw new Error(`ffmpeg frame stream exited with code ${code}:\n${stderr.slice(-2000)}`)
+  }
+  return index
+}
+
 /** Like runFfmpeg but with an explicit binary (e.g. a GPU-enabled build). */
 export function runFfmpegWith(bin: string, args: string[], opts: RunOptions = {}): Promise<string> {
   const fullArgs = ['-hide_banner', '-y', ...args]
