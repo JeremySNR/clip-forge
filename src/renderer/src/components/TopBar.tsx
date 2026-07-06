@@ -48,7 +48,7 @@ export default function TopBar(): React.JSX.Element {
       <div className="flex items-center gap-2">
         {showNewVideo && (
           <button
-            onClick={newProject}
+            onClick={() => void newProject()}
             title="Start over with a different video — your current project stays saved in Recent projects"
             className="flex items-center gap-1.5 rounded-lg border border-surface-600 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 hover:text-zinc-100"
           >

@@ -77,7 +77,7 @@ interface AppState {
   deleteProject: (id: string) => Promise<void>
   relinkVideo: () => Promise<void>
   goHome: () => void
-  newProject: () => void
+  newProject: () => Promise<void>
   setSettingsOpen: (open: boolean) => void
   saveSettings: (update: SettingsUpdate) => Promise<void>
   refreshSettings: () => Promise<void>
@@ -214,7 +214,22 @@ export const useStore = create<AppState>((set, get) => ({
   // Deselect the current project and return to the import screen so a new
   // video can be added. Non-destructive: the project stays saved on disk and
   // remains in "Recent projects".
-  newProject: () => set({ project: null, screen: 'home', selectedClipId: null, pipelineError: null }),
+  newProject: async () => {
+    const project = get().project
+    if (!project) {
+      set({ screen: 'home', selectedClipId: null, pipelineError: null })
+      return
+    }
+    try {
+      for (const clip of project.clips) {
+        await window.clipforge.updateClip(project.id, clip)
+      }
+      set({ project: null, screen: 'home', selectedClipId: null, pipelineError: null })
+      await get().refreshProjects()
+    } catch (err) {
+      set({ pipelineError: err instanceof Error ? cleanIpcError(err.message) : String(err) })
+    }
+  },
 
   setSettingsOpen: (open) => set({ settingsOpen: open }),
 
