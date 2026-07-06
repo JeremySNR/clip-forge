@@ -6,6 +6,7 @@ import type {
   AspectRatio,
   BrandingSettings,
   Clip,
+  FocusKeyframe,
   QualityPreference,
   Transcript,
   VideoInfo,
@@ -13,6 +14,7 @@ import type {
 } from '@shared/types'
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
+import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
 import { computeZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { runFfmpegWith } from './ffmpeg'
 import { buildAss, fontsDir } from './captions'
@@ -62,8 +64,11 @@ function escapeFilterPath(p: string): string {
 
 /**
  * Build the crop x-position expression. Manual framing is a constant focus;
- * auto framing becomes a piecewise-constant expression over t (clip-relative)
- * so the crop hard-cuts between speaker positions like a camera switch.
+ * auto framing becomes a piecewise expression over t (clip-relative) that
+ * mirrors focusAt: hard snaps at camera cuts / speaker switches, short eased
+ * pans for within-shot moves of the same person. (Hard-stepping the crop on
+ * every refocus of a moving speaker read as camera shake, magnified further
+ * whenever the auto zoom was pushed in.)
  */
 function focusExpression(clip: Clip): string {
   const track = clip.focusTrack
@@ -71,13 +76,26 @@ function focusExpression(clip: Clip): string {
     return Math.max(0, Math.min(1, clip.edit.focusX)).toFixed(4)
   }
   // Keyframes are in source time; renders seek with -ss so t starts at 0.
-  const steps = track
-    .map((kf) => ({ t: kf.t - clip.edit.start, x: Math.max(0, Math.min(1, kf.x)) }))
-    .filter((kf, i) => i === 0 || kf.t > 0)
-  if (steps.length === 0) return '0.5'
-  let expr = steps[steps.length - 1].x.toFixed(4)
+  const steps: FocusKeyframe[] = track.map((kf) => ({
+    ...kf,
+    t: kf.t - clip.edit.start,
+    x: Math.max(0, Math.min(1, kf.x))
+  }))
+  // Collapse keyframes at/before the clip start into a single base value.
+  while (steps.length > 1 && steps[1].t <= 0) steps.shift()
+
+  const value = (i: number): string => {
+    const kf = steps[i]
+    if (i === 0 || focusSnaps(steps, i)) return kf.x.toFixed(4)
+    // Smoothstep pan p*p*(3-2p) over the pan window, same curve as focusAt.
+    const prev = steps[i - 1].x
+    const dur = focusPanDuration(steps, i)
+    const p = `min(1,max(0,(t-${kf.t.toFixed(3)})/${dur.toFixed(3)}))`
+    return `(${prev.toFixed(4)}+${(kf.x - prev).toFixed(4)}*${p}*${p}*(3-2*${p}))`
+  }
+  let expr = value(steps.length - 1)
   for (let i = steps.length - 2; i >= 0; i--) {
-    expr = `if(lt(t,${Math.max(0, steps[i + 1].t).toFixed(3)}),${steps[i].x.toFixed(4)},${expr})`
+    expr = `if(lt(t,${Math.max(0, steps[i + 1].t).toFixed(3)}),${value(i)},${expr})`
   }
   return expr
 }

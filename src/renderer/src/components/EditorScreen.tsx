@@ -228,8 +228,8 @@ export default function EditorScreen(): React.JSX.Element {
                   {clip.edit.framing === 'auto' && clip.focusTrack ? (
                     <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
                       Following {clip.focusTrack.length} tracked speaker position
-                      {clip.focusTrack.length === 1 ? '' : 's'} — the crop cuts automatically when
-                      the speaker moves.
+                      {clip.focusTrack.length === 1 ? '' : 's'} — the crop pans smoothly as the
+                      speaker moves and cuts on camera or speaker changes.
                     </p>
                   ) : (
                     <div className="mt-3">
