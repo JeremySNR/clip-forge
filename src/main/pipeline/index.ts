@@ -12,12 +12,15 @@ import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
 import {
+  assertCookieAuthSupported,
   cookieCopyErrorHint,
+  cookieDpapiErrorHint,
   downloadUrlVideo,
   ensureYtDlp,
   fetchUrlMeta,
   isAuthError,
   isCookieCopyError,
+  isDpapiDecryptError,
   withSelfUpdateRetry,
   YtDlpError,
   type CookieAuthOptions
@@ -52,6 +55,7 @@ export async function createProjectFromUrl(
     cookiesFromBrowser: prefs.importCookiesBrowser || undefined,
     cookiesFile: prefs.importCookiesPath
   }
+  assertCookieAuthSupported(cookieOpts)
   onProgress({ progress: -1, message: 'Checking the video…' })
   const meta = await withSelfUpdateRetry(binPath, onProgress, () =>
     fetchUrlMeta(binPath, url, cookieOpts)
@@ -95,6 +99,9 @@ function rethrowWithLoginHint(
 ): (err: unknown) => never {
   return (err: unknown): never => {
     if (err instanceof YtDlpError) {
+      if (isDpapiDecryptError(err.message)) {
+        throw new YtDlpError(cookieDpapiErrorHint(hasCookiesFile))
+      }
       if (isCookieCopyError(err.message)) {
         throw new YtDlpError(cookieCopyErrorHint(browser, hasCookiesFile))
       }
