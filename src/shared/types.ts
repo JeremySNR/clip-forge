@@ -286,6 +286,8 @@ export interface AppSettings {
   appVersion: string
   /** Browser to borrow login cookies from for URL imports ('' = none). */
   importCookiesBrowser: BrowserCookieSource
+  /** True when a Netscape cookies.txt file is stored for URL imports. */
+  hasImportCookiesFile: boolean
 }
 
 export interface SettingsUpdate {
@@ -296,6 +298,7 @@ export interface SettingsUpdate {
   quality?: QualityPreference
   branding?: Partial<BrandingSettings>
   importCookiesBrowser?: BrowserCookieSource
+  clearImportCookiesFile?: boolean
 }
 
 export interface PipelineError {

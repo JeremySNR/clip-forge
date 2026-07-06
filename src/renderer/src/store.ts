@@ -95,6 +95,8 @@ interface AppState {
   clearExport: (clipId: string) => void
   addFonts: () => Promise<void>
   removeFont: (fileName: string) => Promise<void>
+  importCookiesFile: () => Promise<void>
+  clearCookiesFile: () => Promise<void>
   selectBrandingLogo: () => Promise<void>
   checkForUpdates: (silent?: boolean) => Promise<void>
   downloadUpdate: () => Promise<void>
@@ -374,6 +376,14 @@ export const useStore = create<AppState>((set, get) => ({
       unregisterFontFamily(removed.family)
     }
     set({ customFonts })
+  },
+
+  importCookiesFile: async () => {
+    set({ settings: await window.clipforge.importCookiesFile() })
+  },
+
+  clearCookiesFile: async () => {
+    set({ settings: await window.clipforge.clearCookiesFile() })
   },
 
   selectBrandingLogo: async () => {

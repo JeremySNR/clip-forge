@@ -10,6 +10,7 @@ import type {
   SettingsUpdate
 } from '@shared/types'
 import { getGpuStatus } from './pipeline/encoders'
+import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
 
 interface StoredSettings {
   /** Base64 of safeStorage-encrypted key, or plain 'plain:'-prefixed fallback. */
@@ -113,13 +114,20 @@ export async function getSettings(): Promise<AppSettings> {
     gpu: await getGpuStatus(),
     branding: s.branding,
     appVersion: app.getVersion(),
-    importCookiesBrowser: s.importCookiesBrowser
+    importCookiesBrowser: s.importCookiesBrowser,
+    hasImportCookiesFile: getImportCookiesPath() !== null
   }
 }
 
 /** Synchronous access to the URL-import preferences. */
-export function getImportPreferences(): { importCookiesBrowser: BrowserCookieSource } {
-  return { importCookiesBrowser: load().importCookiesBrowser }
+export function getImportPreferences(): {
+  importCookiesBrowser: BrowserCookieSource
+  importCookiesPath: string | null
+} {
+  return {
+    importCookiesBrowser: load().importCookiesBrowser,
+    importCookiesPath: getImportCookiesPath()
+  }
 }
 
 /** Synchronous access to the stored branding preferences. */
@@ -152,6 +160,7 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   if (update.quality !== undefined) s.quality = update.quality
   if (update.branding !== undefined) s.branding = { ...s.branding, ...update.branding }
   if (update.importCookiesBrowser !== undefined) s.importCookiesBrowser = update.importCookiesBrowser
+  if (update.clearImportCookiesFile) await clearImportCookiesFile()
   persist(s)
   return getSettings()
 }

@@ -16,6 +16,7 @@ import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { generateSocialCaption } from './pipeline/socialCaption'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
+import { clearImportCookiesFile, installImportCookiesFile } from './cookies'
 import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource } from './updates'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
@@ -273,6 +274,27 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('fonts:remove', async (_e, fileName: string) => removeCustomFont(fileName))
+
+  ipcMain.handle('cookies:import', async (event) => {
+    if (process.env.CLIPFORGE_COOKIES_FILE) {
+      await installImportCookiesFile(process.env.CLIPFORGE_COOKIES_FILE)
+      return getSettings()
+    }
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const result = await dialog.showOpenDialog(win!, {
+      title: 'Import cookies file',
+      properties: ['openFile'],
+      filters: [{ name: 'Cookies', extensions: ['txt'] }]
+    })
+    if (result.canceled || result.filePaths.length === 0) return getSettings()
+    await installImportCookiesFile(result.filePaths[0])
+    return getSettings()
+  })
+
+  ipcMain.handle('cookies:clear', async () => {
+    await clearImportCookiesFile()
+    return getSettings()
+  })
 
   ipcMain.handle('branding:selectLogo', async (event) => {
     // Headless/CI hook: skip the native dialog.
