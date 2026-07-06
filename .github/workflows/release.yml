@@ -2,9 +2,11 @@ name: Release
 
 # Builds installable apps and publishes them to GitHub Releases.
 #
-# Trigger it by pushing a version tag that matches package.json, e.g.:
-#   npm version patch      # bumps version + creates the tag
-#   git push --follow-tags # pushes the commit and the v0.5.5 tag
+# Two ways to cut a release of the version in package.json:
+#   1. Push a version tag, e.g. `npm version patch && git push --follow-tags`.
+#   2. Land a commit on main whose message starts with "Release v" (handy when
+#      the environment can't push tags). electron-builder derives the release
+#      tag (vX.Y.Z) from package.json either way.
 #
 # electron-builder uploads the .dmg / .exe / .AppImage plus the update
 # manifests (latest*.yml) the in-app updater reads. Once a user has installed
@@ -18,6 +20,8 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch: {}
 
 permissions:
@@ -25,6 +29,12 @@ permissions:
 
 jobs:
   release:
+    # Only actually build/publish for a tag push, a manual dispatch, or a
+    # "Release v…" commit to main — ordinary main commits skip (a no-op run).
+    if: >-
+      github.event_name != 'push' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      startsWith(github.event.head_commit.message, 'Release v')
     strategy:
       fail-fast: false
       matrix:
