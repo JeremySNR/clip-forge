@@ -26,6 +26,27 @@ export function sentenceEndTimes(transcript: Transcript): number[] {
   return [...new Set(ends)].sort((a, b) => a - b)
 }
 
+/**
+ * Timestamps where a sentence begins: the first word of the transcript and
+ * the first word after any sentence-ending word. Used to snap a clip start
+ * onto a clean opening so clips never begin mid-thought, and to let the
+ * hook-first start review move the start to a later sentence.
+ */
+export function sentenceStartTimes(transcript: Transcript): number[] {
+  const starts: number[] = []
+  let atSentenceStart = true
+  for (const seg of transcript.segments) {
+    for (const w of seg.words) {
+      if (atSentenceStart) {
+        starts.push(w.start)
+        atSentenceStart = false
+      }
+      if (endsSentence(w.text)) atSentenceStart = true
+    }
+  }
+  return [...new Set(starts)].sort((a, b) => a - b)
+}
+
 export interface NormalizeClipEndOptions {
   postRollSec?: number
   /** How far the end may move forward to reach a sentence boundary. */

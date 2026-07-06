@@ -6,7 +6,7 @@ import type {
   Transcript
 } from '@shared/types'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
-import { normalizeClipEnd, sentenceEndTimes } from '@shared/sentences'
+import { normalizeClipEnd, sentenceEndTimes, sentenceStartTimes } from '@shared/sentences'
 import { chatJSON } from './openai'
 
 interface RawHighlight {
@@ -82,16 +82,41 @@ const RESPONSE_SCHEMA = {
   }
 } as const
 
+/**
+ * Length is a preference, not a straitjacket. We give the model a target band
+ * and a hard upper cap, but let it come in shorter when the moment is complete
+ * — a self-contained 20s beat beats the same beat padded to 30s with trailing
+ * filler. Platforms rank on completion rate, and padding a tight moment to hit
+ * a number is the fastest way to tank it, so we never pad after the fact.
+ */
 function lengthGuidance(pref: ClipLengthPreference): string {
   switch (pref) {
     case 'short':
-      return 'Each clip MUST be between 15 and 30 seconds long (end minus start).'
+      return 'Aim for clips around 15-30 seconds long (end minus start). Never exceed 45 seconds. If a moment is complete in less time, keep it short rather than padding it.'
     case 'medium':
-      return 'Each clip MUST be between 30 and 60 seconds long (end minus start).'
+      return 'Aim for clips around 30-60 seconds long (end minus start). Never exceed 75 seconds. Favour the length the moment actually needs — do not pad a complete moment to fill the range.'
     case 'long':
-      return 'Each clip MUST be between 60 and 90 seconds long (end minus start).'
+      return 'Aim for clips around 60-90 seconds long (end minus start). Never exceed 100 seconds. Only reach the top of the range when the moment genuinely sustains it; do not pad with setup or tangents.'
     case 'auto':
-      return 'Each clip MUST be between 15 and 90 seconds long (end minus start); choose whatever length lets the moment breathe.'
+      return 'Choose whatever length lets each moment land — anywhere from about 15 to 90 seconds (never exceed 100). Cut to the moment; do not pad it to reach a length.'
+    default: {
+      const exhaustive: never = pref
+      return exhaustive
+    }
+  }
+}
+
+/** Hard upper cap per preference, enforced after the LLM responds. */
+function maxDurationFor(pref: ClipLengthPreference): number {
+  switch (pref) {
+    case 'short':
+      return 45
+    case 'medium':
+      return 75
+    case 'long':
+      return 100
+    case 'auto':
+      return 100
     default: {
       const exhaustive: never = pref
       return exhaustive
@@ -111,6 +136,8 @@ const MIN_CLIP_SEC = 8
 
 /** Breathing room added before the first word of a clip. */
 const START_PRE_ROLL_SEC = 0.25
+/** How far the clip start may move to land on a sentence beginning. */
+const START_SNAP_SEC = 2.5
 /**
  * Tail padding after the last word so endings land softly instead of cutting
  * the instant the word finishes (the export adds an audio fade inside it).
@@ -118,24 +145,6 @@ const START_PRE_ROLL_SEC = 0.25
 const END_POST_ROLL_SEC = 0.6
 /** How far the clip end may move to land on a sentence boundary. */
 const SENTENCE_SNAP_SEC = 2.5
-
-/** Hard floor per length preference, enforced after the LLM responds. */
-function minDurationFor(pref: ClipLengthPreference): number {
-  switch (pref) {
-    case 'short':
-      return 15
-    case 'medium':
-      return 30
-    case 'long':
-      return 60
-    case 'auto':
-      return 15
-    default: {
-      const exhaustive: never = pref
-      return exhaustive
-    }
-  }
-}
 
 /**
  * The scoring rubric operationalises published virality research rather than
@@ -195,6 +204,13 @@ const MAX_END_EXTEND_SEC = 45
 const MAX_END_TRIM_SEC = 20
 /** How much transcript beyond a clip's end the ending review gets to see. */
 const CONTINUATION_SEC = 45
+
+/**
+ * How far the opening review may push a clip's start forward, i.e. the most
+ * leading setup it may trim. Bounded so the review can only drop throat-
+ * clearing, never lop off the body of a clip.
+ */
+const MAX_START_ADVANCE_SEC = 20
 
 function withNormalizedEnd(clip: Clip, transcript: Transcript, videoDurationSec: number): Clip {
   const end = normalizeClipEnd(clip.suggestedStart, clip.suggestedEnd, transcript, videoDurationSec, {
@@ -353,6 +369,134 @@ async function refineClipEndings(
   }
 }
 
+const REFINE_START_SYSTEM_PROMPT = `You quality-check the OPENINGS of short vertical clips cut from a longer video. The first 1-3 seconds decide whether a viewer keeps scrolling, so a clip must open on its HOOK — a bold claim, a surprising statement, a vivid moment, or a pointed question — not on throat-clearing, greetings, connective filler ("so", "and", "you know"), or setup whose only job is to lead into a later line.
+
+For each clip you receive its intended hook and its opening sentences, each tagged with the time it starts. Judge the current opening strictly. If it already opens on the hook, say so. If it opens on skippable setup and the real hook is one of the later tagged sentences, return that sentence's start time so the dead opening is trimmed. Rules: only move the start FORWARD, only to a time that appears in the tags, and never trim so far that the hook loses the context a cold viewer needs to understand it. When in doubt, leave the opening where it is.`
+
+interface RefinedStart {
+  index: number
+  opens_with_hook: boolean
+  better_start: number
+  reason: string
+}
+
+const REFINE_START_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['starts'],
+  properties: {
+    starts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['index', 'opens_with_hook', 'better_start', 'reason'],
+        properties: {
+          index: { type: 'integer', description: 'The clip number being judged' },
+          opens_with_hook: {
+            type: 'boolean',
+            description: 'True when the clip already opens on its hook (no trimming needed)'
+          },
+          better_start: {
+            type: 'number',
+            description:
+              'Start time (seconds) of the sentence where the hook begins; repeat the current start when opens_with_hook is true'
+          },
+          reason: { type: 'string', description: 'One short sentence justifying the verdict' }
+        }
+      }
+    }
+  }
+} as const
+
+/**
+ * Clamp and snap an opening-review suggestion onto a sentence beginning, or
+ * return the clip unchanged when the suggestion is a no-op, moves backwards,
+ * reaches too far, or would leave too little clip. Only ever advances the
+ * start (drops leading setup). Exported for tests.
+ */
+export function applyRefinedStart(clip: Clip, betterStart: number, sentenceStarts: number[]): Clip {
+  if (!Number.isFinite(betterStart)) return clip
+  const snapped = snap(betterStart, sentenceStarts, START_SNAP_SEC)
+  const newStart = Math.max(0, snapped - START_PRE_ROLL_SEC)
+  const current = clip.suggestedStart
+  if (
+    newStart <= current + 0.5 ||
+    newStart > current + MAX_START_ADVANCE_SEC ||
+    clip.suggestedEnd - newStart < MIN_CLIP_SEC
+  ) {
+    return clip
+  }
+  return { ...clip, suggestedStart: newStart, edit: { ...clip.edit, start: newStart } }
+}
+
+/**
+ * Second LLM pass mirroring the ending review, but on clip OPENINGS: verify
+ * each clip starts on its hook and push the start forward past leading setup
+ * when it does not. The first pass reliably finds hooks but often opens on a
+ * sentence or two of throat-clearing before them. Failures never break the
+ * pipeline; the unrefined clips are returned instead.
+ */
+async function refineClipStarts(
+  apiKey: string,
+  model: string,
+  transcript: Transcript,
+  clips: Clip[],
+  signal?: AbortSignal
+): Promise<Clip[]> {
+  if (clips.length === 0) return clips
+  const sentenceStarts = sentenceStartTimes(transcript)
+
+  const blocks = clips.map((clip, i) => {
+    // Only the first stretch of the clip is eligible to be trimmed, so we show
+    // just the opening sentences (plus a little slack) as candidates.
+    const openWindowEnd = clip.suggestedStart + MAX_START_ADVANCE_SEC + 5
+    const head = transcript.segments
+      .filter((s) => s.end > clip.suggestedStart + 0.2 && s.start < openWindowEnd)
+      .slice(0, 6)
+    return [
+      `Clip ${i} — intended hook: "${clip.hook || clip.title}" (currently starts at ${clip.suggestedStart.toFixed(1)}s):`,
+      ...head.map((s) => `  [starts ${s.start.toFixed(1)}s] ${s.text}`)
+    ].join('\n')
+  })
+
+  try {
+    const res = await chatJSON<{ starts: RefinedStart[] }>(
+      apiKey,
+      model,
+      [
+        { role: 'system', content: REFINE_START_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Judge the opening of each clip below. Return one entry per clip, in order.\n\n${blocks.join('\n\n')}`
+        }
+      ],
+      'clip_openings',
+      REFINE_START_SCHEMA as unknown as Record<string, unknown>,
+      signal
+    )
+
+    const refined = [...clips]
+    for (const entry of res.starts ?? []) {
+      const clip = refined[entry.index]
+      if (!clip || entry.opens_with_hook) continue
+      refined[entry.index] = applyRefinedStart(clip, entry.better_start, sentenceStarts)
+      if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
+        console.error(
+          `[highlights] opening review moved clip ${entry.index} start ` +
+            `${clip.suggestedStart.toFixed(1)}s -> ${refined[entry.index].suggestedStart.toFixed(1)}s: ${entry.reason}`
+        )
+      }
+    }
+    return refined
+  } catch (err) {
+    if (signal?.aborted) throw err
+    // The candidates are still usable without the opening review.
+    console.error('Clip opening review failed; keeping original starts:', err)
+    return clips
+  }
+}
+
 /**
  * Drop clips that substantially overlap a higher-scored clip, so the results
  * grid never shows two near-identical moments. Input must be sorted by score
@@ -390,8 +534,10 @@ export async function detectHighlights(
       ? first
       : await requestHighlights(apiKey, model, transcript, options, videoDurationSec, true, signal)
   const refined = await refineClipEndings(apiKey, model, transcript, clips, videoDurationSec, signal)
+  // Then trim any leading setup so each clip opens on its hook.
+  const hooked = await refineClipStarts(apiKey, model, transcript, refined, signal)
   // Refinement can pull two clips onto the same landing beat; dedupe again.
-  return dedupeClips(refined)
+  return dedupeClips(hooked)
 }
 
 async function requestHighlights(
@@ -454,8 +600,8 @@ async function requestHighlights(
       wordEnds.push(w.end)
     }
   }
-  const sentenceEnds = sentenceEndTimes(transcript)
-  const minDur = minDurationFor(options.clipLength)
+  const sentenceStarts = sentenceStartTimes(transcript)
+  const maxDur = maxDurationFor(options.clipLength)
   const normalizeEnd = (start: number, end: number): number =>
     normalizeClipEnd(start, end, transcript, videoDurationSec, {
       postRollSec: END_POST_ROLL_SEC,
@@ -470,23 +616,29 @@ async function requestHighlights(
   for (const raw of res.clips ?? []) {
     let start = Math.max(0, Math.min(raw.start, videoDurationSec - 1))
     let end = Math.max(start + 1, Math.min(raw.end, videoDurationSec))
-    // Snap the start to a word boundary for a clean cut, with a little pre-roll.
-    start = Math.max(0, snap(start, wordStarts, 1.5) - START_PRE_ROLL_SEC)
+    // Snap the start onto a sentence beginning so the clip opens on a clean
+    // thought, not mid-sentence, then add a little pre-roll. Falls back to the
+    // nearest word boundary when no sentence start is close enough.
+    const sentenceStart = snap(start, sentenceStarts, START_SNAP_SEC)
+    const snappedStart = sentenceStart !== start ? sentenceStart : snap(start, wordStarts, 1.5)
+    start = Math.max(0, snappedStart - START_PRE_ROLL_SEC)
     // Rough word snap, then extend to the next punctuated sentence end when the
     // model (or Whisper segment boundary) stopped mid-thought.
     end = Math.min(videoDurationSec, snap(end, wordEnds, 1.5) + END_POST_ROLL_SEC)
     end = normalizeEnd(start, end)
-    // Models often under-shoot durations: extend short clips to the next
-    // sentence boundary that satisfies the length preference — or to the end
-    // of the video when no sentence boundary is late enough.
-    if (end - start < minDur) {
-      const targetEnd = start + minDur
-      const nextSentenceEnd = sentenceEnds.find((e) => e + END_POST_ROLL_SEC >= targetEnd)
-      const extended =
-        nextSentenceEnd !== undefined
-          ? Math.min(videoDurationSec, nextSentenceEnd + END_POST_ROLL_SEC)
-          : Math.min(videoDurationSec, targetEnd + END_POST_ROLL_SEC)
-      end = normalizeEnd(start, extended)
+    // Length is a preference, not a floor: we never pad a complete moment to
+    // reach a target length (padding tanks completion rate). We only enforce
+    // the hard upper cap, trimming an over-long clip back to the last sentence
+    // that lands within the cap.
+    if (end - start > maxDur) {
+      const capTarget = start + maxDur
+      const lastSentenceEnd = [...sentenceEndTimes(transcript)]
+        .reverse()
+        .find((e) => e + END_POST_ROLL_SEC <= capTarget && e > start + MIN_CLIP_SEC)
+      end =
+        lastSentenceEnd !== undefined
+          ? Math.min(videoDurationSec, lastSentenceEnd + END_POST_ROLL_SEC)
+          : capTarget
     }
     if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
       if (process.env.CLIPFORGE_DEBUG) {
@@ -517,7 +669,7 @@ async function requestHighlights(
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,
-        showTitle: false,
+        showTitle: true,
         start,
         end
       }
