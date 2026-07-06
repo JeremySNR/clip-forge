@@ -242,13 +242,35 @@ export function installUpdate(): void {
   configureAutoUpdater().quitAndInstall()
 }
 
+/**
+ * Node 20+ on Windows rejects spawning `.cmd`/`.bat` without `shell: true`
+ * (CVE-2024-27980). Exported for tests.
+ */
+export function spawnStepOptions(
+  cmd: string,
+  cwd: string
+): { cwd: string; windowsHide: boolean; shell?: boolean; env: NodeJS.ProcessEnv } {
+  const shell =
+    process.platform === 'win32' &&
+    (cmd === 'npm' || cmd === 'npm.cmd' || /\.(cmd|bat)$/i.test(cmd))
+  return {
+    cwd,
+    windowsHide: true,
+    env: process.env,
+    ...(shell ? { shell: true } : {})
+  }
+}
+
 function runStep(
   cmd: string,
   args: string[],
   cwd: string
 ): Promise<string> {
+  if (!existsSync(cwd)) {
+    return Promise.reject(new Error(`Checkout folder not found: ${cwd}`))
+  }
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, windowsHide: true })
+    const child = spawn(cmd, args, spawnStepOptions(cmd, cwd))
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', (d: Buffer) => {
@@ -258,7 +280,13 @@ function runStep(
       stderr += d.toString()
       if (stderr.length > 65536) stderr = stderr.slice(-32768)
     })
-    child.on('error', reject)
+    child.on('error', (err) => {
+      reject(
+        new Error(
+          `Could not run ${cmd}: ${err instanceof Error ? err.message : String(err)}`
+        )
+      )
+    })
     child.on('close', (code) => {
       if (code === 0) return resolve(stdout)
       const detail = stderr.split('\n').filter(Boolean).slice(-3).join(' ').trim()
@@ -267,7 +295,7 @@ function runStep(
   })
 }
 
-const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const npmCmd = 'npm'
 let sourceUpdateRunning = false
 
 /**

@@ -1,7 +1,13 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { compareVersions, evaluateUpdate, findGitRoot, resolveSourceRepoRoot } from '../src/main/updates'
+import {
+  compareVersions,
+  evaluateUpdate,
+  findGitRoot,
+  resolveSourceRepoRoot,
+  spawnStepOptions
+} from '../src/main/updates'
 
 describe('findGitRoot', () => {
   it('walks up from a nested directory to the repo root', () => {
@@ -38,6 +44,21 @@ describe('compareVersions', () => {
   it('treats missing segments as zero', () => {
     expect(compareVersions('1.2', '1.2.0')).toBe(0)
     expect(compareVersions('1.2.1', '1.2')).toBeGreaterThan(0)
+  })
+})
+
+describe('spawnStepOptions', () => {
+  it('enables shell for npm on Windows (CVE-2024-27980)', () => {
+    if (process.platform !== 'win32') return
+    expect(spawnStepOptions('npm', process.cwd()).shell).toBe(true)
+    expect(spawnStepOptions('npm.cmd', process.cwd()).shell).toBe(true)
+    expect(spawnStepOptions('git', process.cwd()).shell).toBeUndefined()
+  })
+
+  it('does not force shell on Unix', () => {
+    if (process.platform === 'win32') return
+    expect(spawnStepOptions('npm', process.cwd()).shell).toBeUndefined()
+    expect(spawnStepOptions('git', process.cwd()).shell).toBeUndefined()
   })
 })
 
