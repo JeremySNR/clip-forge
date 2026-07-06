@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { app } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import type { ImportProgress, UpdateCheckResult, UpdateDownloadProgress } from '@shared/types'
@@ -11,9 +11,7 @@ import type { ImportProgress, UpdateCheckResult, UpdateDownloadProgress } from '
  * Discovery always goes through the GitHub Releases REST API (works in every
  * run mode and drives the "Update available" UI). Installing depends on how
  * the app runs: packaged builds (AppImage/NSIS) download and swap themselves
- * via electron-updater using the release's electron-builder metadata
- * (latest-linux.yml etc.); source checkouts cannot self-update, so the UI
- * links to the release page and suggests pulling instead.
+ * via electron-updater; source checkouts pull, rebuild and relaunch in place.
  */
 
 const REPO = 'JeremySNR/j-clip'
@@ -59,14 +57,49 @@ export function isAutoUpdateSupported(): boolean {
 }
 
 /**
+ * Walk upward from `start` until a `.git` directory/file is found.
+ * Exported for tests.
+ */
+export function findGitRoot(start: string): string | null {
+  let dir = resolve(start)
+  while (true) {
+    if (existsSync(join(dir, '.git'))) return dir
+    const parent = resolve(dir, '..')
+    if (parent === dir) return null
+    dir = parent
+  }
+}
+
+/**
+ * Locate the ClipForge git checkout root. `app.getAppPath()` often points at
+ * `out/main` (next to the compiled main bundle), not the repo root where
+ * `.git` lives — so we walk upward from several likely starting points.
+ */
+export function resolveSourceRepoRoot(): string | null {
+  if (isAutoUpdateSupported()) return null
+  const starts = new Set<string>([process.cwd()])
+  const appPath = app?.getAppPath?.()
+  if (appPath) starts.add(appPath)
+  for (const start of starts) {
+    const root = findGitRoot(start)
+    if (!root || !existsSync(join(root, 'package.json'))) continue
+    try {
+      const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { name?: string }
+      if (pkg.name === 'clipforge') return root
+    } catch {
+      /* try the next candidate */
+    }
+  }
+  return null
+}
+
+/**
  * True when this copy is a git checkout the app can update in place: pull,
  * reinstall dependencies, rebuild, relaunch (the one-click update path for
  * source installs, where a packaged-style swap is impossible).
  */
 export function isSourceUpdateSupported(): boolean {
-  if (isAutoUpdateSupported()) return false
-  const root = app?.getAppPath?.()
-  return !!root && existsSync(join(root, '.git'))
+  return !isAutoUpdateSupported()
 }
 
 /** Pure decision step, separated from the network fetch for tests. */
@@ -245,11 +278,16 @@ let sourceUpdateRunning = false
  */
 export async function updateFromSource(onProgress: (p: ImportProgress) => void): Promise<void> {
   if (!isSourceUpdateSupported()) {
-    throw new Error('This copy is not a git checkout, so it cannot update itself this way.')
+    throw new Error('Packaged installs update via download and restart, not git pull.')
+  }
+  const root = resolveSourceRepoRoot()
+  if (!root) {
+    throw new Error(
+      'This folder is not a git checkout (no .git directory found). Clone the repo with git clone, or download the AppImage from the releases page.'
+    )
   }
   if (sourceUpdateRunning) throw new Error('An update is already running.')
   sourceUpdateRunning = true
-  const root = app.getAppPath()
   try {
     onProgress({ progress: -1, message: 'Checking the local checkout…' })
     const dirty = (await runStep('git', ['status', '--porcelain'], root))
@@ -274,7 +312,7 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
     }
 
     onProgress({ progress: -1, message: 'Pulling the latest code…' })
-    await runStep('git', ['pull', '--ff-only', 'origin', 'main'], root)
+    await runStep('git', ['pull', '--ff-only'], root)
 
     onProgress({ progress: -1, message: 'Installing dependencies…' })
     await runStep(npmCmd, ['install', '--no-audit', '--no-fund'], root)
