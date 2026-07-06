@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { app } from 'electron'
-import type { Transcript } from '@shared/types'
-import { getCaptionStyle, type CaptionStyle } from '@shared/captionStyles'
+import type { Transcript, BrandColors } from '@shared/types'
+import { resolveCaptionStyle, type CaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange, type WordGroup } from '@shared/captionLayout'
 
 /**
@@ -76,6 +76,15 @@ function renderGroupText(group: WordGroup, activeIndex: number, style: CaptionSt
   return parts.join(' ')
 }
 
+/** "#RRGGBB" -> ASS style colour with explicit alpha "&HAA BB GGRR". */
+function assStyleColorWithAlpha(hex: string, alphaHex: string): string {
+  const clean = hex.replace('#', '')
+  const r = clean.slice(0, 2)
+  const g = clean.slice(2, 4)
+  const b = clean.slice(4, 6)
+  return `&H${alphaHex}${b}${g}${r}`.toUpperCase()
+}
+
 export interface CaptionOptions {
   styleId: string
   /** Output video dimensions the subtitles will be rendered onto. */
@@ -88,15 +97,25 @@ export interface CaptionOptions {
   title?: string
   /** Custom font family overriding the style's font (must exist in fontsdir). */
   fontFamily?: string
+  /** App-wide brand palette merged onto the caption preset. */
+  brandColors?: BrandColors | null
 }
 
 export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
-  const preset = getCaptionStyle(opts.styleId)
-  const style = opts.fontFamily ? { ...preset, fontFamily: opts.fontFamily } : preset
+  const style = resolveCaptionStyle(opts.styleId, opts.brandColors, opts.fontFamily)
   const fontSize = Math.round(style.fontScale * opts.height)
   const marginV = Math.round((1 - style.positionY) * opts.height)
   const primary = assStyleColor(style.textColor)
   const outline = assStyleColor(style.outlineColor)
+  const brandColors = opts.brandColors
+  const hookText = assStyleColor(
+    brandColors?.enabled ? brandColors.hookTextColor : '#FFFFFF'
+  )
+  const titleBox = brandColors?.enabled
+    ? assStyleColorWithAlpha(brandColors.hookBackgroundColor, '40')
+    : '&H40000000'
+  /** Soft shadow: black at ~44% opacity. */
+  const titleShadowColor = '&H90000000'
 
   // Hook "card": a filled, translucent rounded-feel label at the top. libass
   // draws this with BorderStyle 3 (opaque box in the outline colour) plus a
@@ -108,10 +127,6 @@ export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   const titleMarginH = Math.round(opts.width * 0.1)
   const titleBoxPad = Math.max(6, Math.round(opts.height * 0.009))
   const titleShadow = Math.max(2, Math.round(opts.height * 0.0032))
-  /** Card fill: black at ~75% opacity (ASS alpha 0x40 = 25% transparent). */
-  const titleBox = '&H40000000'
-  /** Soft shadow: black at ~44% opacity. */
-  const titleShadowColor = '&H90000000'
 
   const header = `[Script Info]
 Title: ClipForge captions
@@ -124,7 +139,7 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,${style.fontFamily},${fontSize},${primary},${primary},${outline},&H80000000,${style.bold ? -1 : 0},0,0,0,100,100,0,0,1,${style.outlineWidth},${style.shadow},2,60,60,${marginV},1
-Style: Title,${style.fontFamily},${titleFontSize},&H00FFFFFF,&H00FFFFFF,${titleBox},${titleShadowColor},-1,0,0,0,100,100,0,0,3,${titleBoxPad},${titleShadow},8,${titleMarginH},${titleMarginH},${titleMarginV},1
+Style: Title,${style.fontFamily},${titleFontSize},${hookText},${hookText},${titleBox},${titleShadowColor},-1,0,0,0,100,100,0,0,3,${titleBoxPad},${titleShadow},8,${titleMarginH},${titleMarginH},${titleMarginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

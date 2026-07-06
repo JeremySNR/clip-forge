@@ -427,7 +427,8 @@ export async function renderClip(job: RenderJob): Promise<string> {
       clipStart: captionStart,
       clipEnd: captionEnd,
       title: clip.edit.showTitle ? clip.hook || clip.title : undefined,
-      fontFamily: clip.edit.captionFontFamily ?? undefined
+      fontFamily: clip.edit.captionFontFamily ?? undefined,
+      brandColors: job.branding?.colors
     })
     const dir = join(tmpdir(), 'clipforge')
     await mkdir(dir, { recursive: true })

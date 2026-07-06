@@ -15,10 +15,13 @@ import {
   Download,
   Languages,
   Loader2,
-  Send
+  Send,
+  Palette
 } from 'lucide-react'
 import { useStore } from '../store'
+import { DEFAULT_BRAND_COLORS, resolveCaptionStyle } from '@shared/captionStyles'
 import type {
+  BrandColors,
   EncoderPreference,
   ImportProgress,
   QualityPreference,
@@ -311,6 +314,11 @@ function BrandingSection(): React.JSX.Element {
   const saveSettings = useStore((s) => s.saveSettings)
   const selectBrandingLogo = useStore((s) => s.selectBrandingLogo)
   const branding = settings?.branding
+  const colors = branding?.colors ?? DEFAULT_BRAND_COLORS
+
+  const saveColors = (patch: Partial<BrandColors>): void => {
+    void saveSettings({ branding: { colors: { ...colors, ...patch } } })
+  }
 
   return (
     <div className="mt-5 border-t border-surface-700 pt-5">
@@ -319,6 +327,111 @@ function BrandingSection(): React.JSX.Element {
         Branding
       </label>
       <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        Set your logo, watermark, and brand colours. Colours apply as defaults across every
+        caption style in the preview and exports.
+      </p>
+
+      <div className="mt-4 rounded-xl border border-surface-700 bg-surface-850 p-4">
+        <div className="flex items-center gap-2 text-sm font-medium text-zinc-200">
+          <Palette size={15} className="text-accent-400" />
+          Brand colours
+        </div>
+        <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+          Primary is the highlight or pill fill; secondary is the active-word text on pill styles.
+          Leave text/outline on preset to keep each style&apos;s defaults.
+        </p>
+
+        <div className="mt-2.5 flex items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2.5">
+          <span className="text-xs font-medium text-zinc-300">Use brand colours on captions</span>
+          <button
+            onClick={() => saveColors({ enabled: !colors.enabled })}
+            className={`relative h-5 w-9 shrink-0 rounded-full transition ${colors.enabled ? 'bg-zinc-100' : 'bg-surface-600'}`}
+          >
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${colors.enabled ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
+            />
+          </button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <ColorField
+            label="Primary"
+            value={colors.primaryColor}
+            onChange={(v) => saveColors({ primaryColor: v })}
+          />
+          <ColorField
+            label="Secondary"
+            value={colors.secondaryColor}
+            onChange={(v) => saveColors({ secondaryColor: v })}
+          />
+          <ColorField
+            label="Caption text"
+            value={colors.textColor ?? ''}
+            pickerFallback="#FFFFFF"
+            placeholder="Style default"
+            onChange={(v) => saveColors({ textColor: v })}
+            onClear={colors.textColor ? () => saveColors({ textColor: null }) : undefined}
+          />
+          <ColorField
+            label="Outline"
+            value={colors.outlineColor ?? ''}
+            pickerFallback="#000000"
+            placeholder="Style default"
+            onChange={(v) => saveColors({ outlineColor: v })}
+            onClear={colors.outlineColor ? () => saveColors({ outlineColor: null }) : undefined}
+          />
+          <ColorField
+            label="Hook text"
+            value={colors.hookTextColor}
+            onChange={(v) => saveColors({ hookTextColor: v })}
+          />
+          <ColorField
+            label="Hook background"
+            value={colors.hookBackgroundColor}
+            onChange={(v) => saveColors({ hookBackgroundColor: v })}
+          />
+        </div>
+
+        <div className="mt-3 rounded-lg border border-surface-600 bg-black/40 px-3 py-2.5">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+            Preview
+          </div>
+          {(() => {
+            const preview = resolveCaptionStyle('beast', colors)
+            const pill = resolveCaptionStyle('pill', colors)
+            return (
+              <div className="flex flex-wrap items-center gap-4">
+                <span
+                  className="text-sm font-bold"
+                  style={{ color: preview.textColor, fontFamily: `'${preview.fontFamily}', sans-serif` }}
+                >
+                  SO I{' '}
+                  <span style={{ color: preview.highlightColor }}>SAID</span>
+                </span>
+                <span
+                  className="rounded px-1.5 py-0.5 text-sm font-bold"
+                  style={{
+                    color: pill.highlightColor,
+                    backgroundColor: pill.highlightBoxColor ?? 'transparent',
+                    fontFamily: `'${pill.fontFamily}', sans-serif`
+                  }}
+                >
+                  SAID
+                </span>
+              </div>
+            )
+          })()}
+        </div>
+
+        <button
+          onClick={() => saveColors({ ...DEFAULT_BRAND_COLORS, enabled: colors.enabled })}
+          className="mt-3 text-[11px] text-zinc-500 transition hover:text-zinc-300"
+        >
+          Reset colours to ClipForge defaults
+        </button>
+      </div>
+
+      <p className="mt-4 text-xs leading-relaxed text-zinc-500">
         Overlay your logo or watermark on every clip — shown in the preview and burned into
         exports, underneath the captions.
       </p>
@@ -417,6 +530,59 @@ function BrandingSection(): React.JSX.Element {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+function ColorField({
+  label,
+  value,
+  pickerFallback = '#FFFFFF',
+  placeholder,
+  onChange,
+  onClear
+}: {
+  label: string
+  value: string
+  pickerFallback?: string
+  placeholder?: string
+  onChange: (hex: string) => void
+  onClear?: () => void
+}): React.JSX.Element {
+  const picker = /^#[0-9A-Fa-f]{6}$/.test(value) ? value : pickerFallback
+
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-zinc-500">{label}</span>
+        {onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-[10px] text-zinc-600 transition hover:text-zinc-300"
+          >
+            Use preset
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2 rounded-lg border border-surface-600 bg-surface-900 px-2 py-1.5">
+        <input
+          type="color"
+          value={picker}
+          onChange={(e) => onChange(e.target.value.toUpperCase())}
+          className="h-7 w-7 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+        />
+        <input
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => {
+            const next = e.target.value.trim()
+            if (/^#[0-9A-Fa-f]{6}$/.test(next)) onChange(next.toUpperCase())
+          }}
+          className="min-w-0 flex-1 bg-transparent font-mono text-[11px] text-zinc-300 placeholder:text-zinc-600 focus:outline-none"
+        />
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildFilterGraph } from '../src/main/pipeline/render'
-import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
+import { DEFAULT_BRAND_COLORS, DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import type { BrandingSettings, Clip, VideoInfo } from '@shared/types'
 
 function makeClip(start = 0, end = 30): Clip {
@@ -49,7 +49,8 @@ const branding: BrandingSettings = {
   imagePath: '/tmp/logo.png',
   position: 'bottom-right',
   opacity: 0.8,
-  scale: 0.16
+  scale: 0.16,
+  colors: DEFAULT_BRAND_COLORS
 }
 
 describe('buildFilterGraph', () => {

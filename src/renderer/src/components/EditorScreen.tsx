@@ -26,7 +26,7 @@ import TrimBar from './TrimBar'
 import ScoreBadge from './ScoreBadge'
 import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
-import { CAPTION_STYLES } from '@shared/captionStyles'
+import { CAPTION_STYLES, resolveCaptionStyle } from '@shared/captionStyles'
 import { formatTimecode } from '../lib/format'
 import type { AspectRatio, BrollItem, BrollMode, Clip, FramingMode, ReframeMode } from '@shared/types'
 
@@ -46,6 +46,7 @@ export default function EditorScreen(): React.JSX.Element {
   const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
   const customFonts = useStore((s) => s.customFonts)
+  const brandColors = useStore((s) => s.settings?.branding.colors)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
@@ -265,12 +266,14 @@ export default function EditorScreen(): React.JSX.Element {
           />
           {clip.edit.captionsEnabled && (
             <div className="mt-3 grid grid-cols-2 gap-2">
-              {CAPTION_STYLES.map((style) => (
+              {CAPTION_STYLES.map((preset) => {
+                const style = resolveCaptionStyle(preset.id, brandColors)
+                return (
                 <button
-                  key={style.id}
-                  onClick={() => set({ captionStyleId: style.id })}
+                  key={preset.id}
+                  onClick={() => set({ captionStyleId: preset.id })}
                   className={`rounded-xl border px-3 py-2.5 text-left transition ${
-                    clip.edit.captionStyleId === style.id
+                    clip.edit.captionStyleId === preset.id
                       ? 'border-white/30 bg-white/[0.07]'
                       : 'border-surface-600 hover:bg-surface-800'
                   }`}
@@ -295,9 +298,9 @@ export default function EditorScreen(): React.JSX.Element {
                       {style.uppercase ? 'SAID' : 'said'}
                     </span>
                   </div>
-                  <div className="mt-1 text-[11px] text-zinc-500">{style.name}</div>
+                  <div className="mt-1 text-[11px] text-zinc-500">{preset.name}</div>
                 </button>
-              ))}
+              )})}
             </div>
           )}
           {clip.edit.captionsEnabled && (
