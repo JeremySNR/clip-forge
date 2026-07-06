@@ -44,7 +44,10 @@ export type FramingMode = 'auto' | 'manual'
 /** One step of the focus track (t in source seconds). */
 export interface FocusKeyframe {
   t: number
-  /** Horizontal face centre, 0 = far left, 1 = far right. */
+  /**
+   * Horizontal face centre in the source frame, 0 = far left, 1 = far right.
+   * Export recentres the crop on this point (see faceCentreCropLeft).
+   */
   x: number
   /**
    * True when this keyframe lands on a camera cut or speaker switch, where
@@ -65,7 +68,7 @@ export interface ClipEditState {
    * punch-ins on energetic lines, slow creep on long static stretches.
    */
   autoZoom?: boolean
-  /** Horizontal focus for cropping, 0 = far left, 0.5 = centre, 1 = far right. */
+  /** Manual crop slider: 0 = far left, 0.5 = frame centre, 1 = far right. */
   focusX: number
   captionsEnabled: boolean
   captionStyleId: string

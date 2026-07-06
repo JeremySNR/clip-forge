@@ -4,6 +4,13 @@ import type { FocusKeyframe } from './types'
  * Focus-track sampling shared by the live preview (object-position) and the
  * export (ffmpeg crop expression, see render.ts), so both move identically.
  *
+ * `FocusKeyframe.x` is the horizontal **face centre** in the source frame
+ * (0 = far left, 1 = far right). The live preview passes that straight to
+ * CSS `object-position` (correct for object-fit: cover). Export converts it
+ * to a crop offset so the face sits in the middle of the window — see
+ * `faceCentreCropX` in render.ts. Manual `focusX` is different: it is a crop
+ * slider (0 = show the far left, 0.5 = frame centre, 1 = far right).
+ *
  * Keyframes that land on a camera cut or speaker switch (kf.cut) snap
  * instantly — a hard reframe reads as a deliberate camera change there. But
  * keyframes produced by the *same person moving within a shot* must not snap:
@@ -59,4 +66,29 @@ export function focusAt(track: FocusKeyframe[], t: number): number {
   const prev = track[index - 1]
   const p = focusEase((t - kf.t) / focusPanDuration(track, index))
   return prev.x + (kf.x - prev.x) * p
+}
+
+/**
+ * Crop-window width for a source frame at a given output aspect ratio.
+ * Mirrors the `min(iw,floor(ih*ratio/2)*2)` expression in render.ts.
+ */
+export function cropSourceWidth(sourceW: number, sourceH: number, aspectW: number, aspectH: number): number {
+  const ratio = aspectW / aspectH
+  return Math.min(sourceW, Math.floor((sourceH * ratio) / 2) * 2)
+}
+
+/**
+ * Left edge of the crop window (source pixels) that centres on `faceX`
+ * (0..1 face centre). Clamped so the window stays inside the frame.
+ */
+export function faceCentreCropLeft(
+  faceX: number,
+  sourceW: number,
+  sourceH: number,
+  aspectW: number,
+  aspectH: number
+): number {
+  const ow = cropSourceWidth(sourceW, sourceH, aspectW, aspectH)
+  const maxLeft = Math.max(0, sourceW - ow)
+  return Math.max(0, Math.min(maxLeft, faceX * sourceW - ow / 2))
 }

@@ -119,8 +119,17 @@ function reframeGraph(clip: Clip, source: VideoInfo, inputLabel: string): string
     )
   }
   // Crop to the target ratio around the horizontal focus point, then scale.
+  const isAutoFace =
+    clip.edit.framing === 'auto' && clip.focusTrack !== null && clip.focusTrack.length > 0
+  // Auto tracks store a face centre; manual focusX is a crop slider along
+  // [0,1]. Only the auto path converts centre → crop offset so the speaker
+  // sits in the middle of the window (preview already does this via
+  // object-position).
+  const cropX = isAutoFace
+    ? `max(0,min(iw-ow,iw*(${focus})-ow/2))`
+    : `(iw-ow)*${focus}`
   return (
-    `[${inputLabel}]crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='(iw-ow)*${focus}':y='(ih-oh)/2',` +
+    `[${inputLabel}]crop=w='min(iw,floor(ih*${ratio}/2)*2)':h='min(ih,floor(iw/${ratio}/2)*2)':x='${cropX}':y='(ih-oh)/2',` +
     `scale=${w}:${h}:flags=lanczos[reframed]`
   )
 }

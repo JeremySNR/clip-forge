@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FOCUS_PAN_SEC, focusAt } from '@shared/focusTrack'
+import { FOCUS_PAN_SEC, cropSourceWidth, faceCentreCropLeft, focusAt } from '@shared/focusTrack'
 import { buildFocusTrack } from '../src/main/pipeline/faces'
 
 describe('focusAt', () => {
@@ -53,6 +53,26 @@ describe('focusAt', () => {
 
   it('defaults to centre for an empty track', () => {
     expect(focusAt([], 5)).toBe(0.5)
+  })
+})
+
+describe('faceCentreCropLeft', () => {
+  const W = 1920
+  const H = 1080
+
+  it('centres the crop window on the face', () => {
+    const faceX = 0.58
+    const ow = cropSourceWidth(W, H, 9, 16)
+    const left = faceCentreCropLeft(faceX, W, H, 9, 16)
+    expect(left + ow / 2).toBeCloseTo(faceX * W, 0)
+    // The old slider formula would have placed the face off-centre.
+    expect(left).not.toBeCloseTo((W - ow) * faceX, 0)
+  })
+
+  it('clamps when the face is near the frame edge', () => {
+    expect(faceCentreCropLeft(0.02, W, H, 9, 16)).toBe(0)
+    const ow = cropSourceWidth(W, H, 9, 16)
+    expect(faceCentreCropLeft(0.98, W, H, 9, 16)).toBe(W - ow)
   })
 })
 

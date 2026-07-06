@@ -107,11 +107,19 @@ describe('buildFilterGraph', () => {
       { t: 12, x: 0.2, cut: true } // speaker switch -> hard snap
     ]
     const graph = buildFilterGraph(clip, source, null, 30, null)
+    // Auto framing centres the crop on the face centre, not the slider value.
+    expect(graph.filterComplex).toContain('max(0,min(iw-ow,iw*(')
     // Eased (smoothstep) pan over the pan window starting at the keyframe.
     expect(graph.filterComplex).toContain('(t-5.000)/0.600')
     expect(graph.filterComplex).toContain('(3-2*')
     // The cut-flagged keyframe stays a hard constant step.
     expect(graph.filterComplex).toContain(',0.2000)')
+  })
+
+  it('uses crop-slider math for manual framing', () => {
+    const graph = buildFilterGraph(makeClip(), source, null, 30, null)
+    expect(graph.filterComplex).toContain("x='(iw-ow)*0.5000'")
+    expect(graph.filterComplex).not.toContain('max(0,min(iw-ow,iw*(')
   })
 
   it('applies auto zoom via the subpixel perspective filter, not zoompan', () => {
