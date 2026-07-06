@@ -83,7 +83,7 @@ describe('remapZoomEvents', () => {
 })
 
 describe('zoomExpression', () => {
-  it('builds a piecewise zoompan expression over output frames', () => {
+  it('builds a piecewise ffmpeg expression over input frames', () => {
     const expr = zoomExpression(
       [
         { start: 1, end: 1, from: 1, to: 1.12, style: 'cut' },
@@ -91,11 +91,11 @@ describe('zoomExpression', () => {
       ],
       30
     )
-    expect(expr).toContain('(on/30.000)')
+    expect(expr).toContain('(in/30.000)')
     expect(expr).toContain('1.1200')
     expect(expr).toContain('1.1600')
     // Before the first event the zoom is 1.
-    expect(expr.startsWith('if(lt((on/30.000),1.000),1,')).toBe(true)
+    expect(expr.startsWith('if(lt((in/30.000),1.000),1,')).toBe(true)
     // Balanced parentheses (cheap structural sanity check).
     const open = (expr.match(/\(/g) ?? []).length
     const close = (expr.match(/\)/g) ?? []).length

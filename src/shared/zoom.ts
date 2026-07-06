@@ -3,8 +3,8 @@ import type { KeptSegment } from './tighten'
 
 /**
  * Auto zoom: a deterministic, scene-aware zoom plan shared by the live
- * preview (CSS transform) and the export (ffmpeg zoompan), so both render
- * the same motion.
+ * preview (CSS transform) and the export (ffmpeg perspective filter), so
+ * both render the same motion.
  *
  * The plan encodes short-form editing practice:
  * - "Cut" steps — instant zoom changes that alternate between wide and tight
