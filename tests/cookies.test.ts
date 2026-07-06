@@ -4,10 +4,13 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { isNetscapeCookiesFile } from '../src/main/cookies'
 import {
+  assertCookieAuthSupported,
   cookieArgs,
   cookieCopyErrorHint,
+  cookieDpapiErrorHint,
   isAuthError,
   isCookieCopyError,
+  isDpapiDecryptError,
   pluginArgs
 } from '../src/main/pipeline/ytdlp'
 
@@ -54,7 +57,25 @@ describe('ytdlp cookie helpers', () => {
 
   it('detects cookie copy failures and auth errors', () => {
     expect(isCookieCopyError('Could not copy Chrome cookie database')).toBe(true)
+    expect(isDpapiDecryptError('Failed to decrypt with DPAPI')).toBe(true)
     expect(isAuthError('HTTP Error 403: Forbidden')).toBe(true)
+  })
+
+  it('suggests cookies file import for DPAPI failures on Windows', () => {
+    const hint = cookieDpapiErrorHint(false)
+    expect(hint).toContain('Get cookies.txt LOCALLY')
+    expect(hint).toContain('Firefox')
+  })
+
+  it('blocks Chromium browser login on Windows before calling yt-dlp', () => {
+    const prev = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32' })
+    try {
+      expect(() => assertCookieAuthSupported({ cookiesFromBrowser: 'chrome' })).toThrow(/DPAPI|encrypts Chrome/i)
+      expect(() => assertCookieAuthSupported({ cookiesFromBrowser: 'firefox' })).not.toThrow()
+    } finally {
+      Object.defineProperty(process, 'platform', { value: prev })
+    }
   })
 
   it('suggests cookies file import for Chromium lock errors', () => {

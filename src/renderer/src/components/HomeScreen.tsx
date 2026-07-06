@@ -15,6 +15,7 @@ import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
 import MissingSourceBanner from './MissingSourceBanner'
 import type { BrowserCookieSource, ClipLengthPreference } from '@shared/types'
+import { isChromiumBrowser } from '@shared/cookies'
 
 const COOKIE_BROWSERS: Array<{ value: BrowserCookieSource; label: string }> = [
   { value: '', label: 'No login' },
@@ -186,6 +187,15 @@ function CookieBrowserPicker(): React.JSX.Element | null {
         </select>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+        {window.clipforge.platform === 'win32' &&
+          isChromiumBrowser(settings.importCookiesBrowser) &&
+          !settings.hasImportCookiesFile && (
+            <p className="w-full rounded-lg bg-amber-500/10 px-2.5 py-2 text-amber-300">
+              On Windows, Chrome and Edge cookies cannot be read by other apps. Use{' '}
+              <strong>Import cookies file</strong> below (Get cookies.txt LOCALLY extension), or pick
+              Firefox in the list.
+            </p>
+          )}
         <span>Chromium browsers lock cookies while open. If that fails, import a cookies file instead:</span>
         {settings.hasImportCookiesFile ? (
           <>

@@ -7,6 +7,7 @@ import { pipeline } from 'node:stream/promises'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { app } from 'electron'
 import type { BrowserCookieSource, ImportProgress } from '@shared/types'
+import { CHROMIUM_BROWSERS } from '@shared/cookies'
 import { FFMPEG_PATH } from './ffmpeg'
 
 /**
@@ -24,14 +25,6 @@ export class YtDlpError extends Error {
     this.name = 'YtDlpError'
   }
 }
-
-const CHROMIUM_BROWSERS = new Set<BrowserCookieSource>([
-  'chrome',
-  'edge',
-  'brave',
-  'opera',
-  'vivaldi'
-])
 
 function binaryName(): string {
   switch (process.platform) {
@@ -145,6 +138,35 @@ export function isCookieCopyError(message: string): boolean {
   return /could not copy chrome cookie database|permission denied.*cookies/i.test(message)
 }
 
+/** Windows Chromium v20+ app-bound encryption; yt-dlp cannot decrypt outside the browser. */
+export function isDpapiDecryptError(message: string): boolean {
+  return /failed to decrypt with dpapi|cannot decrypt v\d+ cookies|no key found/i.test(message)
+}
+
+export function cookieDpapiErrorHint(hasCookiesFile: boolean): string {
+  if (hasCookiesFile) {
+    return 'Your cookies file is set but the import still failed. Open the Vimeo video in your browser while signed in, re-export cookies with the Get cookies.txt LOCALLY extension, import the new file, and retry.'
+  }
+  return [
+    'Windows encrypts Chrome/Edge cookies so other apps cannot read them (this is a Chromium security change, not a ClipForge bug).',
+    'Use Import cookies file below: sign in to Vimeo in your browser, export with the Get cookies.txt LOCALLY extension, then import the .txt file.',
+    'Or pick Firefox in the browser list. Firefox cookies still work with browser login on Windows.'
+  ].join(' ')
+}
+
+/** Chromium on Windows uses DPAPI app-bound encryption; fail fast with a clear fix. */
+export function assertCookieAuthSupported(opts: CookieAuthOptions): void {
+  const hasFile = Boolean(opts.cookiesFile && existsSync(opts.cookiesFile))
+  if (
+    process.platform === 'win32' &&
+    opts.cookiesFromBrowser &&
+    CHROMIUM_BROWSERS.has(opts.cookiesFromBrowser) &&
+    !hasFile
+  ) {
+    throw new YtDlpError(cookieDpapiErrorHint(false))
+  }
+}
+
 export function cookieCopyErrorHint(browser: BrowserCookieSource, hasCookiesFile: boolean): string {
   if (hasCookiesFile) {
     return 'Your cookies file is set but the import still failed. Re-export it from the browser while signed in to the site (use the Get cookies.txt LOCALLY extension), then import the new file and retry.'
@@ -156,7 +178,7 @@ export function cookieCopyErrorHint(browser: BrowserCookieSource, hasCookiesFile
     parts.push(
       'Try Firefox in the browser picker (it usually works while open), fully quit Chrome and retry, or import a cookies.txt file instead.'
     )
-  } else {
+  } else if (browser) {
     parts.push(
       'Make sure you are signed in to the site in that browser, or import a cookies.txt file instead.'
     )
