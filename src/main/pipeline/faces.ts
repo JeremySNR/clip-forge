@@ -2,104 +2,40 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import { app } from 'electron'
-import * as ort from 'onnxruntime-node'
 import type { FocusKeyframe } from '@shared/types'
 import { mapLimit } from './concurrency'
 import { runFfmpeg } from './ffmpeg'
-import { chooseFocusCentres, iou, mouthActivity, type FaceBox } from './speaker'
+import { analyzeClipASD } from './asd'
+import { detectFaces, frameDifference, MODEL_H, MODEL_W, SCENE_CUT_THRESHOLD } from './detect'
+import {
+  chooseFocusCentres,
+  chooseSpeakerByScores,
+  mouthActivity,
+  type FaceBox
+} from './speaker'
 
 /**
- * Face-based auto reframing. Samples clip frames with ffmpeg, detects faces
- * with UltraFace RFB-320 (ONNX, CPU), infers the active speaker from mouth
- * movement (see speaker.ts) and builds a piecewise-constant focus track:
- * stable segments with hard cuts between speaker positions, the way social
- * clipping tools reframe multi-speaker footage.
+ * Face-based auto reframing. The primary path runs audio-visual active
+ * speaker detection (LR-ASD, see asd.ts): faces are detected with UltraFace,
+ * tracked per person, and every track is scored frame-by-frame against the
+ * clip's audio — the crop follows whoever is actually speaking, never someone
+ * who merely moves or gestures. The result is a piecewise-constant focus
+ * track: stable segments with hard cuts between speaker positions, the way
+ * social clipping tools reframe multi-speaker footage.
+ *
+ * When the ASD models are missing, the legacy visual heuristic (mouth-region
+ * motion at 2 fps) is used instead.
  */
 
-const MODEL_W = 320
-const MODEL_H = 240
 const SAMPLE_FPS = 2
-const CONFIDENCE_THRESHOLD = 0.65
-const IOU_THRESHOLD = 0.5
 /** Minimum focus shift (normalized) that justifies a cut to a new segment. */
 const SEGMENT_SHIFT_THRESHOLD = 0.1
-/** Frames a shift must persist before we cut (at SAMPLE_FPS). */
-const SEGMENT_MIN_FRAMES = 3
+/** A shift must persist this long before we cut (frames = sec * fps). */
+const SEGMENT_MIN_SEC = 1.5
+/** Median-smoothing window over per-frame centres, in seconds. */
+const SMOOTH_SEC = 2.5
 /** Concurrent UltraFace inferences per clip (each is small; 4 keeps CPU busy). */
 const FACE_INFERENCE_CONCURRENCY = 4
-
-let sessionPromise: Promise<ort.InferenceSession> | null = null
-
-function modelPath(): string {
-  // `app` is undefined when this module runs outside Electron (test scripts).
-  if (app?.isPackaged) {
-    return join(process.resourcesPath, 'models', 'ultraface-rfb-320.onnx')
-  }
-  const base = app?.getAppPath?.() ?? process.cwd()
-  return join(base, 'resources', 'models', 'ultraface-rfb-320.onnx')
-}
-
-function getSession(): Promise<ort.InferenceSession> {
-  sessionPromise ??= ort.InferenceSession.create(modelPath(), { logSeverityLevel: 3 })
-  return sessionPromise
-}
-
-function nms(boxes: FaceBox[]): FaceBox[] {
-  const sorted = [...boxes].sort((a, b) => b.score - a.score)
-  const kept: FaceBox[] = []
-  for (const box of sorted) {
-    if (kept.every((k) => iou(k, box) < IOU_THRESHOLD)) kept.push(box)
-  }
-  return kept
-}
-
-/** Run UltraFace on one raw RGB frame (MODEL_W x MODEL_H). */
-async function detectFaces(rgb: Buffer): Promise<FaceBox[]> {
-  const session = await getSession()
-  const size = MODEL_W * MODEL_H
-  const input = new Float32Array(3 * size)
-  // HWC uint8 RGB -> CHW float32, (v - 127) / 128
-  for (let i = 0; i < size; i++) {
-    input[i] = (rgb[i * 3] - 127) / 128
-    input[size + i] = (rgb[i * 3 + 1] - 127) / 128
-    input[2 * size + i] = (rgb[i * 3 + 2] - 127) / 128
-  }
-  const output = await session.run({
-    input: new ort.Tensor('float32', input, [1, 3, MODEL_H, MODEL_W])
-  })
-  const scores = output.scores.data as Float32Array
-  const boxes = output.boxes.data as Float32Array
-  const candidates: FaceBox[] = []
-  const count = output.scores.dims[1]
-  for (let i = 0; i < count; i++) {
-    const score = scores[i * 2 + 1]
-    if (score < CONFIDENCE_THRESHOLD) continue
-    candidates.push({
-      x1: boxes[i * 4],
-      y1: boxes[i * 4 + 1],
-      x2: boxes[i * 4 + 2],
-      y2: boxes[i * 4 + 3],
-      score
-    })
-  }
-  return nms(candidates)
-}
-
-/** Mean absolute luma-ish difference between two raw RGB frames (sampled). */
-function frameDifference(a: Buffer, b: Buffer): number {
-  let sum = 0
-  let count = 0
-  // Sample every 24th byte — plenty for shot-change detection at 320x240.
-  for (let i = 0; i < a.length; i += 24) {
-    sum += Math.abs(a[i] - b[i])
-    count++
-  }
-  return sum / Math.max(1, count)
-}
-
-/** Frame-to-frame difference above this (0-255) counts as a camera cut. */
-const SCENE_CUT_THRESHOLD = 34
 
 interface SampledFrames {
   centres: Array<number | null>
@@ -107,7 +43,10 @@ interface SampledFrames {
   cuts: number[]
 }
 
-/** Extract per-frame primary-face centres for a clip range of the source video. */
+/**
+ * Legacy heuristic: per-frame primary-face centres from mouth-region motion,
+ * sampled at 2 fps. Used only when the LR-ASD models are unavailable.
+ */
 async function sampleFaceCentres(
   videoPath: string,
   startSec: number,
@@ -184,7 +123,8 @@ function medianSmooth(values: number[], window: number): number[] {
 export function buildFocusTrack(
   centres: Array<number | null>,
   clipStartSec: number,
-  cuts: number[] = []
+  cuts: number[] = [],
+  fps: number = SAMPLE_FPS
 ): FocusKeyframe[] | null {
   const detected = centres.filter((c): c is number => c !== null)
   if (detected.length < centres.length * 0.3 || detected.length < 2) return null
@@ -197,13 +137,14 @@ export function buildFocusTrack(
     filled.push(last)
   }
 
+  const smoothWindow = Math.round(SMOOTH_SEC * fps) | 1
   const keyframes: FocusKeyframe[] = []
   const runBounds = [0, ...cuts.filter((c) => c > 0 && c < filled.length), filled.length]
   for (let r = 0; r < runBounds.length - 1; r++) {
     const runStart = runBounds[r]
     const run = filled.slice(runStart, runBounds[r + 1])
     if (run.length === 0) continue
-    trackRun(medianSmooth(run, Math.min(5, run.length)), runStart, clipStartSec, keyframes)
+    trackRun(medianSmooth(run, Math.min(smoothWindow, run.length)), runStart, clipStartSec, fps, keyframes)
   }
   return keyframes
 }
@@ -213,8 +154,10 @@ function trackRun(
   smooth: number[],
   runStartFrame: number,
   clipStartSec: number,
+  fps: number,
   out: FocusKeyframe[]
 ): void {
+  const minFrames = Math.max(2, Math.round(SEGMENT_MIN_SEC * fps))
   let segmentStart = 0
   let segmentValues = [smooth[0]]
   let shiftRun = 0
@@ -226,7 +169,7 @@ function trackRun(
     const sorted = [...segmentValues].sort((a, b) => a - b)
     const median = sorted[Math.floor(sorted.length / 2)]
     out.push({
-      t: clipStartSec + (runStartFrame + fromFrame) / SAMPLE_FPS,
+      t: clipStartSec + (runStartFrame + fromFrame) / fps,
       x: Math.min(1, Math.max(0, median))
     })
   }
@@ -235,7 +178,7 @@ function trackRun(
     const segMean = segmentValues.reduce((a, b) => a + b, 0) / segmentValues.length
     if (Math.abs(smooth[i] - segMean) > SEGMENT_SHIFT_THRESHOLD) {
       shiftRun++
-      if (shiftRun >= SEGMENT_MIN_FRAMES) {
+      if (shiftRun >= minFrames) {
         emit(segmentStart)
         segmentStart = i - shiftRun + 1
         segmentValues = smooth.slice(segmentStart, i + 1)
@@ -259,6 +202,24 @@ export async function analyzeClipFocus(
   endSec: number,
   signal?: AbortSignal
 ): Promise<FocusKeyframe[] | null> {
+  try {
+    const asd = await analyzeClipASD(videoPath, startSec, endSec, signal)
+    if (asd) {
+      if (asd.tracks.length === 0) return null
+      const { centres, switchCuts } = chooseSpeakerByScores(
+        asd.tracks,
+        asd.frameCount,
+        asd.sceneCuts,
+        asd.fps
+      )
+      const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
+      return buildFocusTrack(centres, startSec, cuts, asd.fps)
+    }
+  } catch (err) {
+    if (signal?.aborted) throw err
+    console.error('Active speaker analysis failed, falling back to motion heuristic:', err)
+  }
+
   try {
     const { centres, cuts } = await sampleFaceCentres(videoPath, startSec, endSec, signal)
     return buildFocusTrack(centres, startSec, cuts)
