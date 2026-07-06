@@ -9,7 +9,45 @@ import { setTimeout as sleep } from 'node:timers/promises'
  * cancellation via AbortSignal.
  */
 
-const API_BASE = process.env.OPENAI_BASE_URL?.replace(/\/$/, '') ?? 'https://api.openai.com/v1'
+export const DEFAULT_OPENAI_API_BASE = 'https://api.openai.com/v1'
+
+/**
+ * Resolve the OpenAI REST base URL from OPENAI_BASE_URL. Empty, whitespace,
+ * relative values like "/v1", and other non-absolute URLs fall back to the
+ * default — otherwise fetch() posts to "/v1/audio/transcriptions" and Whisper
+ * fails with HTTP 404 "Invalid URL".
+ */
+export function resolveOpenAiApiBase(
+  envBase: string | undefined = process.env.OPENAI_BASE_URL
+): string {
+  const raw = envBase?.trim()
+  if (!raw) return DEFAULT_OPENAI_API_BASE
+
+  const trimmed = raw.replace(/\/$/, '')
+  if (!/^https?:\/\//i.test(trimmed)) {
+    console.warn(
+      `[clipforge] OPENAI_BASE_URL must be an absolute https URL (got ${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
+    )
+    return DEFAULT_OPENAI_API_BASE
+  }
+
+  try {
+    const url = new URL(trimmed)
+    // api.openai.com serves the REST API under /v1 — accept the bare host too.
+    if (url.hostname === 'api.openai.com') {
+      const path = url.pathname.replace(/\/$/, '')
+      if (path === '' || path === '/') return `${url.origin}/v1`
+    }
+    return trimmed
+  } catch {
+    console.warn(
+      `[clipforge] OPENAI_BASE_URL is invalid (${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
+    )
+    return DEFAULT_OPENAI_API_BASE
+  }
+}
+
+const API_BASE = resolveOpenAiApiBase()
 
 export class OpenAIError extends Error {
   constructor(
