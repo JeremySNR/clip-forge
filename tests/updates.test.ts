@@ -45,12 +45,15 @@ describe('evaluateUpdate', () => {
     expect(res.releaseUrl).toBeNull()
   })
 
-  it('carries the auto-update capability flag through', () => {
+  it('carries the update capability flags through', () => {
     const release = { tag_name: 'v0.2.0' }
     expect(evaluateUpdate('0.1.0', release, true).autoUpdateSupported).toBe(true)
     expect(evaluateUpdate('0.1.0', release, false).autoUpdateSupported).toBe(false)
-    // Source checkouts default to no self-update.
-    expect(evaluateUpdate('0.1.0', release).autoUpdateSupported).toBe(false)
+    expect(evaluateUpdate('0.1.0', release, false, true).sourceUpdateSupported).toBe(true)
+    // Bare defaults: no self-update paths.
+    const bare = evaluateUpdate('0.1.0', release)
+    expect(bare.autoUpdateSupported).toBe(false)
+    expect(bare.sourceUpdateSupported).toBe(false)
   })
 
   it('ignores drafts and pre-releases', () => {

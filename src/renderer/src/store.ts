@@ -66,6 +66,7 @@ interface AppState {
     progress: number
     error?: string
   }
+  sourceUpdate: { status: 'idle' | 'running' | 'error'; message: string; error?: string }
 
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
@@ -98,6 +99,7 @@ interface AppState {
   checkForUpdates: (silent?: boolean) => Promise<void>
   downloadUpdate: () => Promise<void>
   installUpdate: () => Promise<void>
+  updateFromSource: () => Promise<void>
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -116,6 +118,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateCheck: null,
   checkingForUpdates: false,
   updateDownload: { status: 'idle', progress: 0 },
+  sourceUpdate: { status: 'idle', message: '' },
   captionBusy: {},
 
   init: async () => {
@@ -414,6 +417,31 @@ export const useStore = create<AppState>((set, get) => ({
 
   installUpdate: async () => {
     await window.clipforge.installUpdate()
+  },
+
+  updateFromSource: async () => {
+    if (get().sourceUpdate.status === 'running') return
+    set({ sourceUpdate: { status: 'running', message: 'Starting…' } })
+    const unsubscribe = window.clipforge.onSourceUpdateProgress((p) => {
+      if (get().sourceUpdate.status === 'running') {
+        set({ sourceUpdate: { status: 'running', message: p.message } })
+      }
+    })
+    try {
+      // On success the main process relaunches the app; this state only
+      // matters for the brief "Restarting…" moment.
+      await window.clipforge.updateFromSource()
+    } catch (err) {
+      set({
+        sourceUpdate: {
+          status: 'error',
+          message: '',
+          error: err instanceof Error ? cleanIpcError(err.message) : String(err)
+        }
+      })
+    } finally {
+      unsubscribe()
+    }
   }
 }))
 
