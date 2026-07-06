@@ -1,43 +1,84 @@
-# ClipForge
+<p align="center">
+  <img src=".github/assets/hero.png" alt="ClipForge — turn long videos into viral clips, on your desktop" width="100%" />
+</p>
 
-**Open-source AI video clipper.** Turn long videos — podcasts, webinars, streams, interviews — into ready-to-post short clips with AI-picked moments, virality scores, and animated karaoke captions. A free, open-source alternative to Opus Clip that runs as a desktop app — bring your own OpenAI API key and pay cents per video instead of a subscription.
+<h3 align="center">The open-source Opus Clip alternative that runs on your desktop.</h3>
 
-## What it does
+<p align="center">
+  Turn podcasts, webinars, streams and interviews into ready-to-post vertical clips —<br/>
+  AI-picked moments, virality scores, animated captions, auto zoom and speaker-aware reframing.
+</p>
 
-1. **Import** any local video (MP4, MOV, MKV, WEBM…) or **paste a URL** — YouTube, Twitch, and every other site yt-dlp supports (the downloader binary is fetched automatically on first use).
-2. **Transcribe** it with OpenAI Whisper (word-level timestamps, long videos chunked automatically).
-3. **Find viral moments** — an LLM reads the timestamped transcript and picks self-contained, hook-first moments. You can steer it with your own prompt ("find the funniest exchanges", "focus on pricing advice").
-4. **Score every clip** 0–99 with a two-pass, research-grounded system:
-   - *Text pass* — a rubric operationalising Berger & Milkman's *What Makes Online Content Viral?* (JMR 2012): high-arousal emotion (awe, amusement, anger, anxiety) drives sharing, sadness suppresses it, surprise and practical value boost it independently. The app also measures **vocal energy** from the audio and tags the most energetic/subdued passages so delivery — not just wording — informs selection.
-   - *Visual pass* — implementing Kayal et al., *Large Language Models Are Natural Video Popularity Predictors* (Findings of ACL 2025): sample frames from each candidate clip (hook/middle/end) go to a vision LLM that scores scroll-stopping potential, human expressiveness, visual dynamism and watchability, with a plain-language explanation. The final score ensembles both passes, as the paper found combining predictors beats either alone.
-5. **Tighten cuts** — long pauses and filler words ("um", "uh") are removed automatically (toggleable per clip); captions, B-roll and the face track are remapped to the compacted timeline, and the preview skips the same spans the export cuts.
-6. **Auto-reframe with speaker-aware face tracking** — an on-device face detector (UltraFace via ONNX Runtime, no cloud calls) tracks every face in each clip, infers who is talking from mouth movement, and the vertical crop cuts to the active speaker automatically, like a camera switch (with hysteresis so it never flip-flops). Footage without faces falls back to a manual focus slider.
-7. **AI B-roll** — mention "Yoda" and a picture of Yoda pops over the video at that exact word. An LLM tags visual keywords in each clip's word-timed transcript, images come from Wikipedia/Openverse (no extra API keys), and each insert is fullscreen or a picture-in-picture panel with fade in/out. Every insert can be toggled, switched between modes, or removed in the editor.
-8. **Edit** each clip on a visual timeline: trim with draggable handles over a filmstrip with the audio waveform and a live playhead, click anywhere to seek, reframe to 9:16 / 1:1 / 16:9 (auto face-follow, fill-crop with a focus slider, or fit with a blurred background), pick a caption style, toggle the AI hook title, and manage B-roll inserts. The transcript is an editing surface too: click a word to jump there, drag across words to trim the clip to exactly that quote, and double-click to fix a transcription mistake (or clear it to hide it from captions) — corrections flow through the preview and every export.
-9. **Preview live** — playback is bounded to the clip; reframing (including the auto face-follow cuts) and word-by-word captions are simulated in real time before you render anything.
-10. **Export** MP4s with captions burned in (H.264 + AAC, faststart), one clip at a time or all at once — exports are cancellable, never overwrite an earlier file, and the output folder can be changed any time. Three quality tiers (Draft / Standard / High with Lanczos scaling), loudness-normalised to -14 LUFS (the social-platform standard), with bundled caption fonts (Anton, Poppins — OFL) so exports look identical on every OS, and **NVIDIA GPU encoding (NVENC)**: ClipForge verifies your GPU with a real test encode, can download a GPU-enabled ffmpeg build on demand (the bundled one is CPU-only), and automatically falls back to CPU if a GPU encode fails mid-run.
-11. **Iterate cheaply** — the transcript is checkpointed the moment Whisper finishes, so retries after a failure and "Regenerate" with different instructions skip transcription and take seconds. All API calls retry transient failures with backoff, and analysis can be cancelled mid-run. If you move or delete a source video, ClipForge notices and lets you relink it without losing the transcript or clips.
+<p align="center">
+  <a href="https://github.com/JeremySNR/j-clip/releases/latest"><img src="https://img.shields.io/github/v/release/JeremySNR/j-clip?color=10b981&label=release" alt="Latest release" /></a>
+  <a href="https://github.com/JeremySNR/j-clip/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JeremySNR/j-clip/ci.yml?branch=main&label=CI" alt="CI status" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms" />
+  <a href="https://github.com/JeremySNR/j-clip/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
+</p>
 
-Rendering, face tracking and editing all run locally; transcription and analysis use the OpenAI API (Whisper + chat completions). Only extracted audio, transcripts and a few sampled frames are uploaded — never the full video.
+---
 
-## Requirements
+## Why ClipForge instead of Opus Clip?
 
-- Node.js 20+
-- An [OpenAI API key](https://platform.openai.com/api-keys) (entered in-app, stored encrypted with Electron `safeStorage`)
+Opus Clip is great — and it costs a subscription, runs in the cloud, and uploads your footage. ClipForge gives you the same core workflow as a free desktop app: you bring an OpenAI API key and pay **cents per video** instead of dollars per month.
 
-FFmpeg is bundled via `ffmpeg-static` — nothing to install.
+|                          | **ClipForge**                                   | Opus Clip (and similar SaaS)      |
+| ------------------------ | ----------------------------------------------- | --------------------------------- |
+| Price                    | Free & open source (MIT) — pay only OpenAI API cents | Monthly subscription          |
+| Your footage             | Stays on your machine — only audio, transcripts and a few frames go to the API | Uploaded to their cloud |
+| Processing minutes       | Unlimited                                       | Capped per plan                   |
+| Watermark                | Your own logo, or none                          | Removed on paid tiers             |
+| Models                   | Your choice (GPT-5 series, or the budget legacy option) | Theirs                    |
+| Extensible               | Fork it, script it, PR it                       | Closed                            |
 
-## Run it
+Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cents of LLM analysis with the default `gpt-5.4-mini`.
+
+## What it looks like
+
+<p align="center">
+  <img src=".github/assets/screenshot-clips.png" alt="AI-found clips ranked by virality score" width="49%" />
+  <img src=".github/assets/screenshot-editor.png" alt="Clip editor with live preview, caption styles and branding watermark" width="49%" />
+</p>
+
+## Features
+
+**Finding the clips**
+
+- **Import anything** — local files (MP4/MOV/MKV/WEBM…) or paste a URL: YouTube, Vimeo, TikTok, Twitch and every other site yt-dlp supports. Private or SSO-protected videos (e.g. enterprise Vimeo) work by borrowing the login from your browser — no server integration.
+- **Whisper transcription** with word-level timestamps, chunked automatically for long videos, checkpointed so retries and re-generations never pay for transcription twice.
+- **Research-grounded viral moment detection** — an LLM picks self-contained hook → build → payoff micro-stories (never clips that trail off on setup), steered by your own prompt if you want ("find the funniest exchanges"). A second AI pass reviews every clip's ending and extends it to the beat that completes the thought.
+- **Two-pass virality scoring (0–99)** — a text rubric built on Berger & Milkman's *What Makes Online Content Viral?* (JMR 2012) plus measured vocal energy, ensembled with a vision pass implementing Kayal et al. (ACL 2025) that scores sampled frames for scroll-stopping potential.
+
+**Making them good**
+
+- **Auto zoom** — scene-aware punch-ins on the speaker's most energetic lines, jump zooms that cover cuts, and slow creep on static stretches, mirroring how top short-form editors drive retention.
+- **Tighten cuts** — pauses and filler words ("um", "uh") removed automatically; captions, B-roll, zoom and the face track all remap to the compacted timeline.
+- **Speaker-aware auto-reframe** — on-device face tracking (UltraFace via ONNX Runtime, no cloud) follows the active speaker; the 9:16 crop cuts between speakers like a camera switch.
+- **12 caption styles + your own fonts** — karaoke-style word highlighting burned in with libass; upload any TTF/OTF and previews match exports exactly.
+- **Your branding** — overlay your logo or watermark (corner, size, opacity) on the preview and every export.
+- **AI B-roll** — say "Yoda" and a picture of Yoda pops over the video at that word (Wikipedia/Openverse images, no extra API keys).
+- **A real editor** — filmstrip trim with waveform and live playhead, click-to-seek transcript that doubles as a trim tool, aspect ratios (9:16 / 1:1 / 16:9), live preview that matches the export.
+
+**Shipping them**
+
+- **Export** H.264/AAC MP4s with burned-in captions — loudness-normalised to −14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback.
+- **AI post captions** — one click writes a scroll-stopping TikTok/Reels/Shorts caption (hook-first line, one engagement driver, niche hashtags), copy it and jump straight to TikTok Studio upload.
+- **In-app updates** — packaged builds download and install updates themselves; source checkouts update with one click (pull → rebuild → relaunch).
+
+## Quick start
 
 ```bash
+git clone https://github.com/JeremySNR/j-clip.git
+cd j-clip
 npm install
 npm run dev        # development with hot reload
-npm run package    # build a distributable (dmg / nsis / AppImage)
+npm run package    # distributable build (dmg / nsis / AppImage)
 ```
 
-## Cost
+Requirements: **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys) (entered in-app, stored encrypted with Electron `safeStorage`). FFmpeg is bundled — nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/j-clip/releases/latest).
 
-Approximate OpenAI cost per hour of source video: ~$0.36 for Whisper transcription plus well under $0.05 for highlight analysis with `gpt-4o-mini` (the default; larger models selectable in Settings).
+Everything except transcription and analysis runs locally: rendering, face tracking, editing, zoom and export never leave your machine. Only extracted audio, transcripts and a few sampled frames are sent to the OpenAI API — never the full video.
 
 ## Architecture
 
@@ -48,7 +89,7 @@ src/
 │   │   ├── ffmpeg.ts      probe, audio chunk extraction, thumbnails
 │   │   ├── openai.ts      minimal REST client (Whisper + structured chat)
 │   │   ├── transcribe.ts  chunked transcription, timestamp stitching
-│   │   ├── highlights.ts  LLM viral-moment detection + scoring
+│   │   ├── highlights.ts  LLM viral-moment detection, scoring, ending review
 │   │   ├── faces.ts       UltraFace face tracking + scene-cut detection
 │   │   ├── energy.ts      per-segment vocal energy (arousal signal)
 │   │   ├── ytdlp.ts       yt-dlp binary management + URL downloads
@@ -56,45 +97,42 @@ src/
 │   │   ├── imagesearch.ts keyless Wikipedia/Openverse image search
 │   │   ├── encoders.ts    NVENC detection/verification, GPU ffmpeg download
 │   │   ├── captions.ts    ASS karaoke subtitle generation
-│   │   └── render.ts      cut, reframe (incl. auto face-follow), burn-in
+│   │   ├── socialCaption.ts AI post-caption writer
+│   │   └── render.ts      cut, reframe, auto zoom, watermark, burn-in
+│   ├── updates.ts         GitHub release checks + self-update
+│   ├── fonts.ts           custom caption fonts (sfnt parsing, merged fontsdir)
 │   ├── ipc.ts             typed IPC handlers
-│   ├── settings.ts        encrypted API key + model settings
+│   ├── settings.ts        encrypted API key, models, branding
 │   └── projects.ts        project persistence (userData/projects)
 ├── preload/               context-isolated typed bridge
-├── shared/                types + caption styles/layout shared by both sides
+├── shared/                types, caption styles/layout, tighten + zoom planners
 └── renderer/              React UI (Tailwind, Zustand)
 ```
 
-The renderer's live caption preview and the exported ASS subtitles share the same word-grouping code (`src/shared/captionLayout.ts`), so what you see is what gets burned in.
+The live preview and the export share the same planning code (`src/shared/` — caption layout, tighten cuts, zoom), so what you see is what gets rendered.
 
 ## Tests
 
-Unit tests, typecheck and lint (all run in CI on every push, along with the offline pipeline test and the UI smoke test):
+Unit tests, typecheck and lint run in CI on every push, alongside the offline pipeline test and a UI smoke test:
 
 ```bash
-npm test               # vitest unit tests (caption layout, tighten cuts, dedupe, ASS, stitching…)
+npm test               # vitest unit tests
 npm run typecheck
 npm run lint
 ```
 
-Integration test scripts:
-
-```bash
-npx tsx --tsconfig tsconfig.node.json scripts/test-pipeline.ts  # offline: ffmpeg + captions + renders
-npx tsx --tsconfig tsconfig.node.json scripts/test-e2e.ts       # full AI pipeline (needs OPENAI_API_KEY)
-npx tsx --tsconfig tsconfig.node.json scripts/test-youtube.ts   # URL import + face tracking on real footage
-npx tsx --tsconfig tsconfig.node.json scripts/test-resilience.ts # retries, dedup, cancellation
-npx tsx --tsconfig tsconfig.node.json scripts/test-encoders.ts   # NVENC detection, quality tiers, GPU ffmpeg download
-npx tsx --tsconfig tsconfig.node.json scripts/test-broll.ts      # Star Wars B-roll e2e (needs OPENAI_API_KEY)
-npx tsx --tsconfig tsconfig.node.json scripts/test-quality.ts    # tighten cuts, loudnorm, fonts, scene cuts, energy
-./scripts/smoke-test.sh                                          # UI screenshots under Xvfb
-```
+Integration test scripts live in `scripts/` (`test-pipeline`, `test-e2e`, `test-quality`, `test-encoders`, `test-resilience`, `test-broll`, `test-youtube`, `smoke-test.sh`) — see each file's header for what it covers; the e2e ones need `OPENAI_API_KEY`.
 
 ## Roadmap
 
-- More caption styles + custom fonts
-- Direct publishing/scheduling
+- Direct publishing/scheduling to socials (needs an audited TikTok/YouTube app — contributions welcome)
+- Multi-language caption translation
+- Manual zoom keyframes on the timeline
+
+## Contributing
+
+Issues and PRs are welcome. The codebase is TypeScript end-to-end, and `npm test && npm run typecheck && npm run lint` must pass — CI enforces all three plus an offline render test.
 
 ## License
 
-MIT
+[MIT](LICENSE)
