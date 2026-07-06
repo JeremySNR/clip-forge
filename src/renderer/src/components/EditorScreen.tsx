@@ -12,10 +12,12 @@ import {
   Quote,
   ScanFace,
   Scissors,
+  Send,
   Share2,
   Sparkles,
   Trash2,
-  Type
+  Type,
+  X
 } from 'lucide-react'
 import type { TimelineData } from '@shared/types'
 import { useStore } from '../store'
@@ -556,7 +558,149 @@ function ShareSection({ clip }: { clip: Clip }): React.JSX.Element {
         only allows fully public in-app posting for audited web services, so this hand-off is
         the reliable local route.
       </p>
+      <WorkvivoPostBlock clip={clip} />
     </Section>
+  )
+}
+
+/**
+ * One-click posting of the current clip to a chosen WorkVivo space. Renders the
+ * clip and uploads it with the AI caption as the post text; falls back to a
+ * "connect it in Settings" prompt when the integration is not configured.
+ */
+function WorkvivoPostBlock({ clip }: { clip: Clip }): React.JSX.Element {
+  const settings = useStore((s) => s.settings)
+  const spaces = useStore((s) => s.workvivoSpaces)
+  const spacesError = useStore((s) => s.workvivoSpacesError)
+  const loadSpaces = useStore((s) => s.loadWorkvivoSpaces)
+  const post = useStore((s) => s.postClipToWorkvivo)
+  const cancel = useStore((s) => s.cancelWorkvivoPost)
+  const clear = useStore((s) => s.clearWorkvivoPost)
+  const entry = useStore((s) => s.workvivoPosts[clip.id])
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+  const configured = settings?.workvivo.configured ?? false
+  const defaultSpaceId = settings?.workvivo.defaultSpaceId ?? ''
+  const [picked, setPicked] = useState('')
+  // Effective selection: an explicit pick, else the configured default, else
+  // the first space. Computed (not stored) so no effect has to seed it.
+  const spaceId = picked || defaultSpaceId || spaces[0]?.id || ''
+
+  useEffect(() => {
+    if (configured) void loadSpaces()
+  }, [configured, loadSpaces])
+
+  if (!configured) {
+    return (
+      <div className="mt-3 border-t border-surface-700 pt-3">
+        <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <Send size={12} /> Post to WorkVivo
+        </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+        >
+          <Send size={13} />
+          Connect WorkVivo in Settings
+        </button>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+          Once connected, post this clip straight to a WorkVivo space with its caption in one click.
+        </p>
+      </div>
+    )
+  }
+
+  const posting = entry?.status === 'posting'
+
+  return (
+    <div className="mt-3 border-t border-surface-700 pt-3">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-zinc-500">
+        <Send size={12} /> Post to WorkVivo
+      </div>
+      <select
+        value={spaceId}
+        onChange={(e) => setPicked(e.target.value)}
+        disabled={posting || spaces.length === 0}
+        className="w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs text-zinc-200 focus:border-white/25 focus:outline-none disabled:opacity-60"
+      >
+        {spaces.length === 0 ? (
+          <option value="">No spaces available</option>
+        ) : (
+          spaces.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))
+        )}
+      </select>
+      {spacesError && <p className="mt-1.5 text-[11px] leading-relaxed text-red-400">{spacesError}</p>}
+
+      {posting ? (
+        <div className="mt-2 rounded-lg border border-surface-600 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2 text-xs text-zinc-300">
+            <span className="flex items-center gap-2">
+              <Loader2 size={13} className="animate-spin" />
+              {entry.message || 'Posting…'}
+            </span>
+            <button
+              onClick={() => void cancel(clip.id)}
+              className="rounded-md p-1 text-zinc-500 transition hover:bg-surface-700 hover:text-zinc-200"
+              title="Cancel"
+            >
+              <X size={13} />
+            </button>
+          </div>
+          <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-700">
+            <div
+              className="h-full rounded-full bg-emerald-400 transition-all"
+              style={{ width: `${Math.round(Math.max(0, entry.progress) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => void post(clip.id, spaceId)}
+          disabled={!spaceId}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25 disabled:opacity-40"
+        >
+          <Send size={13} />
+          Post to WorkVivo
+        </button>
+      )}
+
+      {entry?.status === 'done' && (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-400">
+          <span className="flex items-center gap-1.5">
+            <Check size={13} /> Posted to WorkVivo
+          </span>
+          <span className="flex items-center gap-2">
+            {entry.permalink && (
+              <a
+                href={entry.permalink}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 underline decoration-emerald-500/40 underline-offset-2 hover:text-emerald-300"
+              >
+                View <ExternalLink size={11} />
+              </a>
+            )}
+            <button onClick={() => clear(clip.id)} className="text-emerald-400/70 hover:text-emerald-300">
+              <X size={12} />
+            </button>
+          </span>
+        </div>
+      )}
+      {entry?.status === 'error' && (
+        <div className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-[11px] leading-relaxed text-red-400">
+          {entry.error}
+          <button onClick={() => clear(clip.id)} className="ml-2 underline hover:text-red-300">
+            dismiss
+          </button>
+        </div>
+      )}
+      <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+        Renders the clip and uploads it with the caption above as the post text.
+      </p>
+    </div>
   )
 }
 

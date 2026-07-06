@@ -14,7 +14,8 @@ import {
   Zap,
   Download,
   Languages,
-  Loader2
+  Loader2,
+  Send
 } from 'lucide-react'
 import { useStore } from '../store'
 import type {
@@ -288,6 +289,7 @@ export default function SettingsModal(): React.JSX.Element {
         </div>
 
         <BrandingSection />
+        <WorkvivoSection />
         <FontsSection />
         <UpdatesSection />
 
@@ -415,6 +417,145 @@ function BrandingSection(): React.JSX.Element {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/**
+ * WorkVivo connector: posts clips straight to a chosen WorkVivo space. Auth is
+ * an org-level app token (Bearer) plus the Organisation ID header — not the
+ * user's SSO login — so posts appear as the configured identity.
+ */
+function WorkvivoSection(): React.JSX.Element {
+  const settings = useStore((s) => s.settings)
+  const saveSettings = useStore((s) => s.saveSettings)
+  const spaces = useStore((s) => s.workvivoSpaces)
+  const loadSpaces = useStore((s) => s.loadWorkvivoSpaces)
+  const wv = settings?.workvivo
+  // Seeded once from settings, which are loaded before this modal can open.
+  const [url, setUrl] = useState(wv?.url ?? '')
+  const [companyId, setCompanyId] = useState(wv?.companyId ?? '')
+  const [token, setToken] = useState('')
+  const [postAsUserId, setPostAsUserId] = useState(wv?.postAsUserId ?? '')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+
+  useEffect(() => {
+    if (wv?.configured) void loadSpaces()
+  }, [wv?.configured, loadSpaces])
+
+  const saveAndTest = async (): Promise<void> => {
+    setBusy(true)
+    setResult(null)
+    try {
+      await saveSettings({
+        workvivo: {
+          url,
+          companyId,
+          postAsUserId,
+          ...(token.trim() ? { token: token.trim() } : {})
+        }
+      })
+      setToken('')
+      const test = await window.clipforge.testWorkvivo()
+      setResult(test)
+      if (test.ok) await loadSpaces()
+    } catch (err) {
+      setResult({ ok: false, message: err instanceof Error ? err.message : String(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const inputClass =
+    'mt-1.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none'
+
+  return (
+    <div className="mt-5 border-t border-surface-700 pt-5">
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <Send size={15} className="text-accent-400" />
+        WorkVivo
+      </label>
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        Post clips straight to a WorkVivo space. Uses an org app token (not your SSO login), so
+        posts appear as the identity below. Ask a WorkVivo admin to enable API access and mint a
+        token with the <span className="text-zinc-400">spaces:read</span> and posting scopes.
+      </p>
+
+      <div className="mt-3">
+        <span className="text-[11px] text-zinc-500">WorkVivo URL</span>
+        <input
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="https://yourcompany.workvivo.com"
+          className={inputClass}
+        />
+      </div>
+      <div className="mt-3">
+        <span className="text-[11px] text-zinc-500">Organisation ID (Workvivo-Id)</span>
+        <input
+          value={companyId}
+          onChange={(e) => setCompanyId(e.target.value)}
+          placeholder="e.g. 12345"
+          className={inputClass}
+        />
+      </div>
+      <div className="mt-3">
+        <span className="text-[11px] text-zinc-500">API key (Bearer token)</span>
+        <input
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder={wv?.hasToken ? `Current: ${wv.tokenMasked}` : 'Paste the API token'}
+          className={inputClass}
+        />
+      </div>
+      <div className="mt-3">
+        <span className="text-[11px] text-zinc-500">Post as — WorkVivo user ID (optional)</span>
+        <input
+          value={postAsUserId}
+          onChange={(e) => setPostAsUserId(e.target.value)}
+          placeholder="Shared Comms account user id"
+          className={inputClass}
+        />
+      </div>
+
+      {wv?.configured && spaces.length > 0 && (
+        <div className="mt-3">
+          <span className="text-[11px] text-zinc-500">Default space (optional)</span>
+          <select
+            value={wv.defaultSpaceId}
+            onChange={(e) => void saveSettings({ workvivo: { defaultSpaceId: e.target.value } })}
+            className={inputClass}
+          >
+            <option value="">No default</option>
+            {spaces.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {result && (
+        <p
+          className={`mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed ${
+            result.ok ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+          }`}
+        >
+          {result.message}
+        </p>
+      )}
+
+      <button
+        onClick={() => void saveAndTest()}
+        disabled={busy}
+        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+      >
+        {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+        {busy ? 'Saving & testing…' : 'Save & test connection'}
+      </button>
     </div>
   )
 }

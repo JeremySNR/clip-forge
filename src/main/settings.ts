@@ -7,10 +7,21 @@ import type {
   BrowserCookieSource,
   EncoderPreference,
   QualityPreference,
-  SettingsUpdate
+  SettingsUpdate,
+  WorkvivoPublicSettings
 } from '@shared/types'
 import { getGpuStatus } from './pipeline/encoders'
+import { deriveWorkvivoApiBase, type WorkvivoRequestConfig } from './pipeline/workvivo'
 import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
+
+/** Persisted WorkVivo connection; token encrypted like the OpenAI key. */
+interface StoredWorkvivo {
+  url: string
+  companyId: string
+  tokenEncrypted: string
+  postAsUserId: string
+  defaultSpaceId: string
+}
 
 interface StoredSettings {
   /** Base64 of safeStorage-encrypted key, or plain 'plain:'-prefixed fallback. */
@@ -23,6 +34,7 @@ interface StoredSettings {
   quality: QualityPreference
   branding: BrandingSettings
   importCookiesBrowser: BrowserCookieSource
+  workvivo: StoredWorkvivo
 }
 
 const DEFAULT_BRANDING: BrandingSettings = {
@@ -31,6 +43,14 @@ const DEFAULT_BRANDING: BrandingSettings = {
   position: 'bottom-right',
   opacity: 0.8,
   scale: 0.16
+}
+
+const DEFAULT_WORKVIVO: StoredWorkvivo = {
+  url: '',
+  companyId: '',
+  tokenEncrypted: '',
+  postAsUserId: '',
+  defaultSpaceId: ''
 }
 
 const DEFAULTS: StoredSettings = {
@@ -45,7 +65,8 @@ const DEFAULTS: StoredSettings = {
   encoder: 'auto',
   quality: 'standard',
   branding: DEFAULT_BRANDING,
-  importCookiesBrowser: ''
+  importCookiesBrowser: '',
+  workvivo: DEFAULT_WORKVIVO
 }
 
 function settingsPath(): string {
@@ -62,8 +83,9 @@ function load(): StoredSettings {
       cache = {
         ...DEFAULTS,
         ...parsed,
-        // Nested object: merge so settings saved before new fields stay valid.
-        branding: { ...DEFAULT_BRANDING, ...(parsed.branding ?? {}) }
+        // Nested objects: merge so settings saved before new fields stay valid.
+        branding: { ...DEFAULT_BRANDING, ...(parsed.branding ?? {}) },
+        workvivo: { ...DEFAULT_WORKVIVO, ...(parsed.workvivo ?? {}) }
       }
       return cache
     }
@@ -123,7 +145,43 @@ export async function getSettings(): Promise<AppSettings> {
     branding: s.branding,
     appVersion: app.getVersion(),
     importCookiesBrowser: s.importCookiesBrowser,
-    hasImportCookiesFile: getImportCookiesPath() !== null
+    hasImportCookiesFile: getImportCookiesPath() !== null,
+    workvivo: getWorkvivoPublicSettings()
+  }
+}
+
+function getWorkvivoPublicSettings(): WorkvivoPublicSettings {
+  const w = load().workvivo
+  const token = decryptKey(w.tokenEncrypted)
+  return {
+    url: w.url,
+    companyId: w.companyId,
+    postAsUserId: w.postAsUserId,
+    defaultSpaceId: w.defaultSpaceId,
+    hasToken: token.length > 0,
+    tokenMasked: token.length > 8 ? `${token.slice(0, 4)}…${token.slice(-4)}` : token ? '•••' : '',
+    configured:
+      token.length > 0 && w.companyId.trim().length > 0 && deriveWorkvivoApiBase(w.url) !== null
+  }
+}
+
+/**
+ * Resolve the WorkVivo request config (API base, org id, decrypted token) plus
+ * posting preferences, or null when the integration is not fully configured.
+ */
+export function getWorkvivoConfig(): {
+  request: WorkvivoRequestConfig
+  postAsUserId: string
+  defaultSpaceId: string
+} | null {
+  const w = load().workvivo
+  const apiBase = deriveWorkvivoApiBase(w.url)
+  const token = decryptKey(w.tokenEncrypted)
+  if (!apiBase || !token || !w.companyId.trim()) return null
+  return {
+    request: { apiBase, companyId: w.companyId.trim(), token },
+    postAsUserId: w.postAsUserId.trim(),
+    defaultSpaceId: w.defaultSpaceId.trim()
   }
 }
 
@@ -180,6 +238,17 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   if (update.branding !== undefined) s.branding = { ...s.branding, ...update.branding }
   if (update.importCookiesBrowser !== undefined) s.importCookiesBrowser = update.importCookiesBrowser
   if (update.clearImportCookiesFile) await clearImportCookiesFile()
+  if (update.workvivo !== undefined) {
+    const w = update.workvivo
+    s.workvivo = {
+      ...s.workvivo,
+      ...(w.url !== undefined ? { url: w.url.trim() } : {}),
+      ...(w.companyId !== undefined ? { companyId: w.companyId.trim() } : {}),
+      ...(w.token !== undefined ? { tokenEncrypted: encryptKey(w.token.trim()) } : {}),
+      ...(w.postAsUserId !== undefined ? { postAsUserId: w.postAsUserId.trim() } : {}),
+      ...(w.defaultSpaceId !== undefined ? { defaultSpaceId: w.defaultSpaceId.trim() } : {})
+    }
+  }
   persist(s)
   return getSettings()
 }

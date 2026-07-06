@@ -15,7 +15,11 @@ import type {
   SettingsUpdate,
   TimelineData,
   UpdateCheckResult,
-  UpdateDownloadProgress
+  UpdateDownloadProgress,
+  WorkvivoPostProgress,
+  WorkvivoPostResult,
+  WorkvivoSpace,
+  WorkvivoTestResult
 } from '@shared/types'
 
 const api = {
@@ -50,6 +54,22 @@ const api = {
   cancelExport: (clipId: string): Promise<void> => ipcRenderer.invoke('clip:cancelExport', clipId),
   generateCaption: (projectId: string, clipId: string): Promise<Project> =>
     ipcRenderer.invoke('clip:generateCaption', projectId, clipId),
+
+  testWorkvivo: (): Promise<WorkvivoTestResult> => ipcRenderer.invoke('workvivo:testConnection'),
+  listWorkvivoSpaces: (): Promise<WorkvivoSpace[]> => ipcRenderer.invoke('workvivo:listSpaces'),
+  postClipToWorkvivo: (
+    projectId: string,
+    clipId: string,
+    spaceId: string
+  ): Promise<WorkvivoPostResult> =>
+    ipcRenderer.invoke('workvivo:postClip', projectId, clipId, spaceId),
+  cancelWorkvivoPost: (clipId: string): Promise<void> =>
+    ipcRenderer.invoke('workvivo:cancelPost', clipId),
+  onWorkvivoProgress: (cb: (p: WorkvivoPostProgress) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: WorkvivoPostProgress): void => cb(p)
+    ipcRenderer.on('workvivo:progress', listener)
+    return () => ipcRenderer.removeListener('workvivo:progress', listener)
+  },
 
   getTimeline: (videoPath: string, startSec: number, endSec: number): Promise<TimelineData> =>
     ipcRenderer.invoke('video:timeline', videoPath, startSec, endSec),
