@@ -138,13 +138,12 @@ function fmtZ(v: number): string {
 }
 
 /**
- * Piecewise zoom factor z(t) as a zoompan expression. Events are
+ * Piecewise zoom factor z(t) as an ffmpeg expression. Events are
  * clip-relative and sorted; between events the level holds at the previous
- * event's target. `on` is the output frame index, so t = on/fps (d=1 keeps
- * frames 1:1).
+ * event's target. `in` is the input frame index, so t = in/fps.
  */
 export function zoomExpression(events: ZoomEvent[], fps: number): string {
-  const T = `(on/${fps.toFixed(3)})`
+  const T = `(in/${fps.toFixed(3)})`
   const ramp = (e: ZoomEvent): string => {
     if (e.end - e.start < 0.01) return fmtZ(e.to)
     const p = `min(1,max(0,(${T}-${e.start.toFixed(3)})/${(e.end - e.start).toFixed(3)}))`
@@ -170,16 +169,26 @@ export function zoomExpression(events: ZoomEvent[], fps: number): string {
 }
 
 /**
- * Maps [reframed] to [zoomed]: 2x pre-scale (zoompan pans on integer pixels,
- * so extra resolution keeps slow zooms smooth) then per-frame zoom centred
- * slightly above middle, where faces sit in vertical framing.
+ * Maps [reframed] to [zoomed]: per-frame zoom via the perspective filter,
+ * which samples the source window with subpixel (cubic) interpolation. The
+ * previous zoompan-based stage rounded the crop window to whole pixels every
+ * frame, which turned the slow creep ramps into visible shake.
+ *
+ * The window is centred horizontally and anchored slightly above middle
+ * (42% from the top), where faces sit in vertical framing.
  */
-function zoomGraph(events: ZoomEvent[], w: number, h: number, fps: number): string {
+function zoomGraph(events: ZoomEvent[], fps: number): string {
   const safeFps = fps > 1 && fps < 240 ? fps : 30
+  const z = `(${zoomExpression(events, safeFps)})`
+  const left = `(W-W/${z})/2`
+  const right = `W-(W-W/${z})/2`
+  const top = `(H-H/${z})*0.42`
+  const bottom = `H-(H-H/${z})*0.58`
   return (
-    `[reframed]scale=${w * 2}:${h * 2}:flags=lanczos,` +
-    `zoompan=z='${zoomExpression(events, safeFps)}'` +
-    `:x='(iw-iw/zoom)/2':y='(ih-ih/zoom)*0.42':d=1:s=${w}x${h}:fps=${safeFps.toFixed(3)}[zoomed]`
+    `[reframed]perspective=` +
+    `x0='${left}':y0='${top}':x1='${right}':y1='${top}':` +
+    `x2='${left}':y2='${bottom}':x3='${right}':y3='${bottom}':` +
+    `interpolation=cubic:eval=frame[zoomed]`
   )
 }
 
@@ -253,7 +262,7 @@ export function buildFilterGraph(
   const zoomEvents = options?.zoomEvents
   let current = 'reframed'
   if (zoomEvents && zoomEvents.length > 0) {
-    parts.push(zoomGraph(zoomEvents, w, h, source.fps))
+    parts.push(zoomGraph(zoomEvents, source.fps))
     current = 'zoomed'
   }
   const initial = current

@@ -98,6 +98,19 @@ describe('buildFilterGraph', () => {
     expect(noImage.filterComplex).not.toContain('colorchannelmixer')
   })
 
+  it('applies auto zoom via the subpixel perspective filter, not zoompan', () => {
+    const graph = buildFilterGraph(makeClip(), source, null, 30, null, {
+      zoomEvents: [
+        { start: 2, end: 2, from: 1, to: 1.12, style: 'cut' },
+        { start: 6, end: 14, from: 1, to: 1.08, style: 'creep' }
+      ]
+    })
+    // zoompan pans on whole pixels, which made slow creeps shake.
+    expect(graph.filterComplex).not.toContain('zoompan')
+    expect(graph.filterComplex).toContain('perspective=')
+    expect(graph.filterComplex).toContain('interpolation=cubic:eval=frame[zoomed]')
+  })
+
   it('uses the provided fontsdir for caption burn-in', () => {
     const graph = buildFilterGraph(makeClip(), source, '/tmp/subs.ass', 30, null, {
       fontsDirPath: '/custom/fonts'
