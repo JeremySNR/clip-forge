@@ -63,6 +63,12 @@ const api = {
   checkForUpdates: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updates:check'),
   downloadUpdate: (): Promise<string> => ipcRenderer.invoke('updates:download'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('updates:install'),
+  updateFromSource: (): Promise<void> => ipcRenderer.invoke('updates:updateFromSource'),
+  onSourceUpdateProgress: (cb: (p: ImportProgress) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: ImportProgress): void => cb(p)
+    ipcRenderer.on('update:sourceProgress', listener)
+    return () => ipcRenderer.removeListener('update:sourceProgress', listener)
+  },
   onUpdateDownloadProgress: (cb: (p: UpdateDownloadProgress) => void): (() => void) => {
     const listener = (_e: Electron.IpcRendererEvent, p: UpdateDownloadProgress): void => cb(p)
     ipcRenderer.on('update:downloadProgress', listener)

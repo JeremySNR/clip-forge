@@ -465,23 +465,21 @@ function UpdatesSection(): React.JSX.Element {
             onDownload={() => void downloadUpdate()}
             onInstall={() => void installUpdate()}
           />
+        ) : updateCheck.sourceUpdateSupported ? (
+          <SourceUpdater
+            latestVersion={updateCheck.latestVersion ?? ''}
+            releaseUrl={updateCheck.releaseUrl}
+          />
         ) : (
-          <>
-            <a
-              href={updateCheck.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
-            >
-              <Download size={13} />
-              Update to v{updateCheck.latestVersion} — open the release page
-            </a>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-              This copy runs from a source checkout, so it can’t update itself. Grab the packaged
-              app from the release page, or update the checkout with{' '}
-              <span className="font-mono text-zinc-400">git pull && npm install && npm run build</span>.
-            </p>
-          </>
+          <a
+            href={updateCheck.releaseUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+          >
+            <Download size={13} />
+            Update to v{updateCheck.latestVersion} — open the release page
+          </a>
         )
       ) : (
         updateCheck &&
@@ -513,6 +511,76 @@ function UpdatesSection(): React.JSX.Element {
       </button>
     </div>
   )
+}
+
+/**
+ * One-click update for source checkouts: the main process pulls, reinstalls,
+ * rebuilds and relaunches the app; this component just drives and narrates it.
+ */
+function SourceUpdater({
+  latestVersion,
+  releaseUrl
+}: {
+  latestVersion: string
+  releaseUrl: string
+}): React.JSX.Element {
+  const sourceUpdate = useStore((s) => s.sourceUpdate)
+  const updateFromSource = useStore((s) => s.updateFromSource)
+
+  switch (sourceUpdate.status) {
+    case 'running':
+      return (
+        <div className="mt-2.5 rounded-lg border border-surface-600 px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs text-zinc-300">
+            <Loader2 size={13} className="animate-spin" />
+            {sourceUpdate.message || 'Updating…'}
+          </div>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+            Updating to v{latestVersion} — the app restarts by itself when done (about a minute).
+          </p>
+        </div>
+      )
+    case 'error':
+      return (
+        <>
+          <p className="mt-2.5 rounded-lg bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-400">
+            {sourceUpdate.error}
+          </p>
+          <div className="mt-1.5 flex gap-1.5">
+            <button
+              onClick={() => void updateFromSource()}
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+            >
+              <RefreshCw size={13} />
+              Retry
+            </button>
+            <a
+              href={releaseUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+            >
+              <ExternalLink size={13} />
+              Release page
+            </a>
+          </div>
+        </>
+      )
+    case 'idle':
+      return (
+        <button
+          onClick={() => void updateFromSource()}
+          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+        >
+          <Download size={13} />
+          Update to v{latestVersion} and restart
+        </button>
+      )
+    default: {
+      const exhaustive: never = sourceUpdate.status
+      return exhaustive
+    }
+  }
 }
 
 function UpdateInstaller({

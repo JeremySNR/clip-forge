@@ -234,6 +234,11 @@ export interface UpdateCheckResult {
    * pulling and rebuilding.
    */
   autoUpdateSupported: boolean
+  /**
+   * True when this copy is a git checkout the app can update in place by
+   * pulling and rebuilding itself (the one-click path for source installs).
+   */
+  sourceUpdateSupported: boolean
   /** Human-readable failure (offline, rate limited); null on success. */
   error: string | null
   checkedAt: number

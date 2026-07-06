@@ -16,7 +16,7 @@ import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { generateSocialCaption } from './pipeline/socialCaption'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
-import { checkForUpdates, downloadUpdate, installUpdate } from './updates'
+import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource } from './updates'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, saveProject } from './projects'
@@ -312,6 +312,12 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('updates:install', async () => installUpdate())
+
+  ipcMain.handle('updates:updateFromSource', async (event) => {
+    return updateFromSource((p) => {
+      if (!event.sender.isDestroyed()) event.sender.send('update:sourceProgress', p)
+    })
+  })
 
   ipcMain.handle('shell:showItemInFolder', async (_e, path: string) => {
     shell.showItemInFolder(path)
