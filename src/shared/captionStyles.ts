@@ -1,3 +1,5 @@
+import type { BrandColors } from './types'
+
 /**
  * Caption style presets, shared by the renderer (live preview) and the main
  * process (ASS subtitle generation for burn-in).
@@ -225,6 +227,55 @@ export const CAPTION_STYLES: CaptionStyle[] = [
 
 export const DEFAULT_CAPTION_STYLE_ID = 'beast'
 
+export const DEFAULT_BRAND_COLORS: BrandColors = {
+  enabled: false,
+  primaryColor: '#A855F7',
+  secondaryColor: '#FFFFFF',
+  textColor: null,
+  outlineColor: null,
+  hookTextColor: '#FFFFFF',
+  hookBackgroundColor: '#000000'
+}
+
 export function getCaptionStyle(id: string): CaptionStyle {
   return CAPTION_STYLES.find((s) => s.id === id) ?? CAPTION_STYLES[0]
+}
+
+/** Merge app-wide brand colours onto a caption preset (and optional font override). */
+export function resolveCaptionStyle(
+  id: string,
+  brandColors?: BrandColors | null,
+  fontFamily?: string | null
+): CaptionStyle {
+  const preset = getCaptionStyle(id)
+  let style: CaptionStyle = fontFamily ? { ...preset, fontFamily } : { ...preset }
+
+  if (!brandColors?.enabled) return style
+
+  if (preset.highlightBoxColor !== null) {
+    style = {
+      ...style,
+      highlightBoxColor: brandColors.primaryColor,
+      highlightColor: brandColors.secondaryColor
+    }
+  } else {
+    style = { ...style, highlightColor: brandColors.primaryColor }
+  }
+  if (brandColors.textColor) {
+    style = { ...style, textColor: brandColors.textColor }
+  }
+  if (brandColors.outlineColor) {
+    style = { ...style, outlineColor: brandColors.outlineColor }
+  }
+  return style
+}
+
+/** Convert "#RRGGBB" to an rgba() string for CSS previews. */
+export function hexToRgba(hex: string, alpha: number): string {
+  const clean = hex.replace('#', '')
+  if (clean.length !== 6) return `rgba(0,0,0,${alpha})`
+  const r = parseInt(clean.slice(0, 2), 16)
+  const g = parseInt(clean.slice(2, 4), 16)
+  const b = parseInt(clean.slice(4, 6), 16)
+  return `rgba(${r},${g},${b},${alpha})`
 }

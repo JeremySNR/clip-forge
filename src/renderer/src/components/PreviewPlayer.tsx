@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Play, Pause, RotateCcw } from 'lucide-react'
 import type { Clip, Project, WatermarkPosition } from '@shared/types'
-import { getCaptionStyle } from '@shared/captionStyles'
+import { hexToRgba, resolveCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
 import { computeZoomEvents } from '@shared/zoom'
@@ -331,23 +331,32 @@ function WatermarkOverlay(): React.JSX.Element | null {
  * the render.
  */
 function HookOverlay({ clip }: { clip: Clip }): React.JSX.Element {
-  const style = getCaptionStyle(clip.edit.captionStyleId)
-  const fontFamily = clip.edit.captionFontFamily ?? style.fontFamily
+  const brandColors = useStore((s) => s.settings?.branding.colors)
+  const style = resolveCaptionStyle(
+    clip.edit.captionStyleId,
+    brandColors,
+    clip.edit.captionFontFamily
+  )
+  const hookTextColor = brandColors?.enabled ? brandColors.hookTextColor : '#FFFFFF'
+  const hookBackgroundColor = brandColors?.enabled
+    ? hexToRgba(brandColors.hookBackgroundColor, 0.75)
+    : 'rgba(0,0,0,0.75)'
   return (
     <div
       className="pointer-events-none absolute inset-x-0 flex justify-center px-[6cqw]"
       style={{ top: '7cqh' }}
     >
       <span
-        className="hook-in inline-block max-w-[80cqw] text-center text-white"
+        className="hook-in inline-block max-w-[80cqw] text-center"
         style={{
-          fontFamily: `'${fontFamily}', sans-serif`,
+          fontFamily: `'${style.fontFamily}', sans-serif`,
           fontWeight: 700,
           fontSize: '4.4cqh',
           lineHeight: 1.2,
+          color: hookTextColor,
           padding: '0.7cqh 1.4cqh',
           borderRadius: '0.8cqh',
-          backgroundColor: 'rgba(0,0,0,0.75)',
+          backgroundColor: hookBackgroundColor,
           boxShadow: '0 0.4cqh 1.4cqh rgba(0,0,0,0.45)',
           textWrap: 'balance'
         }}
@@ -397,7 +406,12 @@ function CaptionOverlay({
   clip: Clip
   time: number
 }): React.JSX.Element | null {
-  const style = getCaptionStyle(clip.edit.captionStyleId)
+  const brandColors = useStore((s) => s.settings?.branding.colors)
+  const style = resolveCaptionStyle(
+    clip.edit.captionStyleId,
+    brandColors,
+    clip.edit.captionFontFamily
+  )
 
   const groups = useMemo(() => {
     const words = wordsInRange(transcript, clip.edit.start, clip.edit.end)
@@ -419,7 +433,7 @@ function CaptionOverlay({
     >
       <div
         style={{
-          fontFamily: `'${clip.edit.captionFontFamily ?? style.fontFamily}', sans-serif`,
+          fontFamily: `'${style.fontFamily}', sans-serif`,
           fontSize: `${style.fontScale * 100}cqh`,
           fontWeight: style.bold ? 700 : 400,
           lineHeight: 1.25,

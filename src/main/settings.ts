@@ -13,6 +13,7 @@ import type {
 import { getGpuStatus } from './pipeline/encoders'
 import { deriveWorkvivoApiBase, type WorkvivoRequestConfig } from './pipeline/workvivo'
 import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
+import { DEFAULT_BRAND_COLORS } from '@shared/captionStyles'
 
 /** Persisted WorkVivo connection; token encrypted like the OpenAI key. */
 interface StoredWorkvivo {
@@ -42,7 +43,8 @@ const DEFAULT_BRANDING: BrandingSettings = {
   imagePath: null,
   position: 'bottom-right',
   opacity: 0.8,
-  scale: 0.16
+  scale: 0.16,
+  colors: DEFAULT_BRAND_COLORS
 }
 
 const DEFAULT_WORKVIVO: StoredWorkvivo = {
@@ -84,7 +86,11 @@ function load(): StoredSettings {
         ...DEFAULTS,
         ...parsed,
         // Nested objects: merge so settings saved before new fields stay valid.
-        branding: { ...DEFAULT_BRANDING, ...(parsed.branding ?? {}) },
+        branding: {
+          ...DEFAULT_BRANDING,
+          ...(parsed.branding ?? {}),
+          colors: { ...DEFAULT_BRAND_COLORS, ...(parsed.branding?.colors ?? {}) }
+        },
         workvivo: { ...DEFAULT_WORKVIVO, ...(parsed.workvivo ?? {}) }
       }
       return cache
@@ -235,7 +241,14 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   }
   if (update.encoder !== undefined) s.encoder = update.encoder
   if (update.quality !== undefined) s.quality = update.quality
-  if (update.branding !== undefined) s.branding = { ...s.branding, ...update.branding }
+  if (update.branding !== undefined) {
+    const b = update.branding
+    s.branding = {
+      ...s.branding,
+      ...b,
+      ...(b.colors !== undefined ? { colors: { ...s.branding.colors, ...b.colors } } : {})
+    }
+  }
   if (update.importCookiesBrowser !== undefined) s.importCookiesBrowser = update.importCookiesBrowser
   if (update.clearImportCookiesFile) await clearImportCookiesFile()
   if (update.workvivo !== undefined) {

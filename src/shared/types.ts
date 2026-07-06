@@ -199,6 +199,23 @@ export type QualityPreference = 'draft' | 'standard' | 'high'
 /** Corner where the branding watermark is composited. */
 export type WatermarkPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
+/**
+ * Saved brand palette applied as defaults across caption styles when enabled.
+ * Primary is the main pop colour (word highlight or pill fill); secondary is
+ * the active-word text on pill/box presets.
+ */
+export interface BrandColors {
+  enabled: boolean
+  primaryColor: string
+  secondaryColor: string
+  /** When set, overrides the preset base caption text colour. */
+  textColor: string | null
+  /** When set, overrides the preset caption outline colour. */
+  outlineColor: string | null
+  hookTextColor: string
+  hookBackgroundColor: string
+}
+
 /** App-wide branding applied to the preview and burned into exports. */
 export interface BrandingSettings {
   enabled: boolean
@@ -209,6 +226,7 @@ export interface BrandingSettings {
   opacity: number
   /** Watermark width as a fraction of the output video width. */
   scale: number
+  colors: BrandColors
 }
 
 /**
