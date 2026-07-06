@@ -1,5 +1,25 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { compareVersions, evaluateUpdate } from '../src/main/updates'
+import { compareVersions, evaluateUpdate, findGitRoot, resolveSourceRepoRoot } from '../src/main/updates'
+
+describe('findGitRoot', () => {
+  it('walks up from a nested directory to the repo root', () => {
+    const root = findGitRoot(join(process.cwd(), 'out', 'main'))
+    expect(root).toBe(process.cwd())
+    expect(existsSync(join(root!, '.git'))).toBe(true)
+  })
+
+  it('returns null when no git directory exists above the start path', () => {
+    expect(findGitRoot('/tmp')).toBeNull()
+  })
+})
+
+describe('resolveSourceRepoRoot', () => {
+  it('finds the clipforge checkout from the workspace cwd', () => {
+    expect(resolveSourceRepoRoot()).toBe(process.cwd())
+  })
+})
 
 describe('compareVersions', () => {
   it('orders dotted versions numerically', () => {
@@ -50,7 +70,7 @@ describe('evaluateUpdate', () => {
     expect(evaluateUpdate('0.1.0', release, true).autoUpdateSupported).toBe(true)
     expect(evaluateUpdate('0.1.0', release, false).autoUpdateSupported).toBe(false)
     expect(evaluateUpdate('0.1.0', release, false, true).sourceUpdateSupported).toBe(true)
-    // Bare defaults: no self-update paths.
+    // Bare defaults: no self-update paths in the pure evaluator.
     const bare = evaluateUpdate('0.1.0', release)
     expect(bare.autoUpdateSupported).toBe(false)
     expect(bare.sourceUpdateSupported).toBe(false)

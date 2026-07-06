@@ -465,21 +465,11 @@ function UpdatesSection(): React.JSX.Element {
             onDownload={() => void downloadUpdate()}
             onInstall={() => void installUpdate()}
           />
-        ) : updateCheck.sourceUpdateSupported ? (
+        ) : (
           <SourceUpdater
             latestVersion={updateCheck.latestVersion ?? ''}
             releaseUrl={updateCheck.releaseUrl}
           />
-        ) : (
-          <a
-            href={updateCheck.releaseUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
-          >
-            <Download size={13} />
-            Update to v{updateCheck.latestVersion} — open the release page
-          </a>
         )
       ) : (
         updateCheck &&
@@ -568,13 +558,23 @@ function SourceUpdater({
       )
     case 'idle':
       return (
-        <button
-          onClick={() => void updateFromSource()}
-          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
-        >
-          <Download size={13} />
-          Update to v{latestVersion} and restart
-        </button>
+        <>
+          <button
+            onClick={() => void updateFromSource()}
+            className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
+          >
+            <Download size={13} />
+            Update to v{latestVersion} and restart
+          </button>
+          <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+            Pulls the latest code, reinstalls dependencies, rebuilds, and restarts the app (about a
+            minute). Needs a git checkout — zip downloads should use the{' '}
+            <a href={releaseUrl} target="_blank" rel="noreferrer" className="text-zinc-400 underline">
+              release page
+            </a>{' '}
+            instead.
+          </p>
+        </>
       )
     default: {
       const exhaustive: never = sourceUpdate.status
