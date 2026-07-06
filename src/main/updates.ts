@@ -14,7 +14,7 @@ import type { ImportProgress, UpdateCheckResult, UpdateDownloadProgress } from '
  * via electron-updater; source checkouts pull, rebuild and relaunch in place.
  */
 
-const REPO = 'JeremySNR/j-clip'
+const REPO = 'JeremySNR/clip-forge'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
 const CHECK_TIMEOUT_MS = 10_000
 

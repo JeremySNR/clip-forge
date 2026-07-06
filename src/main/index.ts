@@ -1,4 +1,4 @@
-import { app, BrowserWindow, protocol, screen, shell } from 'electron'
+import { app, BrowserWindow, nativeTheme, protocol, screen, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { registerIpcHandlers } from './ipc'
@@ -99,6 +99,12 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  // The UI is a dark, near-monochrome design and (on macOS) leans on native
+  // vibrancy showing through translucent surfaces. Under the system's light
+  // appearance that blur turns the window a washed-out grey, so we pin the
+  // whole app to dark regardless of the OS setting.
+  nativeTheme.themeSource = 'dark'
+
   protocol.handle('media', (request) => {
     const url = new URL(request.url)
     const filePath = decodeURIComponent(url.pathname.replace(/^\//, ''))

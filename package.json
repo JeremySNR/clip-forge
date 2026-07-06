@@ -55,7 +55,7 @@
     "publish": {
       "provider": "github",
       "owner": "JeremySNR",
-      "repo": "j-clip"
+      "repo": "clip-forge"
     },
     "files": [
       "out/**"
@@ -80,8 +80,12 @@
       }
     ],
     "mac": {
-      "target": "dmg",
-      "category": "public.app-category.video"
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.video",
+      "identity": null
     },
     "win": {
       "target": "nsis"

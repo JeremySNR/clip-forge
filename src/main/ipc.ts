@@ -9,6 +9,7 @@ import type {
   Project,
   SettingsUpdate
 } from '@shared/types'
+import { VIDEO_EXTENSIONS } from '@shared/video'
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
 import { downloadGpuFfmpeg } from './pipeline/encoders'
 import { probeVideo } from './pipeline/ffmpeg'
@@ -39,9 +40,7 @@ export const EXPORT_CANCELLED_MESSAGE = 'Export cancelled'
 /** How far apart durations may be for a relinked file to count as the same video. */
 const RELINK_DURATION_TOLERANCE_SEC = 2
 
-const VIDEO_FILTERS = [
-  { name: 'Videos', extensions: ['mp4', 'mov', 'mkv', 'webm', 'avi', 'm4v', 'mpg', 'mpeg', 'wmv'] }
-]
+const VIDEO_FILTERS = [{ name: 'Videos', extensions: [...VIDEO_EXTENSIONS] }]
 
 async function pickVideoFile(sender: Electron.WebContents, title: string): Promise<string | null> {
   // Headless/CI hook (like CLIPFORGE_SMOKE): skip the native dialog.
