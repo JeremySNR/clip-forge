@@ -27,22 +27,25 @@ export function iou(a: FaceBox, b: FaceBox): number {
 }
 
 /**
- * Mean absolute RGB difference between two frames over the mouth region
- * (lower third) of a face box. Frames are raw rgb24 buffers of w×h pixels;
- * box coordinates are normalised 0..1.
+ * Mean absolute RGB difference between two frames over a horizontal band of a
+ * face box (band fractions measured from the top of the box downward). Frames
+ * are raw rgb24 buffers of w×h pixels; box coordinates are normalised 0..1.
  */
-export function mouthActivity(
+function regionMotion(
   prev: Buffer,
   cur: Buffer,
   box: FaceBox,
   w: number,
-  h: number
+  h: number,
+  fromFrac: number,
+  toFrac: number
 ): number {
   const clamp = (v: number, max: number): number => Math.max(0, Math.min(max, v))
+  const boxH = box.y2 - box.y1
   const px1 = clamp(Math.floor(box.x1 * w), w - 1)
   const px2 = clamp(Math.ceil(box.x2 * w), w)
-  const py1 = clamp(Math.floor((box.y1 + (box.y2 - box.y1) * 0.62) * h), h - 1)
-  const py2 = clamp(Math.ceil(box.y2 * h), h)
+  const py1 = clamp(Math.floor((box.y1 + boxH * fromFrac) * h), h - 1)
+  const py2 = clamp(Math.ceil((box.y1 + boxH * toFrac) * h), h)
   let sum = 0
   let count = 0
   for (let y = py1; y < py2; y += 1) {
@@ -56,6 +59,26 @@ export function mouthActivity(
   return count === 0 ? 0 : sum / count
 }
 
+/**
+ * Visual speech signal for one face: how much the mouth region (lower ~38% of
+ * the box) moves *relative to* the upper face (eyes/brow). Subtracting the
+ * upper-face motion cancels whole-head movement — a nodding or gesturing
+ * listener moves both regions equally and scores ~0, while a talking mouth
+ * moves far more than the brow. This is what keeps the crop on the person
+ * actually speaking rather than whoever happens to be moving.
+ */
+export function mouthActivity(
+  prev: Buffer,
+  cur: Buffer,
+  box: FaceBox,
+  w: number,
+  h: number
+): number {
+  const mouth = regionMotion(prev, cur, box, w, h, 0.62, 1)
+  const upper = regionMotion(prev, cur, box, w, h, 0.05, 0.45)
+  return Math.max(0, mouth - upper)
+}
+
 const TRACK_MATCH_IOU = 0.25
 const ACTIVITY_EMA_ALPHA = 0.4
 /** A rival must out-talk the current speaker by this factor… */
@@ -66,6 +89,12 @@ const SPEAKER_SWITCH_FRAMES = 2
 const MIN_SWITCH_ACTIVITY = 1.0
 /** Keep a briefly undetected track alive for this many frames. */
 const TRACK_MAX_MISSED = 2
+/**
+ * After a switch, hold the new speaker for at least this many frames before
+ * switching again. Stops the focus ping-ponging between two people who trade
+ * off quickly — each cut then reads as a deliberate camera switch.
+ */
+const SWITCH_COOLDOWN_FRAMES = 3
 
 interface Track {
   box: FaceBox
@@ -100,6 +129,9 @@ export function chooseFocusCentres(
   let speaker: Track | null = null
   let challenger: Track | null = null
   let challengerStreak = 0
+  let cooldown = 0
+  /** Last committed speaker centre, for continuity when a track is lost. */
+  let lastCentre: number | null = null
   const centres: Array<number | null> = []
   const switchCuts: number[] = []
 
@@ -108,6 +140,8 @@ export function chooseFocusCentres(
     speaker = null
     challenger = null
     challengerStreak = 0
+    cooldown = 0
+    lastCentre = null
   }
 
   for (let f = 0; f < facesPerFrame.length; f++) {
@@ -155,9 +189,20 @@ export function chooseFocusCentres(
       continue
     }
 
+    if (cooldown > 0) cooldown--
+
     if (!speaker || !tracks.includes(speaker)) {
-      // (Re)acquire: most active track, size-weighted on a tie/at rest.
-      speaker = tracks.reduce((a, b) => (b.ema + weight(b) > a.ema + weight(a) ? b : a))
+      // (Re)acquire. When we had a speaker (lastCentre known) but lost the
+      // track to detection jitter, prefer the track closest to where the
+      // speaker just was — continuity over jumping to the biggest face. On a
+      // cold start pick the most active, size-weighted at rest.
+      if (lastCentre !== null) {
+        speaker = tracks.reduce((a, b) =>
+          Math.abs(b.centre - lastCentre!) < Math.abs(a.centre - lastCentre!) ? b : a
+        )
+      } else {
+        speaker = tracks.reduce((a, b) => (b.ema + weight(b) > a.ema + weight(a) ? b : a))
+      }
       challenger = null
       challengerStreak = 0
     } else {
@@ -165,6 +210,7 @@ export function chooseFocusCentres(
       const rival =
         rivals.length > 0 ? rivals.reduce((a, b) => (b.ema > a.ema ? b : a)) : null
       if (
+        cooldown === 0 &&
         rival &&
         rival.ema > MIN_SWITCH_ACTIVITY &&
         rival.ema > speaker.ema * SPEAKER_SWITCH_RATIO
@@ -179,6 +225,7 @@ export function chooseFocusCentres(
           switchCuts.push(f)
           challenger = null
           challengerStreak = 0
+          cooldown = SWITCH_COOLDOWN_FRAMES
         }
       } else {
         challenger = null
@@ -186,6 +233,7 @@ export function chooseFocusCentres(
       }
     }
 
+    lastCentre = speaker.centre
     centres.push(speaker.centre)
   }
 

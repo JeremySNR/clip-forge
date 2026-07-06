@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   const chunks = await extractAudioChunks(source, join(WORK, 'audio'), info.durationSec)
 
   console.log('4. Transcribing with Whisper…')
-  const transcript = await transcribeChunks(API_KEY, 'whisper-1', chunks)
+  const transcript = await transcribeChunks(API_KEY, 'whisper-1', chunks, 'en')
   assert.ok(transcript.segments.length > 0, 'no transcript segments')
   const wordCount = transcript.segments.reduce((n, s) => n + s.words.length, 0)
   assert.ok(wordCount > 100, `too few words: ${wordCount}`)

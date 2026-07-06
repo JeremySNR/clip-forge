@@ -220,10 +220,14 @@ function trackRun(
   let shiftRun = 0
 
   const emit = (fromFrame: number): void => {
-    const mean = segmentValues.reduce((a, b) => a + b, 0) / segmentValues.length
+    // Median, not mean: a couple of transition frames must not drag the crop
+    // to an in-between position (which looks like the frame "searching" for
+    // the face). The median sits on the face the segment actually settled on.
+    const sorted = [...segmentValues].sort((a, b) => a - b)
+    const median = sorted[Math.floor(sorted.length / 2)]
     out.push({
       t: clipStartSec + (runStartFrame + fromFrame) / SAMPLE_FPS,
-      x: Math.min(1, Math.max(0, mean))
+      x: Math.min(1, Math.max(0, median))
     })
   }
 

@@ -13,6 +13,7 @@ import {
   Type,
   Zap,
   Download,
+  Languages,
   Loader2
 } from 'lucide-react'
 import { useStore } from '../store'
@@ -24,6 +25,26 @@ import type {
 } from '@shared/types'
 
 const ANALYSIS_MODELS = ['gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5', 'gpt-4o-mini']
+
+/** Whisper transcription languages. 'auto' lets Whisper detect per video. */
+const TRANSCRIPTION_LANGUAGES: Array<{ value: string; label: string }> = [
+  { value: 'en', label: 'English' },
+  { value: 'auto', label: 'Auto-detect' },
+  { value: 'cy', label: 'Welsh' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'it', label: 'Italian' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'nl', label: 'Dutch' },
+  { value: 'pl', label: 'Polish' },
+  { value: 'ru', label: 'Russian' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'ko', label: 'Korean' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'ar', label: 'Arabic' }
+]
 
 const ENCODERS: Array<{ value: EncoderPreference; label: string; hint: string }> = [
   { value: 'auto', label: 'Auto', hint: 'GPU when ready' },
@@ -161,6 +182,28 @@ export default function SettingsModal(): React.JSX.Element {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mt-5">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <Languages size={15} className="text-accent-400" />
+            Transcription language
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+            The spoken language Whisper transcribes. Leave on English (or pick yours) rather than
+            Auto-detect — auto sometimes mislabels the language (e.g. English as Welsh).
+          </p>
+          <select
+            value={settings?.transcriptionLanguage ?? 'en'}
+            onChange={(e) => void saveSettings({ transcriptionLanguage: e.target.value })}
+            className="mt-2.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 focus:border-white/25 focus:outline-none"
+          >
+            {TRANSCRIPTION_LANGUAGES.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="mt-5 border-t border-surface-700 pt-5">

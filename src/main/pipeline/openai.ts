@@ -99,6 +99,12 @@ export interface WhisperResponse {
 export interface TranscribeFileOptions {
   /** Trailing text of the previous chunk, for cross-chunk context continuity. */
   contextPrompt?: string
+  /**
+   * ISO-639-1 language code (e.g. 'en'). When set, Whisper transcribes in that
+   * language instead of auto-detecting — which avoids it occasionally guessing
+   * the wrong language. Omit or pass 'auto' to let Whisper detect.
+   */
+  language?: string
   signal?: AbortSignal
 }
 
@@ -118,6 +124,7 @@ export async function transcribeAudioFile(
       form.append('timestamp_granularities[]', 'word')
       form.append('timestamp_granularities[]', 'segment')
       if (opts.contextPrompt) form.append('prompt', opts.contextPrompt)
+      if (opts.language && opts.language !== 'auto') form.append('language', opts.language)
 
       const res = await fetch(`${API_BASE}/audio/transcriptions`, {
         method: 'POST',

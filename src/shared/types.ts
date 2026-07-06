@@ -278,6 +278,12 @@ export interface AppSettings {
    */
   keyStorageSecure: boolean
   transcriptionModel: string
+  /**
+   * Language for Whisper transcription: an ISO-639-1 code (e.g. 'en') that is
+   * sent to Whisper so it does not auto-detect and occasionally guess wrong
+   * (e.g. labelling English as Welsh). 'auto' lets Whisper detect per video.
+   */
+  transcriptionLanguage: string
   analysisModel: string
   encoder: EncoderPreference
   quality: QualityPreference
@@ -293,6 +299,7 @@ export interface AppSettings {
 export interface SettingsUpdate {
   apiKey?: string
   transcriptionModel?: string
+  transcriptionLanguage?: string
   analysisModel?: string
   encoder?: EncoderPreference
   quality?: QualityPreference

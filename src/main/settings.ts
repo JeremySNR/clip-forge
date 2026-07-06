@@ -16,6 +16,8 @@ interface StoredSettings {
   /** Base64 of safeStorage-encrypted key, or plain 'plain:'-prefixed fallback. */
   apiKeyEncrypted: string
   transcriptionModel: string
+  /** ISO-639-1 language code forced on Whisper, or 'auto' to auto-detect. */
+  transcriptionLanguage: string
   analysisModel: string
   encoder: EncoderPreference
   quality: QualityPreference
@@ -34,6 +36,11 @@ const DEFAULT_BRANDING: BrandingSettings = {
 const DEFAULTS: StoredSettings = {
   apiKeyEncrypted: '',
   transcriptionModel: 'whisper-1',
+  // Default to English rather than Whisper's auto-detect: the app is
+  // English-first, and auto-detect occasionally mislabels English speech as a
+  // similar-sounding language (e.g. Welsh). Users of other languages can pick
+  // theirs — or 'auto' — in Settings.
+  transcriptionLanguage: 'en',
   analysisModel: 'gpt-5.4-mini',
   encoder: 'auto',
   quality: 'standard',
@@ -108,6 +115,7 @@ export async function getSettings(): Promise<AppSettings> {
     apiKeyMasked: key.length > 8 ? `${key.slice(0, 5)}…${key.slice(-4)}` : key ? '•••' : '',
     keyStorageSecure: safeStorage.isEncryptionAvailable(),
     transcriptionModel: s.transcriptionModel,
+    transcriptionLanguage: s.transcriptionLanguage,
     analysisModel: s.analysisModel,
     encoder: s.encoder,
     quality: s.quality,
@@ -142,9 +150,17 @@ export function getExportPreferences(): { encoder: EncoderPreference; quality: Q
 }
 
 /** Synchronous access to the stored model preferences (no GPU probe). */
-export function getModelPreferences(): { transcriptionModel: string; analysisModel: string } {
+export function getModelPreferences(): {
+  transcriptionModel: string
+  transcriptionLanguage: string
+  analysisModel: string
+} {
   const s = load()
-  return { transcriptionModel: s.transcriptionModel, analysisModel: s.analysisModel }
+  return {
+    transcriptionModel: s.transcriptionModel,
+    transcriptionLanguage: s.transcriptionLanguage,
+    analysisModel: s.analysisModel
+  }
 }
 
 export async function updateSettings(update: SettingsUpdate): Promise<AppSettings> {
@@ -152,6 +168,9 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   if (update.apiKey !== undefined) s.apiKeyEncrypted = encryptKey(update.apiKey.trim())
   if (update.transcriptionModel !== undefined && update.transcriptionModel.trim()) {
     s.transcriptionModel = update.transcriptionModel.trim()
+  }
+  if (update.transcriptionLanguage !== undefined && update.transcriptionLanguage.trim()) {
+    s.transcriptionLanguage = update.transcriptionLanguage.trim()
   }
   if (update.analysisModel !== undefined && update.analysisModel.trim()) {
     s.analysisModel = update.analysisModel.trim()

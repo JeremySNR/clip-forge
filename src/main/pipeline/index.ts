@@ -159,6 +159,7 @@ export async function analyzeProject(
         apiKey,
         settings.transcriptionModel,
         chunks,
+        settings.transcriptionLanguage,
         (f) =>
           onProgress({
             stage: 'transcribe',

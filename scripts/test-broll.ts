@@ -60,7 +60,7 @@ async function main(): Promise<void> {
 
   console.log('3. Transcribing…')
   const chunks = await extractAudioChunks(source, join(WORK, 'audio'), info.durationSec)
-  const transcript = await transcribeChunks(API_KEY, 'whisper-1', chunks)
+  const transcript = await transcribeChunks(API_KEY, 'whisper-1', chunks, 'en')
   const text = transcript.segments.map((s) => s.text).join(' ')
   assert.ok(/yoda/i.test(text), 'transcript should mention Yoda')
 

@@ -63,8 +63,8 @@ function ImportHero(): React.JSX.Element {
   const [url, setUrl] = useState('')
 
   const importing = importProgress !== null
-  const canSubmitUrl = /^https?:\/\/\S+$/.test(url.trim()) && !importing
   const disabled = busy || importing
+  const canSubmitUrl = /^https?:\/\/\S+$/.test(url.trim()) && !disabled
 
   const handleDrop = (e: React.DragEvent): void => {
     e.preventDefault()
@@ -81,7 +81,8 @@ function ImportHero(): React.JSX.Element {
       setPipelineError('Could not read that file from disk. Try choosing it instead.')
       return
     }
-    void importVideoFromPath(path)
+    setBusy(true)
+    void importVideoFromPath(path).finally(() => setBusy(false))
   }
 
   return (
