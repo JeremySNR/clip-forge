@@ -4,16 +4,21 @@ import type { Clip, Project, WatermarkPosition } from '@shared/types'
 import { getCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
-import { computeZoomEvents, zoomAt } from '@shared/zoom'
-import { focusAt } from '@shared/focusTrack'
+import { computeZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
+import {
+  smoothPlaybackTime,
+  type PlaybackClock,
+  type PreviewFramePlan
+} from '@shared/previewFrame'
+import { applyPreviewVideoFrame } from '../lib/previewVideo'
 import { usePreviewBus } from '../lib/previewBus'
 import { useStore } from '../store'
 
 /**
  * Live preview that mimics the exported result: bounded playback of the clip
- * range, CSS-simulated reframing (object-position matches the ffmpeg crop
- * focus) and word-level karaoke captions rendered from the transcript.
+ * range, CSS-simulated reframing (crop focus on the video, zoom on a wrapper
+ * — same order as ffmpeg) and word-level karaoke captions from the transcript.
  */
 export default function PreviewPlayer({
   project,
@@ -23,7 +28,16 @@ export default function PreviewPlayer({
   clip: Clip
 }): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
+  const zoomLayerRef = useRef<HTMLDivElement>(null)
   const rafRef = useRef<number>(0)
+  const playbackClockRef = useRef<PlaybackClock>({ mediaTime: 0, wallAt: 0 })
+  const previewPlanRef = useRef<PreviewFramePlan>({
+    zoomEvents: null,
+    focusTrack: null,
+    framing: 'manual',
+    manualFocusX: 0.5,
+    isCrop: false
+  })
   /**
    * Seek requests issued while the browser is still completing a previous
    * seek are coalesced here and flushed on `seeked`. Setting currentTime on
@@ -45,6 +59,13 @@ export default function PreviewPlayer({
     [setBusTime]
   )
 
+  const applyFrame = useCallback((t: number): void => {
+    const video = videoRef.current
+    const layer = zoomLayerRef.current
+    if (!video || !layer) return
+    applyPreviewVideoFrame(video, layer, previewPlanRef.current, t)
+  }, [])
+
   const requestSeek = useCallback(
     (t: number): void => {
       const video = videoRef.current
@@ -55,9 +76,11 @@ export default function PreviewPlayer({
         pendingSeekRef.current = null
         video.currentTime = t
       }
+      playbackClockRef.current = { mediaTime: t, wallAt: performance.now() }
+      applyFrame(t)
       setTime(t)
     },
-    [setTime]
+    [setTime, applyFrame]
   )
 
   const handleSeeked = useCallback((): void => {
@@ -67,7 +90,11 @@ export default function PreviewPlayer({
     if (video && target !== null && Math.abs(video.currentTime - target) > 0.05) {
       video.currentTime = target
     }
-  }, [])
+    if (video) {
+      playbackClockRef.current = { mediaTime: video.currentTime, wallAt: performance.now() }
+      applyFrame(video.currentTime)
+    }
+  }, [applyFrame])
 
   const { start, end } = clip.edit
   const duration = Math.max(0.1, end - start)
@@ -119,7 +146,30 @@ export default function PreviewPlayer({
     const events = computeZoomEvents(project.transcript, start, end, keptSegments)
     return events.length > 0 ? events : null
   }, [clip.edit.autoZoom, project.transcript, start, end, keptSegments])
-  const zoom = zoomEvents ? zoomAt(zoomEvents, time) : 1
+
+  const src = window.clipforge.mediaUrl(project.video.path)
+  const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'
+  const isFitBlur = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'fit-blur'
+
+  useEffect(() => {
+    previewPlanRef.current = {
+      zoomEvents,
+      focusTrack: clip.focusTrack,
+      framing: clip.edit.framing,
+      manualFocusX: clip.edit.focusX,
+      isCrop
+    }
+    const t = videoRef.current?.currentTime ?? start
+    applyFrame(t)
+  }, [
+    zoomEvents,
+    clip.focusTrack,
+    clip.edit.framing,
+    clip.edit.focusX,
+    isCrop,
+    applyFrame,
+    start
+  ])
 
   useEffect(() => {
     const tick = (): void => {
@@ -130,26 +180,33 @@ export default function PreviewPlayer({
       if (video && !video.seeking && pendingSeekRef.current === null) {
         if (video.currentTime >= end) {
           video.currentTime = start
+          playbackClockRef.current = { mediaTime: start, wallAt: performance.now() }
         } else if (timeMap && !video.paused && timeMap.isRemoved(video.currentTime)) {
           const next = timeMap.nextKeptStart(video.currentTime)
           video.currentTime = next ?? end
+          playbackClockRef.current = { mediaTime: video.currentTime, wallAt: performance.now() }
         }
-        setTime(video.currentTime)
+        const smoothed = smoothPlaybackTime(video, playbackClockRef.current)
+        playbackClockRef.current = smoothed.clock
+        applyFrame(smoothed.t)
+        setTime(smoothed.t)
       }
       rafRef.current = requestAnimationFrame(tick)
     }
     if (playing) rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [playing, start, end, timeMap, setTime])
+  }, [playing, start, end, timeMap, setTime, applyFrame])
 
   const togglePlay = (): void => {
     const video = videoRef.current
     if (!video) return
     if (playing) {
       video.pause()
+      playbackClockRef.current = { mediaTime: video.currentTime, wallAt: 0 }
       setPlaying(false)
     } else {
       if (video.currentTime >= end - 0.05) requestSeek(start)
+      playbackClockRef.current = { mediaTime: video.currentTime, wallAt: performance.now() }
       void video.play()
       setPlaying(true)
     }
@@ -162,14 +219,6 @@ export default function PreviewPlayer({
   const seek = (fraction: number): void => {
     requestSeek(start + fraction * duration)
   }
-
-  const src = window.clipforge.mediaUrl(project.video.path)
-  const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'
-  const isFitBlur = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'fit-blur'
-  const previewFocusX =
-    clip.edit.framing === 'auto' && clip.focusTrack
-      ? focusAt(clip.focusTrack, time)
-      : clip.edit.focusX
 
   return (
     <div className="flex h-full min-h-0 flex-col items-center gap-3">
@@ -184,23 +233,19 @@ export default function PreviewPlayer({
             className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl brightness-75"
           />
         )}
-        <video
-          ref={videoRef}
-          src={src}
-          poster={clip.thumbnailPath ? window.clipforge.mediaUrl(clip.thumbnailPath) : undefined}
-          className="relative h-full w-full"
-          style={{
-            objectFit: isCrop ? 'cover' : 'contain',
-            objectPosition: isCrop ? `${previewFocusX * 100}% 50%` : '50% 50%',
-            // Auto zoom, anchored where faces sit in vertical framing.
-            transform: zoom > 1.0001 ? `scale(${zoom.toFixed(4)})` : undefined,
-            transformOrigin: '50% 42%'
-          }}
-          onClick={togglePlay}
-          onEnded={() => setPlaying(false)}
-          onSeeked={handleSeeked}
-          preload="auto"
-        />
+        <div ref={zoomLayerRef} className="absolute inset-0 will-change-transform">
+          <video
+            ref={videoRef}
+            src={src}
+            poster={clip.thumbnailPath ? window.clipforge.mediaUrl(clip.thumbnailPath) : undefined}
+            className="h-full w-full"
+            style={{ objectFit: isCrop ? 'cover' : 'contain' }}
+            onClick={togglePlay}
+            onEnded={() => setPlaying(false)}
+            onSeeked={handleSeeked}
+            preload="auto"
+          />
+        </div>
         <BrollOverlay clip={clip} time={time} />
         <WatermarkOverlay />
         {clip.edit.captionsEnabled && project.transcript && (
