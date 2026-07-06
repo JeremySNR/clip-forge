@@ -534,10 +534,11 @@ export async function detectHighlights(
       ? first
       : await requestHighlights(apiKey, model, transcript, options, videoDurationSec, true, signal)
   const refined = await refineClipEndings(apiKey, model, transcript, clips, videoDurationSec, signal)
-  // Then trim any leading setup so each clip opens on its hook.
-  const hooked = await refineClipStarts(apiKey, model, transcript, refined, signal)
+  const trimmed = options.hookFirst
+    ? await refineClipStarts(apiKey, model, transcript, refined, signal)
+    : refined
   // Refinement can pull two clips onto the same landing beat; dedupe again.
-  return dedupeClips(hooked)
+  return dedupeClips(trimmed)
 }
 
 async function requestHighlights(
@@ -669,7 +670,7 @@ async function requestHighlights(
         focusX: 0.5,
         captionsEnabled: true,
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,
-        showTitle: true,
+        showTitle: false,
         start,
         end
       }

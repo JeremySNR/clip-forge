@@ -9,7 +9,8 @@ import {
   Trash2,
   AlertTriangle,
   Wand2,
-  Clock
+  Clock,
+  Zap
 } from 'lucide-react'
 import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
@@ -272,6 +273,8 @@ function SetupPanel(): React.JSX.Element {
   const [clipLength, setClipLength] = useState<ClipLengthPreference>('auto')
   // Off by default: B-roll costs extra LLM/image calls and splits opinion.
   const [broll, setBroll] = useState(false)
+  // Off by default: hook-first trimming rewrites clip starts with an extra LLM pass.
+  const [hookFirst, setHookFirst] = useState(false)
 
   const needsKey = settings !== null && !settings.hasApiKey
 
@@ -373,6 +376,32 @@ function SetupPanel(): React.JSX.Element {
           </div>
 
           <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+            <button
+              onClick={() => setHookFirst(!hookFirst)}
+              className="flex w-full items-center justify-between gap-4 text-left"
+            >
+              <span className="min-w-0">
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  <Zap size={15} className="text-accent-400" />
+                  Open on the hook
+                </span>
+                <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                  Finds each clip&apos;s hook line and trims the start so the video opens on that
+                  moment instead of throat-clearing. You can still turn on the hook title card per
+                  clip in the editor.
+                </span>
+              </span>
+              <span
+                className={`relative h-5 w-9 shrink-0 rounded-full transition ${hookFirst ? 'bg-zinc-100' : 'bg-surface-600'}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${hookFirst ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
+                />
+              </span>
+            </button>
+          </div>
+
+          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
             <label className="flex items-center gap-2 text-sm font-semibold">
               <Clock size={15} className="text-accent-400" />
               Preferred clip length
@@ -412,7 +441,7 @@ function SetupPanel(): React.JSX.Element {
           ) : (
             <div>
               <button
-                onClick={() => void analyze({ prompt, clipLength, broll })}
+                onClick={() => void analyze({ prompt, clipLength, broll, hookFirst })}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-black/40 transition hover:bg-white"
               >
                 <Sparkles size={17} />
