@@ -274,6 +274,64 @@ export interface GpuEncoderStatus {
   canDownloadFfmpeg: boolean
 }
 
+/** A WorkVivo space (audience) a clip can be posted to. */
+export interface WorkvivoSpace {
+  id: string
+  name: string
+}
+
+/**
+ * Renderer-facing WorkVivo connection state. The Bearer token itself is never
+ * exposed — only whether one is stored and a masked hint, mirroring how the
+ * OpenAI key is surfaced.
+ */
+export interface WorkvivoPublicSettings {
+  /** Org WorkVivo URL, e.g. https://acme.workvivo.com. */
+  url: string
+  /** Organisation ID sent as the `Workvivo-Id` header. */
+  companyId: string
+  /** WorkVivo user id posts are attributed to (empty = the token's own user). */
+  postAsUserId: string
+  /** Preferred default space id for one-click posting ('' = none). */
+  defaultSpaceId: string
+  hasToken: boolean
+  tokenMasked: string
+  /** True when url + companyId + token are all present. */
+  configured: boolean
+}
+
+/** Partial WorkVivo config update; token is write-only. */
+export interface WorkvivoSettingsUpdate {
+  url?: string
+  companyId?: string
+  token?: string
+  postAsUserId?: string
+  defaultSpaceId?: string
+}
+
+/** Outcome of a WorkVivo "Test connection" call. */
+export interface WorkvivoTestResult {
+  ok: boolean
+  message: string
+  /** Number of spaces the token can see, when the test succeeded. */
+  spaceCount?: number
+}
+
+/** Outcome of posting a clip to WorkVivo. */
+export interface WorkvivoPostResult {
+  ok: boolean
+  /** Link to the created post, when WorkVivo returned one. */
+  permalink: string | null
+}
+
+/** Progress while rendering + uploading a clip to WorkVivo. */
+export interface WorkvivoPostProgress {
+  clipId: string
+  /** 0..1 overall (render then upload), or -1 when indeterminate. */
+  progress: number
+  message: string
+}
+
 export interface AppSettings {
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
@@ -300,6 +358,8 @@ export interface AppSettings {
   importCookiesBrowser: BrowserCookieSource
   /** True when a Netscape cookies.txt file is stored for URL imports. */
   hasImportCookiesFile: boolean
+  /** WorkVivo posting integration. */
+  workvivo: WorkvivoPublicSettings
 }
 
 export interface SettingsUpdate {
@@ -312,6 +372,7 @@ export interface SettingsUpdate {
   branding?: Partial<BrandingSettings>
   importCookiesBrowser?: BrowserCookieSource
   clearImportCookiesFile?: boolean
+  workvivo?: WorkvivoSettingsUpdate
 }
 
 export interface PipelineError {
