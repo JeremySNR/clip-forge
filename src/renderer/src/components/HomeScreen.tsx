@@ -154,34 +154,60 @@ function ImportHero(): React.JSX.Element {
 }
 
 /**
- * Private / SSO-protected videos (e.g. enterprise Vimeo): the import borrows
- * the login session from a local browser, so signing in to the site there is
- * the only setup needed — no server-side integration.
+ * Private / SSO-protected videos (e.g. enterprise Vimeo): borrow the login from
+ * a local browser, or import a cookies.txt export when Chromium locks its DB.
  */
 function CookieBrowserPicker(): React.JSX.Element | null {
   const settings = useStore((s) => s.settings)
   const saveSettings = useStore((s) => s.saveSettings)
+  const importCookiesFile = useStore((s) => s.importCookiesFile)
+  const clearCookiesFile = useStore((s) => s.clearCookiesFile)
   if (!settings) return null
 
   return (
-    <div className="mt-2 flex items-center justify-between gap-3 px-1 text-left">
-      <span className="text-[11px] leading-relaxed text-zinc-500">
-        Video needs a login (private or company SSO, e.g. enterprise Vimeo)? Sign in to the site
-        in your browser, then borrow that login:
-      </span>
-      <select
-        value={settings.importCookiesBrowser}
-        onChange={(e) =>
-          void saveSettings({ importCookiesBrowser: e.target.value as BrowserCookieSource })
-        }
-        className="shrink-0 rounded-lg border border-surface-600 bg-surface-850 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-white/25 focus:outline-none"
-      >
-        {COOKIE_BROWSERS.map((b) => (
-          <option key={b.value} value={b.value}>
-            {b.label}
-          </option>
-        ))}
-      </select>
+    <div className="mt-2 space-y-2 px-1 text-left">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[11px] leading-relaxed text-zinc-500">
+          Video needs a login (private or company SSO, e.g. enterprise Vimeo)? Sign in to the site
+          in your browser, then borrow that login:
+        </span>
+        <select
+          value={settings.importCookiesBrowser}
+          onChange={(e) =>
+            void saveSettings({ importCookiesBrowser: e.target.value as BrowserCookieSource })
+          }
+          className="shrink-0 rounded-lg border border-surface-600 bg-surface-850 px-2.5 py-1.5 text-xs text-zinc-300 focus:border-white/25 focus:outline-none"
+        >
+          {COOKIE_BROWSERS.map((b) => (
+            <option key={b.value} value={b.value}>
+              {b.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+        <span>Chromium browsers lock cookies while open. If that fails, import a cookies file instead:</span>
+        {settings.hasImportCookiesFile ? (
+          <>
+            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-emerald-300">cookies.txt loaded</span>
+            <button
+              type="button"
+              onClick={() => void clearCookiesFile()}
+              className="rounded-md border border-surface-600 px-2 py-0.5 text-zinc-300 transition hover:bg-surface-800"
+            >
+              Remove
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void importCookiesFile()}
+            className="rounded-md border border-surface-600 px-2 py-0.5 text-zinc-300 transition hover:bg-surface-800"
+          >
+            Import cookies file
+          </button>
+        )}
+      </div>
     </div>
   )
 }

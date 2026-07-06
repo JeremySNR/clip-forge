@@ -25,6 +25,14 @@ export class YtDlpError extends Error {
   }
 }
 
+const CHROMIUM_BROWSERS = new Set<BrowserCookieSource>([
+  'chrome',
+  'edge',
+  'brave',
+  'opera',
+  'vivaldi'
+])
+
 function binaryName(): string {
   switch (process.platform) {
     case 'win32':
@@ -43,6 +51,12 @@ function binaryDir(): string {
 
 export function ytDlpPath(): string {
   return join(binaryDir(), binaryName())
+}
+
+/** Directory passed to --plugin-dirs (contains yt_dlp_plugins/). */
+export function ytDlpPluginDir(): string {
+  if (app?.isPackaged) return join(process.resourcesPath, 'yt-dlp-plugins')
+  return join(process.cwd(), 'resources', 'yt-dlp-plugins')
 }
 
 export async function ensureYtDlp(onProgress: ProgressFn): Promise<string> {
@@ -88,14 +102,35 @@ export interface UrlVideoMeta {
   webpageUrl: string
 }
 
+export interface CookieAuthOptions {
+  cookiesFromBrowser?: BrowserCookieSource
+  /** Netscape-format cookies.txt path. Takes priority over browser extraction. */
+  cookiesFile?: string | null
+}
+
 /**
- * Args that let yt-dlp reuse the login session from the user's browser —
- * how private/unlisted videos and enterprise Vimeo behind SSO work without
- * any server-side integration: the user signs in once in their browser and
- * the download borrows those cookies locally.
+ * Args that let yt-dlp reuse the login session from the user's browser, or a
+ * saved cookies.txt export. Private/unlisted videos and enterprise Vimeo
+ * behind SSO work this way without any server-side integration.
  */
-function cookieArgs(cookiesFromBrowser: BrowserCookieSource | undefined): string[] {
-  return cookiesFromBrowser ? ['--cookies-from-browser', cookiesFromBrowser] : []
+export function cookieArgs(opts: CookieAuthOptions): string[] {
+  if (opts.cookiesFile && existsSync(opts.cookiesFile)) {
+    return ['--cookies', opts.cookiesFile]
+  }
+  if (opts.cookiesFromBrowser) {
+    return ['--cookies-from-browser', opts.cookiesFromBrowser]
+  }
+  return []
+}
+
+/** Load the cookie-unlock plugin so Chromium DBs can be read while open. */
+export function pluginArgs(opts: CookieAuthOptions): string[] {
+  const dir = ytDlpPluginDir()
+  if (!existsSync(dir)) return []
+  const usesChromiumCookies =
+    (opts.cookiesFromBrowser && CHROMIUM_BROWSERS.has(opts.cookiesFromBrowser)) ||
+    Boolean(opts.cookiesFile)
+  return usesChromiumCookies || opts.cookiesFromBrowser ? ['--plugin-dirs', dir] : []
 }
 
 /** Surface a clear next step when a site refuses the anonymous request. */
@@ -103,6 +138,33 @@ export function isAuthError(message: string): boolean {
   return /log ?in|sign ?in|password|private|members only|purchase|cookies|401|403|authoriz/i.test(
     message
   )
+}
+
+/** yt-dlp could not read a Chromium cookie database (browser open / locked). */
+export function isCookieCopyError(message: string): boolean {
+  return /could not copy chrome cookie database|permission denied.*cookies/i.test(message)
+}
+
+export function cookieCopyErrorHint(browser: BrowserCookieSource, hasCookiesFile: boolean): string {
+  if (hasCookiesFile) {
+    return 'Your cookies file is set but the import still failed. Re-export it from the browser while signed in to the site (use the Get cookies.txt LOCALLY extension), then import the new file and retry.'
+  }
+  const parts = [
+    'Chrome and other Chromium browsers lock their cookie store while they are open, so ClipForge could not borrow the login.'
+  ]
+  if (browser && CHROMIUM_BROWSERS.has(browser)) {
+    parts.push(
+      'Try Firefox in the browser picker (it usually works while open), fully quit Chrome and retry, or import a cookies.txt file instead.'
+    )
+  } else {
+    parts.push(
+      'Make sure you are signed in to the site in that browser, or import a cookies.txt file instead.'
+    )
+  }
+  parts.push(
+    'To import a cookies file: sign in to the site in your browser, use the "Get cookies.txt LOCALLY" extension to export, then click Import cookies file below.'
+  )
+  return parts.join(' ')
 }
 
 function runYtDlp(
@@ -182,16 +244,20 @@ interface YtDlpJson {
   entries?: YtDlpJson[]
 }
 
+function baseArgs(cookieOpts: CookieAuthOptions): string[] {
+  return [...pluginArgs(cookieOpts), ...cookieArgs(cookieOpts)]
+}
+
 export async function fetchUrlMeta(
   binPath: string,
   url: string,
-  cookiesFromBrowser?: BrowserCookieSource
+  cookieOpts: CookieAuthOptions = {}
 ): Promise<UrlVideoMeta> {
   const out = await runYtDlp(binPath, [
     '-J',
     '--no-playlist',
     '--no-warnings',
-    ...cookieArgs(cookiesFromBrowser),
+    ...baseArgs(cookieOpts),
     url
   ])
   let data = JSON.parse(out) as YtDlpJson
@@ -227,7 +293,7 @@ export async function downloadUrlVideo(
   url: string,
   outPath: string,
   onProgress: ProgressFn,
-  cookiesFromBrowser?: BrowserCookieSource
+  cookieOpts: CookieAuthOptions = {}
 ): Promise<void> {
   await runYtDlp(
     binPath,
@@ -238,7 +304,7 @@ export async function downloadUrlVideo(
       '--no-playlist',
       '--no-warnings',
       '--newline',
-      ...cookieArgs(cookiesFromBrowser),
+      ...baseArgs(cookieOpts),
       '-o', outPath,
       url
     ],

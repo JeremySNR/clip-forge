@@ -2,7 +2,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { AnalyzeOptions, ImportProgress, PipelineProgress, Project } from '@shared/types'
+import type { AnalyzeOptions, BrowserCookieSource, ImportProgress, PipelineProgress, Project } from '@shared/types'
 import { mapLimit } from './concurrency'
 import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
@@ -11,7 +11,17 @@ import { analyzeClipFocus } from './faces'
 import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
-import { downloadUrlVideo, ensureYtDlp, fetchUrlMeta, isAuthError, withSelfUpdateRetry, YtDlpError } from './ytdlp'
+import {
+  cookieCopyErrorHint,
+  downloadUrlVideo,
+  ensureYtDlp,
+  fetchUrlMeta,
+  isAuthError,
+  isCookieCopyError,
+  withSelfUpdateRetry,
+  YtDlpError,
+  type CookieAuthOptions
+} from './ytdlp'
 import { getApiKey, getImportPreferences, getModelPreferences } from '../settings'
 import { projectDir, saveProject } from '../projects'
 
@@ -37,11 +47,15 @@ export async function createProjectFromUrl(
   onProgress: (p: ImportProgress) => void
 ): Promise<Project> {
   const binPath = await ensureYtDlp(onProgress)
-  const cookies = getImportPreferences().importCookiesBrowser
+  const prefs = getImportPreferences()
+  const cookieOpts: CookieAuthOptions = {
+    cookiesFromBrowser: prefs.importCookiesBrowser || undefined,
+    cookiesFile: prefs.importCookiesPath
+  }
   onProgress({ progress: -1, message: 'Checking the video…' })
   const meta = await withSelfUpdateRetry(binPath, onProgress, () =>
-    fetchUrlMeta(binPath, url, cookies)
-  ).catch(rethrowWithLoginHint(cookies))
+    fetchUrlMeta(binPath, url, cookieOpts)
+  ).catch(rethrowWithLoginHint(prefs.importCookiesBrowser, Boolean(prefs.importCookiesPath)))
 
   const id = randomUUID()
   const dir = projectDir(id)
@@ -49,8 +63,8 @@ export async function createProjectFromUrl(
   const videoPath = join(dir, 'source.mp4')
   onProgress({ progress: 0.15, message: 'Downloading video…' })
   await withSelfUpdateRetry(binPath, onProgress, () =>
-    downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress, cookies)
-  ).catch(rethrowWithLoginHint(cookies))
+    downloadUrlVideo(binPath, meta.webpageUrl, videoPath, onProgress, cookieOpts)
+  ).catch(rethrowWithLoginHint(prefs.importCookiesBrowser, Boolean(prefs.importCookiesPath)))
 
   onProgress({ progress: 0.97, message: 'Reading video…' })
   const video = await probeVideo(videoPath)
@@ -75,13 +89,21 @@ export async function createProjectFromUrl(
  * enterprise Vimeo behind SSO), point at the browser-login option instead of
  * surfacing a bare extractor error.
  */
-function rethrowWithLoginHint(cookies: string): (err: unknown) => never {
+function rethrowWithLoginHint(
+  browser: BrowserCookieSource,
+  hasCookiesFile: boolean
+): (err: unknown) => never {
   return (err: unknown): never => {
-    if (err instanceof YtDlpError && isAuthError(err.message)) {
-      const hint = cookies
-        ? `This video still refused the borrowed ${cookies} login — make sure you are signed in to the site in that browser (open the video there once), then retry.`
-        : 'This video seems to need a login (private, unlisted or behind company SSO). Sign in to the site in your browser, then set "Use browser login" on the import screen to that browser and retry.'
-      throw new YtDlpError(`${err.message} — ${hint}`)
+    if (err instanceof YtDlpError) {
+      if (isCookieCopyError(err.message)) {
+        throw new YtDlpError(cookieCopyErrorHint(browser, hasCookiesFile))
+      }
+      if (isAuthError(err.message)) {
+        const hint = browser || hasCookiesFile
+          ? `This video still refused the login. Make sure you are signed in to the site in ${browser || 'your browser'} (open the video there once), then retry. Or import a fresh cookies.txt file.`
+          : 'This video seems to need a login (private, unlisted or behind company SSO). Sign in to the site in your browser, then set "Use browser login" on the import screen or import a cookies.txt file.'
+        throw new YtDlpError(`${err.message} ${hint}`)
+      }
     }
     throw err
   }

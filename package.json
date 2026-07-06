@@ -73,6 +73,10 @@
       {
         "from": "resources/fonts",
         "to": "fonts"
+      },
+      {
+        "from": "resources/yt-dlp-plugins",
+        "to": "yt-dlp-plugins"
       }
     ],
     "mac": {
