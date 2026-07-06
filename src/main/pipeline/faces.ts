@@ -12,9 +12,10 @@ import { chooseFocusCentres, iou, mouthActivity, type FaceBox } from './speaker'
 /**
  * Face-based auto reframing. Samples clip frames with ffmpeg, detects faces
  * with UltraFace RFB-320 (ONNX, CPU), infers the active speaker from mouth
- * movement (see speaker.ts) and builds a piecewise-constant focus track:
- * stable segments with hard cuts between speaker positions, the way social
- * clipping tools reframe multi-speaker footage.
+ * movement (see speaker.ts) and builds a focus track of stable segments:
+ * hard cuts between speaker positions at camera cuts and speaker switches
+ * (the way social clipping tools reframe multi-speaker footage), smooth pans
+ * when the same person moves within a shot (see shared/focusTrack.ts).
  */
 
 const MODEL_W = 320
@@ -227,7 +228,11 @@ function trackRun(
     const median = sorted[Math.floor(sorted.length / 2)]
     out.push({
       t: clipStartSec + (runStartFrame + fromFrame) / SAMPLE_FPS,
-      x: Math.min(1, Math.max(0, median))
+      x: Math.min(1, Math.max(0, median)),
+      // A run starts at a camera cut or speaker switch — the crop snaps
+      // there. Later keyframes in the run are the same person moving within
+      // the shot, which the samplers follow with a smooth pan (focusTrack.ts).
+      cut: fromFrame === 0
     })
   }
 

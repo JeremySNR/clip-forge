@@ -41,11 +41,17 @@ export type ReframeMode = 'crop' | 'fit-blur'
 /** Auto = follow the AI face track; manual = fixed focusX slider. */
 export type FramingMode = 'auto' | 'manual'
 
-/** One step of the piecewise-constant focus track (t in source seconds). */
+/** One step of the focus track (t in source seconds). */
 export interface FocusKeyframe {
   t: number
   /** Horizontal face centre, 0 = far left, 1 = far right. */
   x: number
+  /**
+   * True when this keyframe lands on a camera cut or speaker switch, where
+   * the crop must snap instantly. Absent/false keyframes are within-shot
+   * moves of the same person, which the crop reaches with a smooth pan.
+   */
+  cut?: boolean
 }
 
 export interface ClipEditState {

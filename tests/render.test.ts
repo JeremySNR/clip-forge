@@ -98,6 +98,22 @@ describe('buildFilterGraph', () => {
     expect(noImage.filterComplex).not.toContain('colorchannelmixer')
   })
 
+  it('pans the crop for within-shot focus moves and snaps at cuts', () => {
+    const clip = makeClip()
+    clip.edit.framing = 'auto'
+    clip.focusTrack = [
+      { t: 0, x: 0.5, cut: true },
+      { t: 5, x: 0.62 }, // small within-shot move -> eased pan
+      { t: 12, x: 0.2, cut: true } // speaker switch -> hard snap
+    ]
+    const graph = buildFilterGraph(clip, source, null, 30, null)
+    // Eased (smoothstep) pan over the pan window starting at the keyframe.
+    expect(graph.filterComplex).toContain('(t-5.000)/0.600')
+    expect(graph.filterComplex).toContain('(3-2*')
+    // The cut-flagged keyframe stays a hard constant step.
+    expect(graph.filterComplex).toContain(',0.2000)')
+  })
+
   it('applies auto zoom via the subpixel perspective filter, not zoompan', () => {
     const graph = buildFilterGraph(makeClip(), source, null, 30, null, {
       zoomEvents: [
