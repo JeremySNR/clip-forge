@@ -11,7 +11,7 @@ import { iou, type FaceBox } from './speaker'
 
 export const MODEL_W = 320
 export const MODEL_H = 240
-const CONFIDENCE_THRESHOLD = 0.65
+export const DEFAULT_CONFIDENCE = 0.65
 const IOU_THRESHOLD = 0.5
 
 /** Directory containing bundled ONNX models (dev tree or packaged resources). */
@@ -43,7 +43,10 @@ function nms(boxes: FaceBox[]): FaceBox[] {
 }
 
 /** Run UltraFace on one raw RGB frame (MODEL_W x MODEL_H). */
-export async function detectFaces(rgb: Buffer): Promise<FaceBox[]> {
+export async function detectFaces(
+  rgb: Buffer,
+  confidence: number = DEFAULT_CONFIDENCE
+): Promise<FaceBox[]> {
   const session = await getSession()
   const size = MODEL_W * MODEL_H
   const input = new Float32Array(3 * size)
@@ -62,7 +65,7 @@ export async function detectFaces(rgb: Buffer): Promise<FaceBox[]> {
   const count = output.scores.dims[1]
   for (let i = 0; i < count; i++) {
     const score = scores[i * 2 + 1]
-    if (score < CONFIDENCE_THRESHOLD) continue
+    if (score < confidence) continue
     candidates.push({
       x1: boxes[i * 4],
       y1: boxes[i * 4 + 1],

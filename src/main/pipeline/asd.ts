@@ -7,14 +7,7 @@ import * as ort from 'onnxruntime-node'
 import { runFfmpeg, streamRawFrames, probeVideo } from './ffmpeg'
 import { computeMfcc, MFCC_COEFFS } from './mfcc'
 import { buildFaceTracks, type FaceTrack } from './facetracks'
-import {
-  detectFaces,
-  frameDifference,
-  modelsDir,
-  MODEL_W,
-  MODEL_H,
-  SCENE_CUT_THRESHOLD
-} from './detect'
+import { detectFaces, frameDifference, modelsDir, MODEL_W, MODEL_H } from './detect'
 import type { FaceBox } from './speaker'
 
 /**
@@ -56,6 +49,14 @@ const CROP_PAD = 110
 const BACKEND_WINDOWS_SEC = [1, 2, 3, 4, 5, 6]
 /** Width the crop pass decodes at; faces are small fractions of the frame. */
 const CROP_PASS_WIDTH = 640
+/**
+ * Consecutive-frame difference that counts as a camera cut. Lower than the
+ * legacy 2 fps threshold (34): at 25 fps normal motion barely registers
+ * between neighbouring frames, while even soft cuts and dissolves spike.
+ */
+const ASD_SCENE_CUT_THRESHOLD = 24
+/** Cuts closer together than this are one transition (dissolves span frames). */
+const CUT_MERGE_SEC = 0.3
 
 let sessionsPromise: Promise<{
   frontend: ort.InferenceSession
@@ -116,7 +117,7 @@ async function runDetectionPass(
   signal?: AbortSignal
 ): Promise<DetectionPass> {
   const facesPerFrame: Array<FaceBox[] | null> = []
-  const sceneCuts: number[] = []
+  const rawCuts: number[] = []
   let prev: Buffer | null = null
   const frameCount = await streamRawFrames(
     [
@@ -130,12 +131,16 @@ async function runDetectionPass(
     MODEL_W * MODEL_H * 3,
     async (frame, f) => {
       signal?.throwIfAborted()
-      if (prev && frameDifference(prev, frame) > SCENE_CUT_THRESHOLD) sceneCuts.push(f)
+      if (prev && frameDifference(prev, frame) > ASD_SCENE_CUT_THRESHOLD) rawCuts.push(f)
       facesPerFrame.push(f % DETECT_STRIDE === 0 ? await detectFaces(frame) : null)
       prev = Buffer.from(frame)
     },
     signal
   )
+  // A dissolve registers on several neighbouring frames; keep only the last
+  // of each cluster (when the new shot has settled).
+  const mergeWindow = Math.max(1, Math.round(CUT_MERGE_SEC * ASD_FPS))
+  const sceneCuts = rawCuts.filter((cut, i) => i === rawCuts.length - 1 || rawCuts[i + 1] - cut > mergeWindow)
   return { facesPerFrame, sceneCuts, frameCount }
 }
 

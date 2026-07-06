@@ -54,7 +54,7 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 
 - **Auto zoom.** Scene-aware punch-ins on the speaker's most energetic lines, jump zooms that cover cuts, and slow creep on static stretches. The kind of thing top short-form editors do to keep people watching.
 - **Tighten cuts.** Pauses and filler words ("um", "uh") get removed automatically. Captions, B-roll, zoom and the face track all remap to the shorter timeline.
-- **Speaker-aware auto-reframe.** On-device face tracking (UltraFace via ONNX Runtime, no cloud) follows the active speaker. The 9:16 crop cuts between speakers like a camera switch.
+- **Speaker-aware auto-reframe.** On-device audio-visual active speaker detection (UltraFace face tracking + the LR-ASD model via ONNX Runtime, no cloud) checks every face's lip movement against the actual soundtrack, so the crop stays on the person talking — not whoever moves or gestures. The 9:16 crop cuts between speakers like a camera switch.
 - **12 caption styles plus your own fonts.** Karaoke-style word highlighting burned in with libass. Upload any TTF/OTF and previews match exports exactly.
 - **Your branding.** Overlay your logo or watermark (corner, size, opacity) on the preview and every export.
 - **AI B-roll.** Say "Yoda" and a picture of Yoda pops over the video at that word. Uses Wikipedia and Openverse images, no extra API keys.
@@ -101,7 +101,11 @@ src/
 │   │   ├── openai.ts      minimal REST client (Whisper + structured chat)
 │   │   ├── transcribe.ts  chunked transcription, timestamp stitching
 │   │   ├── highlights.ts  LLM viral-moment detection, scoring, ending review
-│   │   ├── faces.ts       UltraFace face tracking + scene-cut detection
+│   │   ├── faces.ts       auto-reframe orchestration + focus track building
+│   │   ├── asd.ts         LR-ASD audio-visual active speaker detection
+│   │   ├── facetracks.ts  per-person face tracking (IOU + interpolation)
+│   │   ├── detect.ts      UltraFace face detection + scene-cut detection
+│   │   ├── mfcc.ts        MFCC audio features for the ASD model
 │   │   ├── energy.ts      per-segment vocal energy (arousal signal)
 │   │   ├── ytdlp.ts       yt-dlp binary management + URL downloads
 │   │   ├── broll.ts       LLM keyword tagging for B-roll inserts
@@ -132,7 +136,9 @@ npm run typecheck
 npm run lint
 ```
 
-Integration test scripts live in `scripts/` (`test-pipeline`, `test-e2e`, `test-quality`, `test-encoders`, `test-resilience`, `test-broll`, `test-youtube`, `smoke-test.sh`). See each file's header for what it covers. The e2e ones need `OPENAI_API_KEY`.
+Integration test scripts live in `scripts/` (`test-pipeline`, `test-e2e`, `test-quality`, `test-encoders`, `test-resilience`, `test-broll`, `test-youtube`, `test-asd`, `smoke-test.sh`). See each file's header for what it covers. The e2e ones need `OPENAI_API_KEY`.
+
+The bundled active-speaker model (`resources/models/lr-asd-*.onnx`) is exported from the MIT-licensed [LR-ASD](https://github.com/Junhua-Liao/LR-ASD) weights with `scripts/export-asd-onnx.py` (requires Python with `torch`, `onnx`, `onnxruntime`, `python_speech_features`).
 
 ## Roadmap
 
