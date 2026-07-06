@@ -22,6 +22,19 @@ const POST_ROLL_SEC = 0.3
 /** Ignore removals shorter than this — not worth a visible jump cut. */
 const MIN_REMOVAL_SEC = 0.35
 const MIN_SEGMENT_SEC = 0.25
+/**
+ * Minimum length of a kept run between two cuts. A dense run of "um"s produces
+ * many short kept spans separated by tiny removals; cutting each one makes the
+ * clip jitter. When a kept run is shorter than this, we'd rather keep the
+ * small removed gap before it than add another jump cut.
+ */
+const MIN_KEPT_SEC = 1.2
+/**
+ * …but only bridge a short kept run back over a *small* gap. A genuinely long
+ * pause is still worth one clean cut even if the speech after it is short, so
+ * removals larger than this are never bridged away.
+ */
+const BRIDGE_MAX_GAP_SEC = 1.5
 
 const FILLER_WORDS = new Set(['um', 'uh', 'uhm', 'umm', 'erm', 'er', 'ah', 'mmm', 'hmm', 'mhm'])
 
@@ -57,7 +70,21 @@ export function computeKeptSegments(
     }
   }
 
-  const kept = merged.filter((s) => s.end - s.start >= MIN_SEGMENT_SEC)
+  // Anti-jitter: bridge short kept runs back over small removed gaps so dense
+  // filler ("word um word uh word") doesn't turn into a burst of jump cuts.
+  // Long pauses (gap > BRIDGE_MAX_GAP_SEC) are preserved as single clean cuts.
+  const spaced: KeptSegment[] = []
+  for (const seg of merged) {
+    const prev = spaced[spaced.length - 1]
+    const gapToPrev = prev ? seg.start - prev.end : Infinity
+    if (prev && seg.end - seg.start < MIN_KEPT_SEC && gapToPrev <= BRIDGE_MAX_GAP_SEC) {
+      prev.end = seg.end
+    } else {
+      spaced.push({ ...seg })
+    }
+  }
+
+  const kept = spaced.filter((s) => s.end - s.start >= MIN_SEGMENT_SEC)
   if (kept.length === 0) return null
 
   const keptDuration = kept.reduce((sum, s) => sum + (s.end - s.start), 0)

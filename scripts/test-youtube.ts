@@ -102,7 +102,7 @@ async function main(): Promise<void> {
 
   console.log('5. Transcribing…')
   const chunks = await extractAudioChunks(videoPath, join(WORK, 'audio'), info.durationSec)
-  const transcript = await transcribeChunks(apiKey, 'whisper-1', chunks)
+  const transcript = await transcribeChunks(apiKey, 'whisper-1', chunks, 'en')
   const words = transcript.segments.reduce((n, s) => n + s.words.length, 0)
   assert.ok(words > 10, `too few words transcribed: ${words}`)
   // Catches chunk-offset stitching bugs: timestamps must span the whole video.

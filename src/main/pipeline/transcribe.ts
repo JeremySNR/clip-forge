@@ -94,6 +94,7 @@ export async function transcribeChunks(
   apiKey: string,
   model: string,
   chunks: AudioChunk[],
+  language: string,
   onProgress?: (fraction: number) => void,
   signal?: AbortSignal
 ): Promise<Transcript> {
@@ -105,6 +106,7 @@ export async function transcribeChunks(
     const chunk = chunks[i]
     const res = await transcribeAudioFile(apiKey, chunk.path, model, {
       contextPrompt: previousTail || undefined,
+      language,
       signal
     })
     previousTail = (res.text ?? '').slice(-600)

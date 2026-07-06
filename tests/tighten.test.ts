@@ -40,6 +40,50 @@ describe('computeKeptSegments', () => {
     const transcript = makeTranscript(['hi there'])
     expect(computeKeptSegments(transcript, 0, transcript.durationSec)).toBeNull()
   })
+
+  it('does not machine-gun cut dense filler', () => {
+    // A word every ~1.2s with an "um" between each. Cutting every filler would
+    // produce one jump cut per word (the reported jitter); the anti-jitter
+    // pass must collapse that to at most a couple of clean segments.
+    const words = []
+    const N = 8
+    for (let i = 0; i < N; i++) {
+      const base = i * 1.2
+      words.push({ text: 'word', start: base, end: base + 0.3 })
+      words.push({ text: 'um', start: base + 0.5, end: base + 0.9 })
+    }
+    const last = words[words.length - 1].end
+    const transcript = {
+      language: 'english',
+      durationSec: last,
+      segments: [{ id: 0, text: 'x', start: 0, end: last, words }]
+    }
+    const kept = computeKeptSegments(transcript, 0, last)
+    expect(kept === null || kept.length <= 2).toBe(true)
+  })
+
+  it('still cuts a genuine long pause amid filler', () => {
+    const words = []
+    // Stammer block, then a long silence, then a clean run of speech.
+    for (let i = 0; i < 3; i++) {
+      const b = i * 1.2
+      words.push({ text: 'word', start: b, end: b + 0.3 })
+      words.push({ text: 'um', start: b + 0.5, end: b + 0.9 })
+    }
+    for (let i = 0; i < 4; i++) {
+      const b = 6 + i * 0.4
+      words.push({ text: 'more', start: b, end: b + 0.3 })
+    }
+    const last = words[words.length - 1].end
+    const transcript = {
+      language: 'english',
+      durationSec: last,
+      segments: [{ id: 0, text: 'x', start: 0, end: last, words }]
+    }
+    const kept = computeKeptSegments(transcript, 0, last)
+    expect(kept).not.toBeNull()
+    expect(kept!.length).toBe(2)
+  })
 })
 
 describe('TimeMap', () => {

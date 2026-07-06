@@ -110,15 +110,25 @@ describe('mouthActivity', () => {
   const W = 8
   const H = 8
   const flat = (v: number): Buffer => Buffer.alloc(W * H * 3, v)
+  const box = face(0.5, 0.9, 0.6)
 
   it('is zero for identical frames', () => {
-    expect(mouthActivity(flat(100), flat(100), face(0.5, 0.9, 0.6), W, H)).toBe(0)
+    expect(mouthActivity(flat(100), flat(100), box, W, H)).toBe(0)
   })
 
-  it('scales with pixel change in the mouth region', () => {
-    const a = flat(100)
-    const b = flat(140)
-    const activity = mouthActivity(a, b, face(0.5, 0.9, 0.6), W, H)
-    expect(activity).toBeCloseTo(40, 0)
+  it('ignores uniform whole-face motion (head bob / lighting)', () => {
+    // The mouth and upper face move together, so the differential cancels:
+    // a nodding or gesturing listener must not read as talking.
+    expect(mouthActivity(flat(100), flat(140), box, W, H)).toBe(0)
+  })
+
+  it('reports motion concentrated in the mouth region', () => {
+    // Only the lower (mouth) rows change; the upper face is still → speech.
+    const prev = flat(100)
+    const cur = Buffer.from(prev)
+    for (let y = 6; y < 8; y++) {
+      for (let x = 0; x < W * 3; x++) cur[y * W * 3 + x] = 140
+    }
+    expect(mouthActivity(prev, cur, box, W, H)).toBeCloseTo(40, 0)
   })
 })
