@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { copyFile, mkdir, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { randomUUID } from 'node:crypto'
 import { basename, extname, join } from 'node:path'
 import type {
   AnalyzeOptions,
@@ -16,6 +18,7 @@ import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { generateSocialCaption } from './pipeline/socialCaption'
+import { listSpaces, postClipToSpace, testConnection } from './pipeline/workvivo'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
 import { clearImportCookiesFile, installImportCookiesFile } from './cookies'
 import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource } from './updates'
@@ -28,14 +31,17 @@ import {
   getExportPreferences,
   getModelPreferences,
   getSettings,
+  getWorkvivoConfig,
   updateSettings
 } from './settings'
 
 const runningAnalyses = new Map<string, AbortController>()
 const runningExports = new Map<string, AbortController>()
+const runningWorkvivoPosts = new Map<string, AbortController>()
 
 export const ANALYSIS_CANCELLED_MESSAGE = 'Analysis cancelled'
 export const EXPORT_CANCELLED_MESSAGE = 'Export cancelled'
+export const WORKVIVO_POST_CANCELLED_MESSAGE = 'WorkVivo post cancelled'
 
 /** How far apart durations may be for a relinked file to count as the same video. */
 const RELINK_DURATION_TOLERANCE_SEC = 2
@@ -235,6 +241,95 @@ export function registerIpcHandlers(): void {
     clip.caption = caption
     await saveProject(project)
     return project
+  })
+
+  ipcMain.handle('workvivo:testConnection', async () => {
+    const cfg = getWorkvivoConfig()
+    if (!cfg) {
+      return { ok: false, message: 'Add your WorkVivo URL, Organisation ID and API key first.' }
+    }
+    return testConnection(cfg.request)
+  })
+
+  ipcMain.handle('workvivo:listSpaces', async () => {
+    const cfg = getWorkvivoConfig()
+    if (!cfg) return []
+    return listSpaces(cfg.request)
+  })
+
+  ipcMain.handle(
+    'workvivo:postClip',
+    async (event, projectId: string, clipId: string, spaceId: string) => {
+      const cfg = getWorkvivoConfig()
+      if (!cfg) {
+        throw new Error(
+          'WorkVivo is not connected. Add your URL, Organisation ID and API key in Settings.'
+        )
+      }
+      if (!spaceId) throw new Error('Choose a WorkVivo space to post to.')
+      const project = await loadProject(projectId)
+      const clip = project.clips.find((c) => c.id === clipId)
+      if (!clip) throw new Error('Clip not found')
+      if (project.sourceMissing) {
+        throw new Error(`The source video is missing (${project.video.path}). Relink it to post.`)
+      }
+      if (runningWorkvivoPosts.has(clipId)) throw new Error('This clip is already being posted.')
+
+      const text = (clip.caption?.trim() || clip.title || '').trim()
+      const prefs = getExportPreferences()
+      const branding = getBrandingSettings()
+      const controller = new AbortController()
+      runningWorkvivoPosts.set(clipId, controller)
+      const dir = join(tmpdir(), 'clipforge', 'workvivo')
+      await mkdir(dir, { recursive: true })
+      const outputPath = join(dir, `${clipId}-${randomUUID()}.mp4`)
+      const send = (progress: number, message: string): void => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send('workvivo:progress', { clipId, progress, message })
+        }
+      }
+      try {
+        send(0, 'Rendering clip…')
+        await renderClip({
+          clip,
+          source: project.video,
+          transcript: project.transcript,
+          outputPath,
+          encoder: prefs.encoder,
+          quality: prefs.quality,
+          branding:
+            branding.enabled && branding.imagePath && existsSync(branding.imagePath)
+              ? branding
+              : null,
+          fontsDirPath: await renderFontsDir(),
+          signal: controller.signal,
+          // Rendering is the first 80% of the job; upload is the rest.
+          onProgress: (fraction) => send(fraction * 0.8, 'Rendering clip…')
+        })
+        send(0.85, 'Uploading to WorkVivo…')
+        const result = await postClipToSpace(cfg.request, {
+          videoPath: outputPath,
+          text,
+          spaceId,
+          postAsUserId: cfg.postAsUserId || undefined,
+          signal: controller.signal
+        })
+        send(1, 'Posted to WorkVivo')
+        return result
+      } catch (err) {
+        if (controller.signal.aborted) {
+          throw new Error(WORKVIVO_POST_CANCELLED_MESSAGE, { cause: err })
+        }
+        throw err
+      } finally {
+        runningWorkvivoPosts.delete(clipId)
+        await rm(outputPath, { force: true }).catch(() => undefined)
+      }
+    }
+  )
+
+  ipcMain.handle('workvivo:cancelPost', async (_e, clipId: string) => {
+    runningWorkvivoPosts.get(clipId)?.abort()
   })
 
   ipcMain.handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {
