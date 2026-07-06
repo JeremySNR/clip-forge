@@ -49,6 +49,7 @@
   "build": {
     "appId": "org.clipforge.app",
     "productName": "ClipForge",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },
@@ -67,6 +68,10 @@
       "node_modules/onnxruntime-node/**"
     ],
     "extraResources": [
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      },
       {
         "from": "resources/models",
         "to": "models"

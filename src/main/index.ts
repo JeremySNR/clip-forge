@@ -5,6 +5,12 @@ import { registerIpcHandlers } from './ipc'
 import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
 import { initialWindowSize, MIN_WINDOW } from './windowSize'
 
+function appIconPath(): string {
+  return app.isPackaged
+    ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'build/icon.png')
+}
+
 async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
   const shot = async (name: string): Promise<void> => {
@@ -40,6 +46,13 @@ protocol.registerSchemesAsPrivileged([
   }
 ])
 
+function applyAppIcon(): void {
+  const icon = appIconPath()
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(icon)
+  }
+}
+
 function createWindow(): void {
   // A floating window with margin around it, never edge-to-edge (and never
   // larger than the work area on small laptop displays).
@@ -54,6 +67,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: 'ClipForge',
+    icon: appIconPath(),
     // macOS gets the native frosted-glass treatment: system vibrancy showing
     // through a translucent shell (the renderer lightens its surfaces via the
     // `mac-glass` body class), an inset title bar and our top bar as the drag
@@ -116,6 +130,7 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers()
+  applyAppIcon()
   createWindow()
 
   app.on('activate', () => {
