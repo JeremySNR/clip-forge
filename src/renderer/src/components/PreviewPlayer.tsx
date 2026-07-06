@@ -255,21 +255,8 @@ export default function PreviewPlayer({
             time={time}
           />
         )}
-        {clip.edit.showTitle && time - start < Math.min(4, duration) && (
-          <div
-            className="pointer-events-none absolute inset-x-0 flex justify-center px-[6cqw] text-center"
-            style={{ top: '7cqh' }}
-          >
-            <span
-              className="font-extrabold text-white"
-              style={{
-                fontSize: '3.6cqh',
-                textShadow: '0 0 6px rgba(0,0,0,0.9), 2px 2px 0 rgba(0,0,0,0.8)'
-              }}
-            >
-              {clip.hook || clip.title}
-            </span>
-          </div>
+        {clip.edit.showTitle && (clip.hook || clip.title) && time - start < Math.min(4, duration) && (
+          <HookOverlay clip={clip} />
         )}
         {!playing && (
           <button
@@ -334,6 +321,40 @@ function WatermarkOverlay(): React.JSX.Element | null {
         ...corner[branding.position]
       }}
     />
+  )
+}
+
+/**
+ * Hook "card" shown for the first seconds of the clip. Mirrors the ASS Title
+ * style burned in on export (`captions.ts`): a filled translucent label at the
+ * top with a soft shadow, in the clip's caption font, so the preview matches
+ * the render.
+ */
+function HookOverlay({ clip }: { clip: Clip }): React.JSX.Element {
+  const style = getCaptionStyle(clip.edit.captionStyleId)
+  const fontFamily = clip.edit.captionFontFamily ?? style.fontFamily
+  return (
+    <div
+      className="pointer-events-none absolute inset-x-0 flex justify-center px-[6cqw]"
+      style={{ top: '7cqh' }}
+    >
+      <span
+        className="hook-in inline-block max-w-[80cqw] text-center text-white"
+        style={{
+          fontFamily: `'${fontFamily}', sans-serif`,
+          fontWeight: 700,
+          fontSize: '4.4cqh',
+          lineHeight: 1.2,
+          padding: '0.7cqh 1.4cqh',
+          borderRadius: '0.8cqh',
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          boxShadow: '0 0.4cqh 1.4cqh rgba(0,0,0,0.45)',
+          textWrap: 'balance'
+        }}
+      >
+        {clip.hook || clip.title}
+      </span>
+    </div>
   )
 }
 

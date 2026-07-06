@@ -98,6 +98,21 @@ export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   const primary = assStyleColor(style.textColor)
   const outline = assStyleColor(style.outlineColor)
 
+  // Hook "card": a filled, translucent rounded-feel label at the top. libass
+  // draws this with BorderStyle 3 (opaque box in the outline colour) plus a
+  // soft drop shadow (back colour), which reads as a modern hook overlay
+  // instead of bare floating text. Sized independently of the caption style so
+  // the hook stays prominent and legible whatever caption preset is chosen.
+  const titleFontSize = Math.round(opts.height * 0.044)
+  const titleMarginV = Math.round(opts.height * 0.07)
+  const titleMarginH = Math.round(opts.width * 0.1)
+  const titleBoxPad = Math.max(6, Math.round(opts.height * 0.009))
+  const titleShadow = Math.max(2, Math.round(opts.height * 0.0032))
+  /** Card fill: black at ~75% opacity (ASS alpha 0x40 = 25% transparent). */
+  const titleBox = '&H40000000'
+  /** Soft shadow: black at ~44% opacity. */
+  const titleShadowColor = '&H90000000'
+
   const header = `[Script Info]
 Title: ClipForge captions
 ScriptType: v4.00+
@@ -109,7 +124,7 @@ ScaledBorderAndShadow: yes
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
 Style: Caption,${style.fontFamily},${fontSize},${primary},${primary},${outline},&H80000000,${style.bold ? -1 : 0},0,0,0,100,100,0,0,1,${style.outlineWidth},${style.shadow},2,60,60,${marginV},1
-Style: Title,${style.fontFamily},${Math.round(fontSize * 0.82)},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,3,1,8,60,60,${Math.round(opts.height * 0.08)},1
+Style: Title,${style.fontFamily},${titleFontSize},&H00FFFFFF,&H00FFFFFF,${titleBox},${titleShadowColor},-1,0,0,0,100,100,0,0,3,${titleBoxPad},${titleShadow},8,${titleMarginH},${titleMarginH},${titleMarginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -121,7 +136,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   if (opts.title && opts.title.trim().length > 0) {
     const showFor = Math.min(4, clipDur)
     lines.push(
-      `Dialogue: 1,${assTime(0)},${assTime(showFor)},Title,,0,0,0,,{\\fad(150,250)}${escapeAss(opts.title.trim())}`
+      `Dialogue: 1,${assTime(0)},${assTime(showFor)},Title,,0,0,0,,{\\fad(200,300)}${escapeAss(opts.title.trim())}`
     )
   }
 
