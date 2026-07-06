@@ -175,6 +175,8 @@ export interface AnalyzeOptions {
   clipLength: ClipLengthPreference
   /** Generate AI B-roll image inserts timed to spoken keywords. */
   broll: boolean
+  /** Trim each clip's start so it opens on its hook line instead of setup. */
+  hookFirst: boolean
 }
 
 export type ClipLengthPreference = 'auto' | 'short' | 'medium' | 'long'

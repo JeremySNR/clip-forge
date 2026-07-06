@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   console.log(`   "${transcript.segments.map((s) => s.text).join(' ').slice(0, 120)}…"`)
 
   console.log('6. Detecting highlights…')
-  const clips = await detectHighlights(apiKey, 'gpt-5.4-mini', transcript, { prompt: '', clipLength: 'short', broll: false }, info.durationSec)
+  const clips = await detectHighlights(apiKey, 'gpt-5.4-mini', transcript, { prompt: '', clipLength: 'short', broll: false, hookFirst: false }, info.durationSec)
   assert.ok(clips.length >= 1, 'no clips found')
   for (const c of clips) {
     const dur = c.suggestedEnd - c.suggestedStart
