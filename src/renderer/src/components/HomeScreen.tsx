@@ -16,6 +16,7 @@ import { formatDuration, formatBytes } from '../lib/format'
 import MissingSourceBanner from './MissingSourceBanner'
 import type { BrowserCookieSource, ClipLengthPreference } from '@shared/types'
 import { isChromiumBrowser } from '@shared/cookies'
+import { isVideoFile } from '@shared/video'
 
 const COOKIE_BROWSERS: Array<{ value: BrowserCookieSource; label: string }> = [
   { value: '', label: 'No login' },
@@ -52,14 +53,36 @@ export default function HomeScreen(): React.JSX.Element {
 
 function ImportHero(): React.JSX.Element {
   const importVideo = useStore((s) => s.importVideo)
+  const importVideoFromPath = useStore((s) => s.importVideoFromPath)
   const importVideoFromUrl = useStore((s) => s.importVideoFromUrl)
   const importProgress = useStore((s) => s.importProgress)
+  const setPipelineError = (msg: string | null): void => useStore.setState({ pipelineError: msg })
   const pipelineError = useStore((s) => s.pipelineError)
   const [busy, setBusy] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
   const [url, setUrl] = useState('')
 
   const importing = importProgress !== null
   const canSubmitUrl = /^https?:\/\/\S+$/.test(url.trim()) && !importing
+  const disabled = busy || importing
+
+  const handleDrop = (e: React.DragEvent): void => {
+    e.preventDefault()
+    setDragOver(false)
+    if (disabled) return
+    const file = e.dataTransfer.files[0]
+    if (!file) return
+    if (!isVideoFile(file.name)) {
+      setPipelineError(`"${file.name}" is not a supported video file (MP4, MOV, MKV, WEBM and more).`)
+      return
+    }
+    const path = window.clipforge.pathForFile(file)
+    if (!path) {
+      setPipelineError('Could not read that file from disk. Try choosing it instead.')
+      return
+    }
+    void importVideoFromPath(path)
+  }
 
   return (
     <div className="flex flex-col items-center pb-4 pt-8 text-center">
@@ -90,14 +113,28 @@ function ImportHero(): React.JSX.Element {
             setBusy(false)
           }
         }}
-        disabled={busy || importing}
-        className="mt-8 flex w-full max-w-xl cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-surface-600 bg-white/[0.02] px-8 py-12 backdrop-blur transition hover:border-white/25 hover:bg-white/[0.04] disabled:opacity-60"
+        onDragOver={(e) => {
+          e.preventDefault()
+          if (!disabled) setDragOver(true)
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        disabled={disabled}
+        className={`mt-8 flex w-full max-w-xl cursor-pointer flex-col items-center gap-3 rounded-2xl border-2 border-dashed bg-white/[0.02] px-8 py-12 backdrop-blur transition disabled:opacity-60 ${
+          dragOver
+            ? 'border-white/40 bg-white/[0.06]'
+            : 'border-surface-600 hover:border-white/25 hover:bg-white/[0.04]'
+        }`}
       >
         <div className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.05]">
           <Upload size={24} className="text-zinc-200" />
         </div>
         <div className="text-[15px] font-semibold">
-          {busy ? 'Reading video…' : 'Choose a video to clip'}
+          {busy
+            ? 'Reading video…'
+            : dragOver
+              ? 'Drop the video to start'
+              : 'Drag a video here, or click to choose'}
         </div>
         <div className="text-xs text-zinc-500">MP4, MOV, MKV, WEBM and more</div>
       </button>

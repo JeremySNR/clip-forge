@@ -71,6 +71,7 @@ interface AppState {
   init: () => Promise<void>
   refreshProjects: () => Promise<void>
   importVideo: () => Promise<void>
+  importVideoFromPath: (path: string) => Promise<void>
   importVideoFromUrl: (url: string) => Promise<void>
   openProject: (id: string) => Promise<void>
   deleteProject: (id: string) => Promise<void>
@@ -153,9 +154,17 @@ export const useStore = create<AppState>((set, get) => ({
   importVideo: async () => {
     const path = await window.clipforge.selectVideo()
     if (!path) return
-    const project = await window.clipforge.createProject(path)
-    set({ project, screen: 'home', pipelineError: null })
-    await get().refreshProjects()
+    await get().importVideoFromPath(path)
+  },
+
+  importVideoFromPath: async (path) => {
+    try {
+      const project = await window.clipforge.createProject(path)
+      set({ project, screen: 'home', pipelineError: null })
+      await get().refreshProjects()
+    } catch (err) {
+      set({ pipelineError: err instanceof Error ? cleanIpcError(err.message) : String(err) })
+    }
   },
 
   importVideoFromUrl: async (url) => {

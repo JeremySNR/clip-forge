@@ -1,0 +1,46 @@
+name: Release
+
+# Builds installable apps and publishes them to GitHub Releases.
+#
+# Trigger it by pushing a version tag that matches package.json, e.g.:
+#   npm version patch      # bumps version + creates the tag
+#   git push --follow-tags # pushes the commit and the v0.5.5 tag
+#
+# electron-builder uploads the .dmg / .exe / .AppImage plus the update
+# manifests (latest*.yml) the in-app updater reads. Once a user has installed
+# any build, every later release installs itself automatically — no more
+# `npm run dev`, no manual re-sends.
+#
+# Uses the built-in GITHUB_TOKEN, so no extra secrets are required as long as
+# releases publish to this same repo (see the `publish` block in package.json).
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build and publish
+        run: npm run package -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The app is not code-signed yet: stop electron-builder from hunting
+          # for a Developer ID certificate (and failing) on the macOS runner.
+          CSC_IDENTITY_AUTO_DISCOVERY: false

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   AnalyzeOptions,
   AppSettings,
@@ -103,6 +103,13 @@ const api = {
 
   /** Build a media:// URL the renderer can use in <video>/<img> tags. */
   mediaUrl: (absolutePath: string): string => `media://file/${encodeURIComponent(absolutePath)}`,
+
+  /**
+   * Absolute path for a dropped File. Electron removed File.path under the
+   * sandbox, so drag-and-drop has to resolve the path through webUtils here in
+   * the preload rather than reading it off the File in the renderer.
+   */
+  pathForFile: (file: File): string => webUtils.getPathForFile(file),
 
   /** OS platform, for platform-specific chrome (mac vibrancy, drag regions). */
   platform: process.env.CLIPFORGE_FORCE_GLASS ? 'darwin' : process.platform

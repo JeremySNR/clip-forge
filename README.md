@@ -10,11 +10,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/JeremySNR/j-clip/releases/latest"><img src="https://img.shields.io/github/v/release/JeremySNR/j-clip?color=10b981&label=release" alt="Latest release" /></a>
-  <a href="https://github.com/JeremySNR/j-clip/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JeremySNR/j-clip/ci.yml?branch=main&label=CI" alt="CI status" /></a>
+  <a href="https://github.com/JeremySNR/clip-forge/releases/latest"><img src="https://img.shields.io/github/v/release/JeremySNR/clip-forge?color=10b981&label=release" alt="Latest release" /></a>
+  <a href="https://github.com/JeremySNR/clip-forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JeremySNR/clip-forge/ci.yml?branch=main&label=CI" alt="CI status" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms" />
-  <a href="https://github.com/JeremySNR/j-clip/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
+  <a href="https://github.com/JeremySNR/clip-forge/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
 </p>
 
 ---
@@ -69,14 +69,25 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 ## Quick start
 
 ```bash
-git clone https://github.com/JeremySNR/j-clip.git
-cd j-clip
+git clone https://github.com/JeremySNR/clip-forge.git
+cd clip-forge
 npm install
 npm run dev        # development with hot reload
 npm run package    # distributable build (dmg / nsis / AppImage)
 ```
 
-You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/j-clip/releases/latest).
+### Publishing a release (for maintainers)
+
+Most people should just download the app from the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest) — there's no need to run anything from source. To cut a new release, bump the version and push a tag; the [`Release` workflow](.github/workflows/release.yml) builds the macOS `.dmg`, Windows installer and Linux `AppImage` and publishes them, along with the update manifests the in-app updater reads:
+
+```bash
+npm version patch        # or minor / major — bumps package.json and creates the tag
+git push --follow-tags   # pushes the commit and the vX.Y.Z tag
+```
+
+Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
+
+You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest).
 
 Everything except transcription and analysis runs locally. Rendering, face tracking, editing, zoom and export never leave your machine. Only extracted audio, transcripts and a few sampled frames go to the OpenAI API. Never the full video.
 
