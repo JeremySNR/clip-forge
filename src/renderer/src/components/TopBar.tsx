@@ -1,4 +1,5 @@
-import { Clapperboard, Settings, ChevronLeft, ArrowUpCircle, Plus } from 'lucide-react'
+import { Settings, ChevronLeft, ArrowUpCircle, Plus } from 'lucide-react'
+import appIcon from '../assets/icon.webp'
 import { useStore } from '../store'
 
 export default function TopBar(): React.JSX.Element {
@@ -28,9 +29,11 @@ export default function TopBar(): React.JSX.Element {
         </button>
       ) : (
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] shadow-inner shadow-white/5">
-            <Clapperboard size={17} className="text-zinc-100" />
-          </div>
+          <img
+            src={appIcon}
+            alt=""
+            className="h-8 w-8 rounded-lg object-cover shadow-inner shadow-purple-500/20"
+          />
           <span className="text-[15px] font-semibold tracking-tight">ClipForge</span>
           <span className="rounded-full border border-surface-600 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
             Open source
