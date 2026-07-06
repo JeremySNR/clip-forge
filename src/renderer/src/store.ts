@@ -77,6 +77,7 @@ interface AppState {
   deleteProject: (id: string) => Promise<void>
   relinkVideo: () => Promise<void>
   goHome: () => void
+  newProject: () => void
   setSettingsOpen: (open: boolean) => void
   saveSettings: (update: SettingsUpdate) => Promise<void>
   refreshSettings: () => Promise<void>
@@ -209,6 +210,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   goHome: () => set({ screen: 'home', selectedClipId: null, pipelineError: null }),
+
+  // Deselect the current project and return to the import screen so a new
+  // video can be added. Non-destructive: the project stays saved on disk and
+  // remains in "Recent projects".
+  newProject: () => set({ project: null, screen: 'home', selectedClipId: null, pipelineError: null }),
 
   setSettingsOpen: (open) => set({ settingsOpen: open }),
 
