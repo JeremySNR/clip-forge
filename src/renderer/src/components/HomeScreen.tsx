@@ -317,10 +317,18 @@ function SetupPanel(): React.JSX.Element {
             preload="metadata"
           />
           <button
-            onClick={() => void goHomeClear(project.id)}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Delete "${project.name}"? This permanently removes the project and its ${project.clips.length} clip${project.clips.length === 1 ? '' : 's'}, and can't be undone.\n\nTo work on a different video without losing this one, use "New video" instead.`
+                )
+              ) {
+                void goHomeClear(project.id)
+              }
+            }}
             className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500 transition hover:text-red-400"
           >
-            <Trash2 size={13} /> Remove and choose another video
+            <Trash2 size={13} /> Delete this project
           </button>
         </div>
 
@@ -466,7 +474,13 @@ function RecentProjects(): React.JSX.Element | null {
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  void deleteProject(p.id)
+                  if (
+                    window.confirm(
+                      `Delete "${p.name}"? This permanently removes the project and its ${p.clipCount} clip${p.clipCount === 1 ? '' : 's'}, and can't be undone.`
+                    )
+                  ) {
+                    void deleteProject(p.id)
+                  }
                 }}
                 className="rounded-lg p-1.5 text-zinc-600 opacity-0 transition hover:bg-surface-700 hover:text-red-400 group-hover:opacity-100"
               >
