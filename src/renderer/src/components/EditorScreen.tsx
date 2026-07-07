@@ -160,8 +160,14 @@ export default function EditorScreen(): React.JSX.Element {
             <Toggle
               label="Auto zoom — punch-ins on emphasis, jump zooms covering cuts"
               checked={clip.edit.autoZoom ?? false}
+              disabled={clip.edit.reframeMode !== 'crop'}
               onChange={(v) => set({ autoZoom: v })}
             />
+            {clip.edit.reframeMode !== 'crop' && (
+              <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
+                Auto zoom is only available with fill (crop) reframing.
+              </p>
+            )}
           </div>
         </Section>
 
@@ -183,10 +189,11 @@ export default function EditorScreen(): React.JSX.Element {
           </div>
           {!cropDisabled && (
             <>
-              <div className="mt-3 grid grid-cols-2 gap-1.5">
+              <div className="mt-3 grid grid-cols-3 gap-1.5">
                 {(
                   [
                     { value: 'crop', label: 'Fill (crop)' },
+                    { value: 'fit-letterbox', label: 'Fit (letterbox)' },
                     { value: 'fit-blur', label: 'Fit + blur' }
                   ] as Array<{ value: ReframeMode; label: string }>
                 ).map((m) => (
@@ -203,6 +210,12 @@ export default function EditorScreen(): React.JSX.Element {
                   </button>
                 ))}
               </div>
+              {clip.contentType === 'screencast' && (
+                <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+                  Detected as a screen share or demo — using letterbox fit with no zoom so the
+                  full frame stays visible.
+                </p>
+              )}
               {clip.edit.reframeMode === 'crop' && (
                 <>
                   {clip.focusTrack && (
@@ -773,16 +786,24 @@ function Section({
 function Toggle({
   label,
   checked,
+  disabled = false,
   onChange
 }: {
   label: string
   checked: boolean
+  disabled?: boolean
   onChange: (v: boolean) => void
 }): React.JSX.Element {
   return (
     <button
+      type="button"
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className="flex w-full items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2.5 text-left text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
+      className={`flex w-full items-center justify-between gap-3 rounded-lg border border-surface-600 px-3 py-2.5 text-left text-xs font-medium transition ${
+        disabled
+          ? 'cursor-not-allowed text-zinc-600 opacity-60'
+          : 'text-zinc-300 hover:bg-surface-800'
+      }`}
     >
       {label}
       <span

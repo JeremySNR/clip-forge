@@ -12,7 +12,7 @@ import { join } from 'node:path'
 import assert from 'node:assert/strict'
 import { ensureYtDlp, fetchUrlMeta, downloadUrlVideo } from '../src/main/pipeline/ytdlp'
 import { probeVideo, extractAudioChunks } from '../src/main/pipeline/ffmpeg'
-import { analyzeClipFocus } from '../src/main/pipeline/faces'
+import { analyzeClipFocus, applyFocusAnalysis } from '../src/main/pipeline/faces'
 import { focusAt } from '../src/shared/focusTrack'
 import { transcribeChunks } from '../src/main/pipeline/transcribe'
 import { detectHighlights } from '../src/main/pipeline/highlights'
@@ -88,8 +88,10 @@ async function main(): Promise<void> {
   console.log('4. Face detection / auto-reframe track…')
   // Sample a window starting 25% in: long shows often open with title cards.
   const fwStart = info.durationSec * 0.25
-  const track = await analyzeClipFocus(videoPath, fwStart, Math.min(fwStart + 30, info.durationSec))
+  const analysis = await analyzeClipFocus(videoPath, fwStart, Math.min(fwStart + 30, info.durationSec))
+  const track = analysis.focusTrack
   assert.ok(track && track.length >= 1, 'expected a focus track on footage with a face')
+  assert.equal(analysis.contentType, 'speaker')
   console.log(`   ${track.length} segment(s):`, track.map((k) => `t=${k.t.toFixed(1)} x=${k.x.toFixed(2)}`).join(', '))
   const sampled = focusAt(track, 2)
   assert.ok(sampled >= 0 && sampled <= 1)
@@ -137,8 +139,7 @@ async function main(): Promise<void> {
   top.visualSummary = visual.visualSummary
 
   console.log('8. Rendering top clip with auto framing + captions…')
-  top.focusTrack = await analyzeClipFocus(videoPath, top.edit.start, top.edit.end)
-  if (top.focusTrack) top.edit.framing = 'auto'
+  applyFocusAnalysis(top, await analyzeClipFocus(videoPath, top.edit.start, top.edit.end))
   top.edit.showTitle = true
   const out = join(WORK, 'top-clip.mp4')
   await renderClip({ clip: top, source: info, transcript, outputPath: out })

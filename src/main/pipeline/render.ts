@@ -15,6 +15,7 @@ import type {
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
+import { clipAllowsAutoZoom } from '@shared/contentType'
 import { computeZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { runFfmpegWith } from './ffmpeg'
 import { buildAss, fontsDir } from './captions'
@@ -116,6 +117,12 @@ function reframeGraph(clip: Clip, source: VideoInfo, inputLabel: string): string
       `[bg]scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},gblur=sigma=24,eq=brightness=-0.12[bgb];` +
       `[fg]scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos[fgs];` +
       `[bgb][fgs]overlay=(W-w)/2:(H-h)/2[reframed]`
+    )
+  }
+  if (clip.edit.reframeMode === 'fit-letterbox') {
+    return (
+      `[${inputLabel}]scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+      `pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:color=black[reframed]`
     )
   }
   // Crop to the target ratio around the horizontal focus point, then scale.
@@ -439,7 +446,7 @@ export async function renderClip(job: RenderJob): Promise<string> {
   // Auto zoom: plan in source time (shared with the preview), then remap to
   // the clip-relative output timeline the filters run on.
   let zoomEvents: ZoomEvent[] | null = null
-  if (clip.edit.autoZoom) {
+  if (clipAllowsAutoZoom(clip.edit)) {
     const planned = computeZoomEvents(transcript, start, clip.edit.end, segments)
     zoomEvents = remapZoomEvents(planned, (t) => (map ? map.toOutput(t) : t - start))
     if (zoomEvents.length === 0) zoomEvents = null

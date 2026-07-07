@@ -123,6 +123,16 @@ describe('buildFilterGraph', () => {
     expect(graph.filterComplex).not.toContain('max(0,min(iw-ow,iw*(')
   })
 
+  it('letterboxes wide footage with black bars for screencasts', () => {
+    const clip = makeClip()
+    clip.edit.reframeMode = 'fit-letterbox'
+    const graph = buildFilterGraph(clip, source, null, 30, null)
+    expect(graph.filterComplex).toContain('force_original_aspect_ratio=decrease')
+    expect(graph.filterComplex).toContain('pad=1080:1920')
+    expect(graph.filterComplex).toContain('color=black[reframed]')
+    expect(graph.filterComplex).not.toContain('perspective=')
+  })
+
   it('applies auto zoom via the subpixel perspective filter, not zoompan', () => {
     const graph = buildFilterGraph(makeClip(), source, null, 30, null, {
       zoomEvents: [

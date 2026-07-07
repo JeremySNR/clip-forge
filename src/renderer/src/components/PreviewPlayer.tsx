@@ -4,6 +4,7 @@ import type { Clip, Project, WatermarkPosition } from '@shared/types'
 import { hexToRgba, resolveCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
+import { clipAllowsAutoZoom } from '@shared/contentType'
 import { computeZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
 import {
@@ -142,10 +143,10 @@ export default function PreviewPlayer({
 
   // Mirrors the export's auto-zoom plan (same shared generator).
   const zoomEvents = useMemo(() => {
-    if (!clip.edit.autoZoom) return null
+    if (!clipAllowsAutoZoom(clip.edit)) return null
     const events = computeZoomEvents(project.transcript, start, end, keptSegments)
     return events.length > 0 ? events : null
-  }, [clip.edit.autoZoom, project.transcript, start, end, keptSegments])
+  }, [clip.edit, project.transcript, start, end, keptSegments])
 
   const src = window.clipforge.mediaUrl(project.video.path)
   const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'

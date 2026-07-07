@@ -36,7 +36,10 @@ export interface Transcript {
 export type AspectRatio = '9:16' | '1:1' | '16:9' | 'original'
 
 /** How the source frame is fitted into the target aspect ratio. */
-export type ReframeMode = 'crop' | 'fit-blur'
+export type ReframeMode = 'crop' | 'fit-blur' | 'fit-letterbox'
+
+/** Detected clip content — steers 9:16 layout (crop + zoom vs letterbox). */
+export type ClipContentType = 'speaker' | 'screencast'
 
 /** Auto = follow the AI face track; manual = fixed focusX slider. */
 export type FramingMode = 'auto' | 'manual'
@@ -124,6 +127,11 @@ export interface Clip {
   thumbnailPath: string | null
   /** AI face track for auto reframing; null when no usable faces were found. */
   focusTrack: FocusKeyframe[] | null
+  /**
+   * Whether the clip is mostly a talking head or a screencast/demo/slides.
+   * Set during analysis; null on older projects until re-analysed.
+   */
+  contentType?: ClipContentType | null
   /** AI-suggested image inserts timed to spoken keywords. */
   broll: BrollItem[]
   edit: ClipEditState

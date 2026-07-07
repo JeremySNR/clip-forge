@@ -2,7 +2,8 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { FocusKeyframe } from '@shared/types'
+import type { FocusKeyframe, ClipContentType, ClipEditState } from '@shared/types'
+import { classifyClipContent, editDefaultsForContentType } from '@shared/contentType'
 import { mapLimit } from './concurrency'
 import { runFfmpeg } from './ffmpeg'
 import { analyzeClipASD } from './asd'
@@ -236,20 +237,30 @@ function trackRun(
   emit(segmentStart)
 }
 
+export interface ClipFocusAnalysis {
+  focusTrack: FocusKeyframe[] | null
+  contentType: ClipContentType
+}
+
 /**
- * Full auto-reframe analysis for one clip. Returns null when the footage has
- * no usable faces (e.g. screencasts) so the UI can fall back to manual focus.
+ * Full auto-reframe analysis for one clip. Returns null focus track when the
+ * footage has no usable faces (e.g. screencasts) so the UI can fall back to
+ * manual / letterbox framing.
  */
 export async function analyzeClipFocus(
   videoPath: string,
   startSec: number,
   endSec: number,
   signal?: AbortSignal
-): Promise<FocusKeyframe[] | null> {
+): Promise<ClipFocusAnalysis> {
+  let faceCoverage = 0
   try {
     const asd = await analyzeClipASD(videoPath, startSec, endSec, signal)
     if (asd) {
-      if (asd.tracks.length === 0) return null
+      faceCoverage = asd.faceFrameRatio
+      if (asd.tracks.length === 0) {
+        return { focusTrack: null, contentType: classifyClipContent(faceCoverage, false) }
+      }
       const { centres, switchCuts } = chooseSpeakerByScores(
         asd.tracks,
         asd.frameCount,
@@ -257,7 +268,11 @@ export async function analyzeClipFocus(
         asd.fps
       )
       const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
-      return buildFocusTrack(centres, startSec, cuts, asd.fps)
+      const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps)
+      return {
+        focusTrack,
+        contentType: classifyClipContent(faceCoverage, focusTrack !== null)
+      }
     }
   } catch (err) {
     if (signal?.aborted) throw err
@@ -266,10 +281,37 @@ export async function analyzeClipFocus(
 
   try {
     const { centres, cuts } = await sampleFaceCentres(videoPath, startSec, endSec, signal)
-    return buildFocusTrack(centres, startSec, cuts)
+    const detected = centres.filter((c): c is number => c !== null).length
+    faceCoverage = centres.length > 0 ? detected / centres.length : 0
+    const focusTrack = buildFocusTrack(centres, startSec, cuts)
+    return {
+      focusTrack,
+      contentType: classifyClipContent(faceCoverage, focusTrack !== null)
+    }
   } catch (err) {
     if (signal?.aborted) throw err
     console.error('Face analysis failed, falling back to manual focus:', err)
-    return null
+    return { focusTrack: null, contentType: 'screencast' }
+  }
+}
+
+/** Apply screencast-aware layout defaults onto a clip after focus analysis. */
+export function applyFocusAnalysis(
+  clip: {
+    focusTrack: FocusKeyframe[] | null
+    contentType?: ClipContentType | null
+    edit: ClipEditState
+  },
+  analysis: ClipFocusAnalysis
+): void {
+  clip.focusTrack = analysis.focusTrack
+  clip.contentType = analysis.contentType
+  if (analysis.contentType === 'screencast') {
+    clip.edit = editDefaultsForContentType(clip.edit, 'screencast')
+    return
+  }
+  if (analysis.focusTrack) {
+    clip.edit.framing = 'auto'
+    clip.edit.focusX = analysis.focusTrack[0]?.x ?? 0.5
   }
 }

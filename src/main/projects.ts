@@ -30,6 +30,7 @@ export async function loadProject(id: string): Promise<Project> {
   project.video.hasAudio ??= true
   for (const clip of project.clips) {
     clip.focusTrack ??= null
+    clip.contentType ??= null
     clip.edit.framing ??= 'manual'
     clip.edit.tightenCuts ??= false
     clip.edit.autoZoom ??= false

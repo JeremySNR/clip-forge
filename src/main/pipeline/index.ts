@@ -7,7 +7,7 @@ import { mapLimit } from './concurrency'
 import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
-import { analyzeClipFocus } from './faces'
+import { analyzeClipFocus, applyFocusAnalysis } from './faces'
 import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
@@ -228,25 +228,22 @@ export async function analyzeProject(
     project.prompt = options.prompt
     await saveProject(project)
 
-    onProgress({ stage: 'reframe', progress: 0.72, message: 'Tracking faces for auto reframing…' })
+    onProgress({ stage: 'reframe', progress: 0.72, message: 'Analysing layout (faces vs screen share)…' })
     let reframed = 0
     await mapLimit(clips, 2, async (clip) => {
       signal?.throwIfAborted()
-      clip.focusTrack = await analyzeClipFocus(
+      const analysis = await analyzeClipFocus(
         project.video.path,
         clip.suggestedStart,
         clip.suggestedEnd,
         signal
       )
-      if (clip.focusTrack) {
-        clip.edit.framing = 'auto'
-        clip.edit.focusX = clip.focusTrack[0]?.x ?? 0.5
-      }
+      applyFocusAnalysis(clip, analysis)
       reframed++
       onProgress({
         stage: 'reframe',
         progress: 0.72 + (reframed / clips.length) * 0.1,
-        message: 'Tracking faces for auto reframing…'
+        message: 'Analysing layout (faces vs screen share)…'
       })
     })
 

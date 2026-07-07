@@ -116,12 +116,15 @@ export interface AsdAnalysis {
   frameCount: number
   sceneCuts: number[]
   fps: number
+  /** Share of strided detection frames that contained at least one face. */
+  faceFrameRatio: number
 }
 
 interface DetectionPass {
   facesPerFrame: Array<FaceBox[] | null>
   sceneCuts: number[]
   frameCount: number
+  faceFrameRatio: number
 }
 
 /** Whether face detection should stop early on sparse / absent faces (unit-tested). */
@@ -212,11 +215,12 @@ async function runDetectionPass(
   const frameCount = abortedEarly
     ? Math.max(facesPerFrame.length, Math.round(duration * ASD_FPS))
     : facesPerFrame.length
+  const faceFrameRatio = detectionFrames > 0 ? framesWithFaces / detectionFrames : 0
   // A dissolve registers on several neighbouring frames; keep only the last
   // of each cluster (when the new shot has settled).
   const mergeWindow = Math.max(1, Math.round(CUT_MERGE_SEC * ASD_FPS))
   const sceneCuts = rawCuts.filter((cut, i) => i === rawCuts.length - 1 || rawCuts[i + 1] - cut > mergeWindow)
-  return { facesPerFrame, sceneCuts, frameCount }
+  return { facesPerFrame, sceneCuts, frameCount, faceFrameRatio }
 }
 
 /** Bilinear sample of a square region into a CROP_SIZE² grayscale patch. */
@@ -447,7 +451,13 @@ export async function analyzeClipASD(
     tracks.length === 0 ||
     trackCoverageRatio(tracks, detection.frameCount) < MIN_TRACK_COVERAGE
   ) {
-    return { tracks: [], frameCount: detection.frameCount, sceneCuts: detection.sceneCuts, fps: ASD_FPS }
+    return {
+      tracks: [],
+      frameCount: detection.frameCount,
+      sceneCuts: detection.sceneCuts,
+      fps: ASD_FPS,
+      faceFrameRatio: detection.faceFrameRatio
+    }
   }
 
   const cropW = Math.min(CROP_PASS_WIDTH, info.width || CROP_PASS_WIDTH)
@@ -484,6 +494,7 @@ export async function analyzeClipASD(
     tracks: scored,
     frameCount: detection.frameCount,
     sceneCuts: detection.sceneCuts,
-    fps: ASD_FPS
+    fps: ASD_FPS,
+    faceFrameRatio: detection.faceFrameRatio
   }
 }
