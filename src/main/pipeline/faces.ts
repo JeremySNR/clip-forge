@@ -253,11 +253,10 @@ export async function analyzeClipFocus(
   endSec: number,
   signal?: AbortSignal
 ): Promise<ClipFocusAnalysis> {
-  let faceCoverage = 0
   try {
     const asd = await analyzeClipASD(videoPath, startSec, endSec, signal)
     if (asd) {
-      faceCoverage = asd.faceFrameRatio
+      const faceCoverage = asd.faceFrameRatio
       if (asd.tracks.length === 0) {
         return { focusTrack: null, contentType: classifyClipContent(faceCoverage, false) }
       }
@@ -282,7 +281,7 @@ export async function analyzeClipFocus(
   try {
     const { centres, cuts } = await sampleFaceCentres(videoPath, startSec, endSec, signal)
     const detected = centres.filter((c): c is number => c !== null).length
-    faceCoverage = centres.length > 0 ? detected / centres.length : 0
+    const faceCoverage = centres.length > 0 ? detected / centres.length : 0
     const focusTrack = buildFocusTrack(centres, startSec, cuts)
     return {
       focusTrack,
