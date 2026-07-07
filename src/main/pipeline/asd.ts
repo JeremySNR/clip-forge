@@ -57,6 +57,21 @@ const CROP_PASS_WIDTH = 640
 const ASD_SCENE_CUT_THRESHOLD = 24
 /** Cuts closer together than this are one transition (dissolves span frames). */
 const CUT_MERGE_SEC = 0.3
+/**
+ * Screencasts and slide decks rarely have faces; scanning the whole clip at
+ * 25 fps is slow and looks like a hang. After this many seconds, bail out
+ * when detections are too sparse to ever produce a focus track.
+ */
+const FACE_PROBE_SEC = 8
+/** Stop scanning once no face has been seen for this long (e.g. Zoom → screen share). */
+const FACE_ABSENT_ABORT_SEC = 3
+/** Minimum strided detection frames that must contain a face to keep scanning. */
+const MIN_FACE_DETECTIONS = 3
+/**
+ * Tracks must cover at least this fraction of analysis frames before we run
+ * the heavy crop + LR-ASD passes (buildFocusTrack needs ~30%).
+ */
+const MIN_TRACK_COVERAGE = 0.25
 
 let sessionsPromise: Promise<{
   frontend: ort.InferenceSession
@@ -109,6 +124,31 @@ interface DetectionPass {
   frameCount: number
 }
 
+/** Whether face detection should stop early on sparse / absent faces (unit-tested). */
+export function shouldAbortFaceDetection(
+  frameIndex: number,
+  detectionFrames: number,
+  framesWithFaces: number,
+  lastFaceFrame: number,
+  fps: number = ASD_FPS
+): boolean {
+  const probeEnd = Math.round(FACE_PROBE_SEC * fps)
+  const absentLimit = Math.round(FACE_ABSENT_ABORT_SEC * fps)
+  const probeDetections = Math.ceil(probeEnd / DETECT_STRIDE)
+  if (frameIndex >= probeEnd && detectionFrames >= probeDetections && framesWithFaces < MIN_FACE_DETECTIONS) {
+    return true
+  }
+  if (lastFaceFrame >= 0 && frameIndex - lastFaceFrame >= absentLimit) return true
+  return false
+}
+
+/** Fraction of analysis frames covered by face tracks (unit-tested). */
+export function trackCoverageRatio(tracks: FaceTrack[], frameCount: number): number {
+  let covered = 0
+  for (const t of tracks) covered += t.boxes.length
+  return covered / Math.max(1, frameCount)
+}
+
 /** Pass 1: stream small RGB frames; detect scene cuts and faces (strided). */
 async function runDetectionPass(
   videoPath: string,
@@ -119,24 +159,55 @@ async function runDetectionPass(
   const facesPerFrame: Array<FaceBox[] | null> = []
   const rawCuts: number[] = []
   let prev: Buffer | null = null
-  const frameCount = await streamRawFrames(
-    [
-      '-ss', startSec.toFixed(3),
-      '-t', duration.toFixed(3),
-      '-i', videoPath,
-      '-vf', `fps=${ASD_FPS},scale=${MODEL_W}:${MODEL_H}`,
-      '-f', 'rawvideo',
-      '-pix_fmt', 'rgb24'
-    ],
-    MODEL_W * MODEL_H * 3,
-    async (frame, f) => {
-      signal?.throwIfAborted()
-      if (prev && frameDifference(prev, frame) > ASD_SCENE_CUT_THRESHOLD) rawCuts.push(f)
-      facesPerFrame.push(f % DETECT_STRIDE === 0 ? await detectFaces(frame) : null)
-      prev = Buffer.from(frame)
-    },
-    signal
-  )
+  let detectionFrames = 0
+  let framesWithFaces = 0
+  let lastFaceFrame = -1
+  let abortedEarly = false
+  const passAbort = new AbortController()
+  const onParentAbort = (): void => passAbort.abort()
+  signal?.addEventListener('abort', onParentAbort, { once: true })
+
+  try {
+    await streamRawFrames(
+      [
+        '-ss', startSec.toFixed(3),
+        '-t', duration.toFixed(3),
+        '-i', videoPath,
+        '-vf', `fps=${ASD_FPS},scale=${MODEL_W}:${MODEL_H}`,
+        '-f', 'rawvideo',
+        '-pix_fmt', 'rgb24'
+      ],
+      MODEL_W * MODEL_H * 3,
+      async (frame, f) => {
+        signal?.throwIfAborted()
+        if (prev && frameDifference(prev, frame) > ASD_SCENE_CUT_THRESHOLD) rawCuts.push(f)
+        if (f % DETECT_STRIDE === 0) {
+          const faces = await detectFaces(frame)
+          facesPerFrame.push(faces)
+          detectionFrames++
+          if (faces.length > 0) {
+            framesWithFaces++
+            lastFaceFrame = f
+          }
+        } else {
+          facesPerFrame.push(null)
+        }
+        prev = Buffer.from(frame)
+        if (shouldAbortFaceDetection(f, detectionFrames, framesWithFaces, lastFaceFrame)) {
+          abortedEarly = true
+          passAbort.abort()
+        }
+      },
+      passAbort.signal
+    )
+  } catch (err) {
+    if (!abortedEarly && !signal?.aborted) throw err
+    signal?.throwIfAborted()
+  } finally {
+    signal?.removeEventListener('abort', onParentAbort)
+  }
+
+  const frameCount = facesPerFrame.length
   // A dissolve registers on several neighbouring frames; keep only the last
   // of each cluster (when the new shot has settled).
   const mergeWindow = Math.max(1, Math.round(CUT_MERGE_SEC * ASD_FPS))
@@ -368,7 +439,10 @@ export async function analyzeClipASD(
   if (detection.frameCount === 0) return null
 
   const tracks = buildFaceTracks(detection.facesPerFrame, detection.sceneCuts, ASD_FPS)
-  if (tracks.length === 0) {
+  if (
+    tracks.length === 0 ||
+    trackCoverageRatio(tracks, detection.frameCount) < MIN_TRACK_COVERAGE
+  ) {
     return { tracks: [], frameCount: detection.frameCount, sceneCuts: detection.sceneCuts, fps: ASD_FPS }
   }
 

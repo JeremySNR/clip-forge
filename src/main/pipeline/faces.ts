@@ -85,21 +85,45 @@ async function sampleFaceCentres(
     // Face detection per frame is independent — run inferences concurrently
     // (ONNX Runtime queues session.run calls safely across its thread pool).
     const facesPerFrame: FaceBox[][] = new Array(frameCount).fill(null).map(() => [])
+    let detectionFrames = 0
+    let framesWithFaces = 0
+    let lastFaceFrame = -1
+    let abortedEarly = false
+    const probeEnd = Math.round(8 * SAMPLE_FPS)
+    const absentLimit = Math.round(3 * SAMPLE_FPS)
     await mapLimit(frames, FACE_INFERENCE_CONCURRENCY, async (frame, f) => {
+      if (abortedEarly) return
       signal?.throwIfAborted()
-      facesPerFrame[f] = await detectFaces(frame)
+      const faces = await detectFaces(frame)
+      facesPerFrame[f] = faces
+      detectionFrames++
+      if (faces.length > 0) {
+        framesWithFaces++
+        lastFaceFrame = f
+      }
+      if (
+        (f >= probeEnd && detectionFrames >= probeEnd && framesWithFaces < 3) ||
+        (lastFaceFrame >= 0 && f - lastFaceFrame >= absentLimit)
+      ) {
+        abortedEarly = true
+      }
     })
+
+    const effectiveCount = abortedEarly ? Math.max(lastFaceFrame + 1, probeEnd) : frameCount
+    const trimmedFaces = facesPerFrame.slice(0, effectiveCount)
+    const trimmedFrames = frames.slice(0, effectiveCount)
+    const trimmedCuts = sceneCuts.filter((c) => c < effectiveCount)
 
     // Mouth-movement activity per face — the visual speech signal that lets
     // the focus follow whoever is talking rather than whoever is biggest.
-    const activityPerFrame: number[][] = facesPerFrame.map((faces, f) =>
-      f === 0 || sceneCuts.includes(f)
+    const activityPerFrame: number[][] = trimmedFaces.map((faces, f) =>
+      f === 0 || trimmedCuts.includes(f)
         ? faces.map(() => 0)
-        : faces.map((box) => mouthActivity(frames[f - 1], frames[f], box, MODEL_W, MODEL_H))
+        : faces.map((box) => mouthActivity(trimmedFrames[f - 1], trimmedFrames[f], box, MODEL_W, MODEL_H))
     )
 
-    const { centres, switchCuts } = chooseFocusCentres(facesPerFrame, activityPerFrame, sceneCuts)
-    const cuts = [...new Set([...sceneCuts, ...switchCuts])].sort((a, b) => a - b)
+    const { centres, switchCuts } = chooseFocusCentres(trimmedFaces, activityPerFrame, trimmedCuts)
+    const cuts = [...new Set([...trimmedCuts, ...switchCuts])].sort((a, b) => a - b)
     return { centres, cuts }
   } finally {
     await rm(rawPath, { force: true }).catch(() => undefined)
