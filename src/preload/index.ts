@@ -64,9 +64,10 @@ const api = {
   postClipToWorkvivo: (
     projectId: string,
     clipId: string,
-    spaceId: string
+    spaceId: string,
+    workvivoCaption?: string | null
   ): Promise<WorkvivoPostResult> =>
-    ipcRenderer.invoke('workvivo:postClip', projectId, clipId, spaceId),
+    ipcRenderer.invoke('workvivo:postClip', projectId, clipId, spaceId, workvivoCaption),
   cancelWorkvivoPost: (clipId: string): Promise<void> =>
     ipcRenderer.invoke('workvivo:cancelPost', clipId),
   onWorkvivoProgress: (cb: (p: WorkvivoPostProgress) => void): (() => void) => {

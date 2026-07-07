@@ -450,6 +450,7 @@ export const useStore = create<AppState>((set, get) => ({
   postClipToWorkvivo: async (clipId, spaceId) => {
     const project = get().project
     if (!project) return
+    const clip = project.clips.find((c) => c.id === clipId)
     set({
       workvivoPosts: {
         ...get().workvivoPosts,
@@ -457,7 +458,12 @@ export const useStore = create<AppState>((set, get) => ({
       }
     })
     try {
-      const result = await window.clipforge.postClipToWorkvivo(project.id, clipId, spaceId)
+      const result = await window.clipforge.postClipToWorkvivo(
+        project.id,
+        clipId,
+        spaceId,
+        clip?.workvivoCaption ?? null
+      )
       set({
         workvivoPosts: {
           ...get().workvivoPosts,

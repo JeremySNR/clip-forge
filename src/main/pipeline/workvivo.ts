@@ -145,21 +145,26 @@ function toSpace(raw: RawSpace): WorkvivoSpace | null {
   return { id: String(raw.id), name }
 }
 
-/** List the spaces the token can post to (first page). */
+const SPACES_PAGE_SIZE = 100
+
+/** List all spaces the token can post to. */
 export async function listSpaces(
   config: WorkvivoRequestConfig,
   signal?: AbortSignal
 ): Promise<WorkvivoSpace[]> {
-  const res = await fetch(`${config.apiBase}/spaces?skip=0&take=100`, {
-    method: 'GET',
-    headers: authHeaders(config),
-    signal
-  })
-  if (!res.ok) await raiseForStatus(res, 'Listing WorkVivo spaces')
-  const body = (await res.json()) as { data?: RawSpace[] }
-  const spaces = (body.data ?? [])
-    .map(toSpace)
-    .filter((s): s is WorkvivoSpace => s !== null)
+  const spaces: WorkvivoSpace[] = []
+  for (let skip = 0; ; skip += SPACES_PAGE_SIZE) {
+    const res = await fetch(`${config.apiBase}/spaces?skip=${skip}&take=${SPACES_PAGE_SIZE}`, {
+      method: 'GET',
+      headers: authHeaders(config),
+      signal
+    })
+    if (!res.ok) await raiseForStatus(res, 'Listing WorkVivo spaces')
+    const body = (await res.json()) as { data?: RawSpace[] }
+    const page = body.data ?? []
+    spaces.push(...page.map(toSpace).filter((s): s is WorkvivoSpace => s !== null))
+    if (page.length < SPACES_PAGE_SIZE) break
+  }
   spaces.sort((a, b) => a.name.localeCompare(b.name))
   return spaces
 }

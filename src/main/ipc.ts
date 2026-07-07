@@ -308,7 +308,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'workvivo:postClip',
-    async (event, projectId: string, clipId: string, spaceId: string) => {
+    async (
+      event,
+      projectId: string,
+      clipId: string,
+      spaceId: string,
+      workvivoCaption?: string | null
+    ) => {
       const cfg = getWorkvivoConfig()
       if (!cfg) {
         throw new Error(
@@ -330,6 +336,7 @@ export function registerIpcHandlers(): void {
       if (runningWorkvivoPosts.has(clipId)) throw new Error('This clip is already being posted.')
 
       const text = (
+        (typeof workvivoCaption === 'string' ? workvivoCaption.trim() : '') ||
         clip.workvivoCaption?.trim() ||
         clip.caption?.trim() ||
         clip.title ||
