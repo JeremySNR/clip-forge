@@ -28,6 +28,7 @@ export async function loadProject(id: string): Promise<Project> {
   const project = JSON.parse(raw) as Project
   // Migrate projects saved before auto-reframing / B-roll / tighten existed.
   project.video.hasAudio ??= true
+  project.videoType ??= 'auto'
   for (const clip of project.clips) {
     clip.focusTrack ??= null
     clip.contentType ??= null

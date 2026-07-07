@@ -2,8 +2,9 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { FocusKeyframe, ClipContentType, ClipEditState } from '@shared/types'
-import { classifyClipContent, editDefaultsForContentType } from '@shared/contentType'
+import type { FocusKeyframe, ClipContentType, ClipEditState, VideoType } from '@shared/types'
+import { classifyClipContent } from '@shared/contentType'
+import { applyVideoTypeLayout, resolveContentType } from '@shared/videoType'
 import { mapLimit } from './concurrency'
 import { runFfmpeg } from './ffmpeg'
 import { analyzeClipASD } from './asd'
@@ -301,16 +302,10 @@ export function applyFocusAnalysis(
     contentType?: ClipContentType | null
     edit: ClipEditState
   },
-  analysis: ClipFocusAnalysis
+  analysis: ClipFocusAnalysis,
+  videoType: VideoType = 'auto'
 ): void {
   clip.focusTrack = analysis.focusTrack
-  clip.contentType = analysis.contentType
-  if (analysis.contentType === 'screencast') {
-    clip.edit = editDefaultsForContentType(clip.edit, 'screencast')
-    return
-  }
-  if (analysis.focusTrack) {
-    clip.edit.framing = 'auto'
-    clip.edit.focusX = analysis.focusTrack[0]?.x ?? 0.5
-  }
+  clip.contentType = resolveContentType(videoType, analysis.contentType)
+  clip.edit = applyVideoTypeLayout(clip.edit, analysis.contentType, videoType, analysis.focusTrack)
 }

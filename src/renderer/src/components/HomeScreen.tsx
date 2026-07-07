@@ -15,7 +15,8 @@ import {
 import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
 import MissingSourceBanner from './MissingSourceBanner'
-import type { BrowserCookieSource, ClipLengthPreference } from '@shared/types'
+import type { BrowserCookieSource, ClipLengthPreference, VideoType } from '@shared/types'
+import { VIDEO_TYPE_OPTIONS } from '@shared/videoType'
 import { isChromiumBrowser } from '@shared/cookies'
 import { isVideoFile } from '@shared/video'
 
@@ -271,6 +272,7 @@ function SetupPanel(): React.JSX.Element {
   const pipelineError = useStore((s) => s.pipelineError)
   const [prompt, setPrompt] = useState(project.prompt)
   const [clipLength, setClipLength] = useState<ClipLengthPreference>('auto')
+  const [videoType, setVideoType] = useState<VideoType>(project.videoType ?? 'auto')
   // Off by default: B-roll costs extra LLM/image calls and splits opinion.
   const [broll, setBroll] = useState(false)
   // Off by default: hook-first trimming rewrites clip starts with an extra LLM pass.
@@ -403,6 +405,34 @@ function SetupPanel(): React.JSX.Element {
 
           <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
             <label className="flex items-center gap-2 text-sm font-semibold">
+              <Film size={15} className="text-accent-400" />
+              What kind of video is this?
+            </label>
+            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+              Helps ClipForge pick the right 9:16 layout — crop and zoom for talking heads,
+              letterbox for screen recordings.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {VIDEO_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setVideoType(opt.value)}
+                  className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                    videoType === opt.value
+                      ? 'border-white/30 bg-white/[0.07] text-zinc-100'
+                      : 'border-surface-600 bg-surface-850 text-zinc-400 hover:border-surface-600 hover:bg-surface-800'
+                  }`}
+                >
+                  <div className="text-sm font-medium">{opt.label}</div>
+                  <div className="mt-0.5 text-[11px] leading-snug text-zinc-500">{opt.hint}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+            <label className="flex items-center gap-2 text-sm font-semibold">
               <Clock size={15} className="text-accent-400" />
               Preferred clip length
             </label>
@@ -441,7 +471,7 @@ function SetupPanel(): React.JSX.Element {
           ) : (
             <div>
               <button
-                onClick={() => void analyze({ prompt, clipLength, broll, hookFirst })}
+                onClick={() => void analyze({ prompt, clipLength, broll, hookFirst, videoType })}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-black/40 transition hover:bg-white"
               >
                 <Sparkles size={17} />

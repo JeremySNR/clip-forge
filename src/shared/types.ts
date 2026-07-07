@@ -41,6 +41,12 @@ export type ReframeMode = 'crop' | 'fit-blur' | 'fit-letterbox'
 /** Detected clip content — steers 9:16 layout (crop + zoom vs letterbox). */
 export type ClipContentType = 'speaker' | 'screencast'
 
+/**
+ * What kind of source video this project is. Chosen at setup time and steers
+ * highlight defaults, face tracking and 9:16 layout (crop vs letterbox).
+ */
+export type VideoType = 'auto' | 'talking-head' | 'podcast' | 'webinar' | 'product-demo'
+
 /** Auto = follow the AI face track; manual = fixed focusX slider. */
 export type FramingMode = 'auto' | 'manual'
 
@@ -147,6 +153,8 @@ export interface Project {
   clips: Clip[]
   /** Custom instructions the user gave the AI, if any. */
   prompt: string
+  /** Source format chosen at setup; steers layout and face-tracking behaviour. */
+  videoType: VideoType
   /**
    * True when the source video no longer exists on disk (moved/deleted).
    * Transient — recomputed on load, never persisted.
@@ -191,6 +199,8 @@ export interface AnalyzeOptions {
   broll: boolean
   /** Trim each clip's start so it opens on its hook line instead of setup. */
   hookFirst: boolean
+  /** Source format; steers per-clip layout and whether face tracking runs. */
+  videoType: VideoType
 }
 
 export type ClipLengthPreference = 'auto' | 'short' | 'medium' | 'long'

@@ -168,7 +168,8 @@ async function main(): Promise<void> {
     video,
     transcript: makeTranscript(video.durationSec),
     clips,
-    prompt: ''
+    prompt: '',
+    videoType: 'podcast'
   }
   await writeFile(join(dir, 'project.json'), JSON.stringify(project), 'utf8')
   console.log(`Seeded demo project at ${dir}`)
