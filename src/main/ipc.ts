@@ -335,13 +335,10 @@ export function registerIpcHandlers(): void {
       }
       if (runningWorkvivoPosts.has(clipId)) throw new Error('This clip is already being posted.')
 
-      const text = (
-        (typeof workvivoCaption === 'string' ? workvivoCaption.trim() : '') ||
-        clip.workvivoCaption?.trim() ||
-        clip.caption?.trim() ||
-        clip.title ||
-        ''
-      ).trim()
+      const text =
+        typeof workvivoCaption === 'string'
+          ? workvivoCaption.trim()
+          : (clip.workvivoCaption?.trim() || clip.caption?.trim() || clip.title || '').trim()
       const prefs = getExportPreferences()
       const branding = getBrandingSettings()
       const controller = new AbortController()
