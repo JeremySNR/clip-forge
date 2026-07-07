@@ -82,6 +82,14 @@ describe('buildFocusTrack', () => {
     expect(buildFocusTrack(centres, 0)).toBeNull()
   })
 
+  it('counts a no-face suffix against the focus threshold', () => {
+    const centres: Array<number | null> = [
+      ...Array.from({ length: 6 }, () => 0.4),
+      ...Array.from({ length: 24 }, () => null)
+    ]
+    expect(buildFocusTrack(centres, 0)).toBeNull()
+  })
+
   it('produces a single keyframe for a stable speaker', () => {
     const centres = Array.from({ length: 20 }, () => 0.4)
     const track = buildFocusTrack(centres, 10)

@@ -207,7 +207,11 @@ async function runDetectionPass(
     signal?.removeEventListener('abort', onParentAbort)
   }
 
-  const frameCount = facesPerFrame.length
+  // Keep the full clip length as the denominator after bailout; the skipped
+  // suffix is effectively "no face", not "not part of the clip".
+  const frameCount = abortedEarly
+    ? Math.max(facesPerFrame.length, Math.round(duration * ASD_FPS))
+    : facesPerFrame.length
   // A dissolve registers on several neighbouring frames; keep only the last
   // of each cluster (when the new shot has settled).
   const mergeWindow = Math.max(1, Math.round(CUT_MERGE_SEC * ASD_FPS))

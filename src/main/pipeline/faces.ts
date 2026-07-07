@@ -85,31 +85,42 @@ async function sampleFaceCentres(
     // Face detection per frame is independent — run inferences concurrently
     // (ONNX Runtime queues session.run calls safely across its thread pool).
     const facesPerFrame: FaceBox[][] = new Array(frameCount).fill(null).map(() => [])
+    const completedFrames = new Array<boolean>(frameCount).fill(false)
     let detectionFrames = 0
     let framesWithFaces = 0
     let lastFaceFrame = -1
+    let processedThrough = -1
     let abortedEarly = false
+    let effectiveCount = frameCount
     const probeEnd = Math.round(8 * SAMPLE_FPS)
     const absentLimit = Math.round(3 * SAMPLE_FPS)
     await mapLimit(frames, FACE_INFERENCE_CONCURRENCY, async (frame, f) => {
-      if (abortedEarly) return
+      if (abortedEarly && f >= effectiveCount) return
       signal?.throwIfAborted()
       const faces = await detectFaces(frame)
       facesPerFrame[f] = faces
-      detectionFrames++
-      if (faces.length > 0) {
-        framesWithFaces++
-        lastFaceFrame = f
+      completedFrames[f] = true
+      if (abortedEarly) return
+
+      // Concurrent inferences finish out of order; only make bailout decisions
+      // from a contiguous analysed prefix so no frame inside it is skipped.
+      while (processedThrough + 1 < frameCount && completedFrames[processedThrough + 1]) {
+        processedThrough++
+        detectionFrames++
+        if (facesPerFrame[processedThrough].length > 0) {
+          framesWithFaces++
+          lastFaceFrame = processedThrough
+        }
       }
       if (
-        (f >= probeEnd && detectionFrames >= probeEnd && framesWithFaces < 3) ||
-        (lastFaceFrame >= 0 && f - lastFaceFrame >= absentLimit)
+        (processedThrough >= probeEnd && detectionFrames >= probeEnd && framesWithFaces < 3) ||
+        (lastFaceFrame >= 0 && processedThrough - lastFaceFrame >= absentLimit)
       ) {
         abortedEarly = true
+        effectiveCount = Math.min(frameCount, processedThrough + 1, Math.max(lastFaceFrame + 1, probeEnd))
       }
     })
 
-    const effectiveCount = abortedEarly ? Math.max(lastFaceFrame + 1, probeEnd) : frameCount
     const trimmedFaces = facesPerFrame.slice(0, effectiveCount)
     const trimmedFrames = frames.slice(0, effectiveCount)
     const trimmedCuts = sceneCuts.filter((c) => c < effectiveCount)
@@ -122,7 +133,11 @@ async function sampleFaceCentres(
         : faces.map((box) => mouthActivity(trimmedFrames[f - 1], trimmedFrames[f], box, MODEL_W, MODEL_H))
     )
 
-    const { centres, switchCuts } = chooseFocusCentres(trimmedFaces, activityPerFrame, trimmedCuts)
+    const { centres: analysedCentres, switchCuts } = chooseFocusCentres(trimmedFaces, activityPerFrame, trimmedCuts)
+    const centres =
+      analysedCentres.length < frameCount
+        ? analysedCentres.concat(new Array<number | null>(frameCount - analysedCentres.length).fill(null))
+        : analysedCentres
     const cuts = [...new Set([...trimmedCuts, ...switchCuts])].sort((a, b) => a - b)
     return { centres, cuts }
   } finally {
