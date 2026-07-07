@@ -256,9 +256,9 @@ export async function analyzeClipFocus(
   try {
     const asd = await analyzeClipASD(videoPath, startSec, endSec, signal)
     if (asd) {
-      const faceCoverage = asd.faceFrameRatio
+      const detectionFaceCoverage = asd.faceFrameRatio
       if (asd.tracks.length === 0) {
-        return { focusTrack: null, contentType: classifyClipContent(faceCoverage, false) }
+        return { focusTrack: null, contentType: classifyClipContent(detectionFaceCoverage, false) }
       }
       const { centres, switchCuts } = chooseSpeakerByScores(
         asd.tracks,
@@ -268,6 +268,8 @@ export async function analyzeClipFocus(
       )
       const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
       const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps)
+      const detected = centres.filter((c): c is number => c !== null).length
+      const faceCoverage = centres.length > 0 ? detected / centres.length : 0
       return {
         focusTrack,
         contentType: classifyClipContent(faceCoverage, focusTrack !== null)
