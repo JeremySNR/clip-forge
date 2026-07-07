@@ -269,10 +269,10 @@ export async function analyzeClipFocus(
         const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps)
         return {
           focusTrack,
-          contentType: classifyClipContent(faceCoverage)
+          contentType: classifyClipContent(faceCoverage, focusTrack !== null)
         }
       }
-      const contentType = classifyClipContent(faceCoverage)
+      const contentType = classifyClipContent(faceCoverage, false)
       if (contentType === 'screencast') return { focusTrack: null, contentType }
     }
   } catch (err) {
@@ -287,7 +287,7 @@ export async function analyzeClipFocus(
     const focusTrack = buildFocusTrack(centres, startSec, cuts)
     return {
       focusTrack,
-      contentType: classifyClipContent(faceCoverage)
+      contentType: classifyClipContent(faceCoverage, focusTrack !== null)
     }
   } catch (err) {
     if (signal?.aborted) throw err

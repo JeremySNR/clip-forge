@@ -31,6 +31,10 @@ describe('classifyClipContent', () => {
     expect(classifyClipContent(SCREENCAST_FACE_COVERAGE)).toBe('speaker')
     expect(classifyClipContent(0.8)).toBe('speaker')
   })
+
+  it('marks missing focus tracks as screencast', () => {
+    expect(classifyClipContent(0.8, false)).toBe('screencast')
+  })
 })
 
 describe('editDefaultsForContentType', () => {
