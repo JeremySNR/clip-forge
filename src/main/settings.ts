@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type {
   AppSettings,
   BrandingSettings,
+  BrandVoiceSettings,
   BrowserCookieSource,
   EncoderPreference,
   QualityPreference,
@@ -34,6 +35,7 @@ interface StoredSettings {
   encoder: EncoderPreference
   quality: QualityPreference
   branding: BrandingSettings
+  brandVoice: BrandVoiceSettings
   importCookiesBrowser: BrowserCookieSource
   workvivo: StoredWorkvivo
 }
@@ -45,6 +47,13 @@ const DEFAULT_BRANDING: BrandingSettings = {
   opacity: 0.8,
   scale: 0.16,
   colors: DEFAULT_BRAND_COLORS
+}
+
+const DEFAULT_BRAND_VOICE: BrandVoiceSettings = {
+  brandName: '',
+  tone: '',
+  style: '',
+  avoid: ''
 }
 
 const DEFAULT_WORKVIVO: StoredWorkvivo = {
@@ -67,6 +76,7 @@ const DEFAULTS: StoredSettings = {
   encoder: 'auto',
   quality: 'standard',
   branding: DEFAULT_BRANDING,
+  brandVoice: DEFAULT_BRAND_VOICE,
   importCookiesBrowser: '',
   workvivo: DEFAULT_WORKVIVO
 }
@@ -91,6 +101,7 @@ function load(): StoredSettings {
           ...(parsed.branding ?? {}),
           colors: { ...DEFAULT_BRAND_COLORS, ...(parsed.branding?.colors ?? {}) }
         },
+        brandVoice: { ...DEFAULT_BRAND_VOICE, ...(parsed.brandVoice ?? {}) },
         workvivo: { ...DEFAULT_WORKVIVO, ...(parsed.workvivo ?? {}) }
       }
       return cache
@@ -149,6 +160,7 @@ export async function getSettings(): Promise<AppSettings> {
     quality: s.quality,
     gpu: await getGpuStatus(),
     branding: s.branding,
+    brandVoice: s.brandVoice,
     appVersion: app.getVersion(),
     importCookiesBrowser: s.importCookiesBrowser,
     hasImportCookiesFile: getImportCookiesPath() !== null,
@@ -207,6 +219,11 @@ export function getBrandingSettings(): BrandingSettings {
   return load().branding
 }
 
+/** Synchronous access to the stored brand tone-of-voice settings. */
+export function getBrandVoiceSettings(): BrandVoiceSettings {
+  return load().brandVoice
+}
+
 /** Synchronous access to the stored encoder/quality preferences. */
 export function getExportPreferences(): { encoder: EncoderPreference; quality: QualityPreference } {
   const s = load()
@@ -248,6 +265,9 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
       ...b,
       ...(b.colors !== undefined ? { colors: { ...s.branding.colors, ...b.colors } } : {})
     }
+  }
+  if (update.brandVoice !== undefined) {
+    s.brandVoice = { ...s.brandVoice, ...update.brandVoice }
   }
   if (update.importCookiesBrowser !== undefined) s.importCookiesBrowser = update.importCookiesBrowser
   if (update.clearImportCookiesFile) await clearImportCookiesFile()

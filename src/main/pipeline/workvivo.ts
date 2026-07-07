@@ -5,33 +5,45 @@ import type { WorkvivoPostResult, WorkvivoSpace, WorkvivoTestResult } from '@sha
 /**
  * Minimal WorkVivo Customer API client using Node's built-in fetch (no SDK).
  *
- * Auth model (confirmed against WorkVivo's docs and Zoom's own
- * `zoom/workvivo-zoom-integration`): every request carries a Bearer token plus
- * a `Workvivo-Id` header (the organisation id), against `<org-url>/api/v1`.
- * This is an org-level app token, not the user's interactive SSO login, so
- * posts are attributed to a configured identity (`user_id`) rather than
- * whoever clicks.
+ * Contract verified against WorkVivo's official API spec (the developer portal
+ * is a published Postman collection) and corroborated by Zoom's own
+ * `zoom/workvivo-zoom-integration`.
+ *
+ * Host: the Customer API is served from a central, region-specific host,
+ * `https://api.workvivo.<region>/v1`, NOT the tenant's own web subdomain. Region
+ * is encoded in the tenant TLD: `*.workvivo.com` (EU/global) → api.workvivo.com,
+ * `*.workvivo.us` (US) → api.workvivo.us. See `deriveWorkvivoApiBase`.
+ *
+ * Auth: every request carries a Bearer token plus a `Workvivo-Id` header (the
+ * organisation id). This is an org-level app token, not the user's interactive
+ * SSO login, so posts are attributed to a configured identity (`user_id`)
+ * rather than whoever clicks.
  *
  * Endpoints:
- * - `GET /spaces` — list spaces (used to power the picker + validate the
- *   connection). Confirmed shape: `{ data: [{ id, name }] }`.
- * - `POST /updates` — create a feed post targeted at a space, as
- *   `multipart/form-data` with `text`, `space_id`, an optional `user_id`, and a
- *   `video` file. The multipart video-upload pattern is confirmed from Zoom's
- *   integration (which uses the sibling `/kudos` endpoint the same way); the
- *   exact update-post endpoint/field names are centralised below so they are
- *   trivial to adjust against developer.workvivo.com if an org's tenant differs.
+ * - `GET /spaces?skip=&take=` — list spaces (powers the picker + validates the
+ *   connection). Shape: `{ data: [{ id, name, … }] }`.
+ * - `POST /updates` ("Create an update") — create a feed post targeted at a
+ *   space, as `multipart/form-data`. Required fields: `text`, `created_at`
+ *   (`YYYY-MM-DDTHH:MM:SSZ` UTC), and a `user_id` (or `user_external_id`) to
+ *   attribute the post to. A space is targeted via the audience array:
+ *   `audience[type]=spaces` and `audience[spaces][0]=<space id>`. The `video`
+ *   file is attached the same way; WorkVivo transcodes it, so there is a delay
+ *   before it appears on the feed. Success is `201` with `{ data: { id, … } }`.
  */
 
 /** Feed-post endpoint and its field names, kept in one place (see file header). */
 const UPDATES_ENDPOINT = 'updates'
 const FIELD_TEXT = 'text'
-const FIELD_SPACE_ID = 'space_id'
+const FIELD_CREATED_AT = 'created_at'
 const FIELD_USER_ID = 'user_id'
 const FIELD_VIDEO = 'video'
+const FIELD_AUDIENCE_TYPE = 'audience[type]'
+const AUDIENCE_TYPE_SPACES = 'spaces'
+/** WorkVivo targets an audience via an indexed array, e.g. `audience[spaces][0]`. */
+const fieldAudienceSpace = (index: number): string => `audience[spaces][${index}]`
 
 export interface WorkvivoRequestConfig {
-  /** Fully-qualified API base, e.g. https://acme.workvivo.com/api/v1. */
+  /** Fully-qualified API base, e.g. https://api.workvivo.com/v1. */
   apiBase: string
   /** Organisation id sent as the `Workvivo-Id` header. */
   companyId: string
@@ -50,10 +62,15 @@ export class WorkvivoError extends Error {
 }
 
 /**
- * Derive the WorkVivo API base URL from an organisation's WorkVivo address.
- * Accepts `https://acme.workvivo.com`, a bare `acme.workvivo.us`, or a URL that
- * already includes a path — always returning `<origin>/api/v1`. Returns null
- * when the value is not a usable host. Exported for tests.
+ * Derive the WorkVivo Customer API base URL from an organisation's WorkVivo
+ * address. The API is NOT served from the tenant's own web subdomain; it lives
+ * on a central, region-specific host `https://api.workvivo.<region>/v1`, where
+ * region is taken from the tenant TLD (`*.workvivo.com` → com, `*.workvivo.us`
+ * → us). So `https://acme.workvivo.com` → `https://api.workvivo.com/v1`.
+ *
+ * Accepts a full URL or a bare host, with or without a path. Anything that is
+ * not a WorkVivo host defaults to the `.com` (EU/global) region. Returns null
+ * only when the value is not a usable host. Exported for tests.
  */
 export function deriveWorkvivoApiBase(url: string | undefined): string | null {
   const raw = url?.trim()
@@ -61,8 +78,10 @@ export function deriveWorkvivoApiBase(url: string | undefined): string | null {
   const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
   try {
     const u = new URL(withScheme)
-    if (!u.hostname.includes('.')) return null
-    return `${u.origin}/api/v1`
+    const host = u.hostname.toLowerCase()
+    if (!host.includes('.')) return null
+    const region = host.match(/workvivo\.(com|us|io)$/)?.[1] ?? 'com'
+    return `https://api.workvivo.${region}/v1`
   } catch {
     return null
   }
@@ -93,14 +112,20 @@ async function raiseForStatus(res: Response, context: string): Promise<never> {
   }
   if (res.status === 403) {
     throw new WorkvivoError(
-      'WorkVivo denied the request — the token is missing the required scope (spaces:read / posting write).',
+      `WorkVivo denied the request (HTTP 403)${detail ? `: ${detail}` : ''}. The API token most likely lacks permission to create posts — ask your WorkVivo admin to grant it write/create access for updates (feed posts).`,
       403
     )
   }
   if (res.status === 404) {
     throw new WorkvivoError(
-      `WorkVivo endpoint not found (HTTP 404). Check the WorkVivo URL and region (.com vs .us).`,
+      `WorkVivo endpoint not found (HTTP 404). This usually means the wrong region — check your WorkVivo URL's domain matches your tenant (.com for EU/global, .us for US).`,
       404
+    )
+  }
+  if (res.status === 413) {
+    throw new WorkvivoError(
+      `WorkVivo rejected the upload as too large (HTTP 413). The video exceeds the API's request size limit.`,
+      413
     )
   }
   throw new WorkvivoError(`${context} failed (HTTP ${res.status})${detail ? `: ${detail}` : ''}`, res.status)
@@ -120,23 +145,62 @@ function toSpace(raw: RawSpace): WorkvivoSpace | null {
   return { id: String(raw.id), name }
 }
 
-/** List the spaces the token can post to (first page). */
+const SPACES_PAGE_SIZE = 100
+
+/** List all spaces the token can post to. */
 export async function listSpaces(
   config: WorkvivoRequestConfig,
   signal?: AbortSignal
 ): Promise<WorkvivoSpace[]> {
-  const res = await fetch(`${config.apiBase}/spaces?per_page=200`, {
+  const spaces: WorkvivoSpace[] = []
+  for (let skip = 0; ; skip += SPACES_PAGE_SIZE) {
+    const res = await fetch(`${config.apiBase}/spaces?skip=${skip}&take=${SPACES_PAGE_SIZE}`, {
+      method: 'GET',
+      headers: authHeaders(config),
+      signal
+    })
+    if (!res.ok) await raiseForStatus(res, 'Listing WorkVivo spaces')
+    const body = (await res.json()) as { data?: RawSpace[] }
+    const page = body.data ?? []
+    spaces.push(...page.map(toSpace).filter((s): s is WorkvivoSpace => s !== null))
+    if (page.length < SPACES_PAGE_SIZE) break
+  }
+  spaces.sort((a, b) => a.name.localeCompare(b.name))
+  return spaces
+}
+
+export interface WorkvivoUser {
+  id: string
+  name: string
+}
+
+/**
+ * Resolve a WorkVivo user id from an email address, to populate the "Post as"
+ * setting (WorkVivo requires posts to be attributed to a user). Uses the
+ * documented `GET /users/by-email/:email` endpoint.
+ */
+export async function findUserByEmail(
+  config: WorkvivoRequestConfig,
+  email: string,
+  signal?: AbortSignal
+): Promise<WorkvivoUser> {
+  const res = await fetch(`${config.apiBase}/users/by-email/${encodeURIComponent(email)}`, {
     method: 'GET',
     headers: authHeaders(config),
     signal
   })
-  if (!res.ok) await raiseForStatus(res, 'Listing WorkVivo spaces')
-  const body = (await res.json()) as { data?: RawSpace[] }
-  const spaces = (body.data ?? [])
-    .map(toSpace)
-    .filter((s): s is WorkvivoSpace => s !== null)
-  spaces.sort((a, b) => a.name.localeCompare(b.name))
-  return spaces
+  if (res.status === 404) {
+    throw new WorkvivoError('No WorkVivo user found with that email address.', 404)
+  }
+  if (!res.ok) await raiseForStatus(res, 'Looking up WorkVivo user')
+  const body = (await res.json()) as {
+    data?: { id?: string | number; name?: string; display_name?: string }
+  }
+  const user = body.data
+  if (!user || user.id === undefined || user.id === null) {
+    throw new WorkvivoError('No WorkVivo user found with that email address.')
+  }
+  return { id: String(user.id), name: user.name ?? user.display_name ?? String(user.id) }
 }
 
 /** Validate the connection by listing spaces. Never throws. */
@@ -173,9 +237,18 @@ export interface PostClipOptions {
   text: string
   /** Target space id. */
   spaceId: string
-  /** WorkVivo user id to attribute the post to; omitted when empty. */
+  /**
+   * WorkVivo user id to attribute the post to. WorkVivo requires this (or a
+   * user_external_id) to create an update, so an empty value will be rejected
+   * by the API; omitted from the request when empty.
+   */
   postAsUserId?: string
   signal?: AbortSignal
+}
+
+/** WorkVivo wants `created_at` as `YYYY-MM-DDTHH:MM:SSZ` (UTC, no milliseconds). */
+function workvivoTimestamp(): string {
+  return new Date().toISOString().slice(0, 19) + 'Z'
 }
 
 /** Post a rendered clip to a WorkVivo space as a feed update with the video attached. */
@@ -186,7 +259,10 @@ export async function postClipToSpace(
   const bytes = await readFile(opts.videoPath)
   const form = new FormData()
   form.append(FIELD_TEXT, opts.text)
-  form.append(FIELD_SPACE_ID, opts.spaceId)
+  form.append(FIELD_CREATED_AT, workvivoTimestamp())
+  // Target the chosen space via the audience array (audience[spaces][0]).
+  form.append(FIELD_AUDIENCE_TYPE, AUDIENCE_TYPE_SPACES)
+  form.append(fieldAudienceSpace(0), opts.spaceId)
   if (opts.postAsUserId) form.append(FIELD_USER_ID, opts.postAsUserId)
   form.append(
     FIELD_VIDEO,

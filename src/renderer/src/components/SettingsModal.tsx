@@ -16,12 +16,15 @@ import {
   Languages,
   Loader2,
   Send,
-  Palette
+  Palette,
+  MessageSquareQuote,
+  Search
 } from 'lucide-react'
 import { useStore } from '../store'
 import { DEFAULT_BRAND_COLORS, resolveCaptionStyle } from '@shared/captionStyles'
 import type {
   BrandColors,
+  BrandVoiceSettings,
   EncoderPreference,
   ImportProgress,
   QualityPreference,
@@ -69,6 +72,18 @@ const WATERMARK_POSITIONS: Array<{ value: WatermarkPosition; label: string }> = 
   { value: 'bottom-right', label: 'Bottom right' }
 ]
 
+type SectionId = 'general' | 'export' | 'branding' | 'voice' | 'workvivo' | 'fonts' | 'updates'
+
+const SECTIONS: Array<{ id: SectionId; label: string; icon: typeof KeyRound }> = [
+  { id: 'general', label: 'API & models', icon: KeyRound },
+  { id: 'export', label: 'Export', icon: MonitorPlay },
+  { id: 'branding', label: 'Branding', icon: Stamp },
+  { id: 'voice', label: 'Brand voice', icon: MessageSquareQuote },
+  { id: 'workvivo', label: 'WorkVivo', icon: Send },
+  { id: 'fonts', label: 'Fonts', icon: Type },
+  { id: 'updates', label: 'Updates', icon: RefreshCw }
+]
+
 export default function SettingsModal(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
@@ -80,6 +95,7 @@ export default function SettingsModal(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [gpuProgress, setGpuProgress] = useState<ImportProgress | null>(null)
   const [gpuError, setGpuError] = useState<string | null>(null)
+  const [section, setSection] = useState<SectionId>('general')
 
   useEffect(() => window.clipforge.onGpuProgress(setGpuProgress), [])
 
@@ -113,28 +129,48 @@ export default function SettingsModal(): React.JSX.Element {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={() => setSettingsOpen(false)}
     >
       <div
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-surface-900/85 p-6 shadow-2xl shadow-black/60 backdrop-blur-2xl"
+        className="flex h-[85vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-surface-900/90 shadow-2xl shadow-black/60 backdrop-blur-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Settings</h2>
+        <aside className="flex w-56 shrink-0 flex-col border-r border-surface-700 bg-surface-900/50 p-3">
+          <h2 className="px-2 py-2 text-lg font-semibold">Settings</h2>
+          <nav className="mt-1 flex flex-col gap-0.5">
+            {SECTIONS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setSection(id)}
+                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition ${
+                  section === id
+                    ? 'bg-white/[0.08] text-zinc-100'
+                    : 'text-zinc-400 hover:bg-surface-800 hover:text-zinc-200'
+                }`}
+              >
+                <Icon size={15} className={section === id ? 'text-accent-400' : ''} />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="relative flex-1 overflow-y-auto p-6">
           <button
             onClick={() => setSettingsOpen(false)}
-            className="rounded-lg p-1.5 text-zinc-500 transition hover:bg-surface-800 hover:text-zinc-200"
+            className="absolute right-4 top-4 z-10 rounded-lg p-1.5 text-zinc-500 transition hover:bg-surface-800 hover:text-zinc-200"
           >
             <X size={18} />
           </button>
-        </div>
 
-        <div className="mt-5">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <KeyRound size={15} className="text-accent-400" />
-            OpenAI API key
-          </label>
+          {section === 'general' && (
+            <div className="max-w-xl">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <KeyRound size={15} className="text-accent-400" />
+                  OpenAI API key
+                </label>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500">
             Used for Whisper transcription and clip analysis. Stored encrypted on this machine
             and never sent anywhere except the OpenAI API.
@@ -208,9 +244,22 @@ export default function SettingsModal(): React.JSX.Element {
               </option>
             ))}
           </select>
-        </div>
+              </div>
 
-        <div className="mt-5 border-t border-surface-700 pt-5">
+              <button
+                onClick={() => void save()}
+                disabled={saving}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-900 transition hover:bg-white disabled:opacity-60"
+              >
+                {saved ? <Check size={16} /> : null}
+                {saved ? 'Saved' : saving ? 'Saving…' : 'Save settings'}
+              </button>
+            </div>
+          )}
+
+          {section === 'export' && (
+            <div className="max-w-xl">
+              <div>
           <label className="flex items-center gap-2 text-sm font-medium">
             <MonitorPlay size={15} className="text-accent-400" />
             Export encoder
@@ -290,20 +339,15 @@ export default function SettingsModal(): React.JSX.Element {
             ))}
           </div>
         </div>
+            </div>
+          )}
 
-        <BrandingSection />
-        <WorkvivoSection />
-        <FontsSection />
-        <UpdatesSection />
-
-        <button
-          onClick={() => void save()}
-          disabled={saving}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-900 transition hover:bg-white disabled:opacity-60"
-        >
-          {saved ? <Check size={16} /> : null}
-          {saved ? 'Saved' : saving ? 'Saving…' : 'Save settings'}
-        </button>
+          {section === 'branding' && <BrandingSection />}
+          {section === 'voice' && <BrandVoiceSection />}
+          {section === 'workvivo' && <WorkvivoSection />}
+          {section === 'fonts' && <FontsSection />}
+          {section === 'updates' && <UpdatesSection />}
+        </div>
       </div>
     </div>
   )
@@ -321,7 +365,7 @@ function BrandingSection(): React.JSX.Element {
   }
 
   return (
-    <div className="mt-5 border-t border-surface-700 pt-5">
+    <div className="max-w-xl">
       <label className="flex items-center gap-2 text-sm font-medium">
         <Stamp size={15} className="text-accent-400" />
         Branding
@@ -588,6 +632,78 @@ function ColorField({
 }
 
 /**
+ * Brand tone-of-voice and style guidance. Free-text fields that steer AI
+ * caption generation (WorkVivo posts today). Persisted on blur so typing does
+ * not fire a save per keystroke.
+ */
+function BrandVoiceSection(): React.JSX.Element {
+  const settings = useStore((s) => s.settings)
+  const saveSettings = useStore((s) => s.saveSettings)
+  const voice: BrandVoiceSettings = settings?.brandVoice ?? {
+    brandName: '',
+    tone: '',
+    style: '',
+    avoid: ''
+  }
+
+  const inputClass =
+    'mt-2 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none'
+
+  // Uncontrolled inputs (defaultValue + save on blur) so typing does not fire a
+  // save per keystroke; keyed on the stored value so they re-seed once settings
+  // load. Only persist when the value actually changed.
+  const commit = (key: keyof BrandVoiceSettings, value: string): void => {
+    if (value !== voice[key]) void saveSettings({ brandVoice: { [key]: value } })
+  }
+
+  const field = (
+    key: keyof BrandVoiceSettings,
+    label: string,
+    placeholder: string,
+    rows: number
+  ): React.JSX.Element => (
+    <div className="mt-4">
+      <span className="text-[11px] font-medium text-zinc-400">{label}</span>
+      {rows > 1 ? (
+        <textarea
+          key={voice[key]}
+          defaultValue={voice[key]}
+          rows={rows}
+          onBlur={(e) => commit(key, e.target.value)}
+          placeholder={placeholder}
+          className={`${inputClass} resize-none leading-relaxed`}
+        />
+      ) : (
+        <input
+          key={voice[key]}
+          defaultValue={voice[key]}
+          onBlur={(e) => commit(key, e.target.value)}
+          placeholder={placeholder}
+          className={inputClass}
+        />
+      )}
+    </div>
+  )
+
+  return (
+    <div className="max-w-xl">
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <MessageSquareQuote size={15} className="text-accent-400" />
+        Brand voice
+      </label>
+      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+        Steers AI-generated captions (like WorkVivo posts) so they sound like your organisation.
+        Leave blank for a neutral, friendly default.
+      </p>
+      {field('brandName', 'Brand / organisation name', 'e.g. your company name', 1)}
+      {field('tone', 'Tone of voice', 'e.g. warm, upbeat and human; confident but never salesy', 2)}
+      {field('style', 'Writing style', 'e.g. British English, short sentences, no emojis', 2)}
+      {field('avoid', 'Things to avoid', 'e.g. no hashtags, no hype, no corporate jargon', 2)}
+    </div>
+  )
+}
+
+/**
  * WorkVivo connector: posts clips straight to a chosen WorkVivo space. Auth is
  * an org-level app token (Bearer) plus the Organisation ID header — not the
  * user's SSO login — so posts appear as the configured identity.
@@ -605,6 +721,9 @@ function WorkvivoSection(): React.JSX.Element {
   const [postAsUserId, setPostAsUserId] = useState(wv?.postAsUserId ?? '')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [lookupEmail, setLookupEmail] = useState('')
+  const [lookupBusy, setLookupBusy] = useState(false)
+  const [lookupMsg, setLookupMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   useEffect(() => {
     if (wv?.configured) void loadSpaces()
@@ -633,11 +752,32 @@ function WorkvivoSection(): React.JSX.Element {
     }
   }
 
+  const lookUp = async (): Promise<void> => {
+    setLookupBusy(true)
+    setLookupMsg(null)
+    try {
+      const user = await window.clipforge.findWorkvivoUser(lookupEmail.trim())
+      setPostAsUserId(user.id)
+      await saveSettings({ workvivo: { postAsUserId: user.id } })
+      setLookupMsg({ ok: true, text: `Found ${user.name} (id ${user.id}) and saved.` })
+    } catch (err) {
+      setLookupMsg({
+        ok: false,
+        text:
+          err instanceof Error
+            ? err.message.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '')
+            : String(err)
+      })
+    } finally {
+      setLookupBusy(false)
+    }
+  }
+
   const inputClass =
     'mt-1.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none'
 
   return (
-    <div className="mt-5 border-t border-surface-700 pt-5">
+    <div className="max-w-xl">
       <label className="flex items-center gap-2 text-sm font-medium">
         <Send size={15} className="text-accent-400" />
         WorkVivo
@@ -677,13 +817,43 @@ function WorkvivoSection(): React.JSX.Element {
         />
       </div>
       <div className="mt-3">
-        <span className="text-[11px] text-zinc-500">Post as — WorkVivo user ID (optional)</span>
+        <span className="text-[11px] text-zinc-500">Post as — WorkVivo user ID (required)</span>
         <input
           value={postAsUserId}
           onChange={(e) => setPostAsUserId(e.target.value)}
-          placeholder="Shared Comms account user id"
+          placeholder="e.g. 4821 (a shared Comms account)"
           className={inputClass}
         />
+        <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+          WorkVivo attributes every post to a user, so this is required to post. Don&apos;t know the
+          id? Look it up by email below (needs the connection saved first).
+        </p>
+        <div className="mt-2 flex gap-2">
+          <input
+            type="email"
+            value={lookupEmail}
+            onChange={(e) => setLookupEmail(e.target.value)}
+            placeholder="you@company.com"
+            className="min-w-0 flex-1 rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
+          />
+          <button
+            onClick={() => void lookUp()}
+            disabled={lookupBusy || !lookupEmail.trim()}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+          >
+            {lookupBusy ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+            Look up
+          </button>
+        </div>
+        {lookupMsg && (
+          <p
+            className={`mt-1.5 text-[11px] leading-relaxed ${
+              lookupMsg.ok ? 'text-emerald-400' : 'text-red-400'
+            }`}
+          >
+            {lookupMsg.text}
+          </p>
+        )}
       </div>
 
       {wv?.configured && spaces.length > 0 && (
@@ -733,7 +903,7 @@ function FontsSection(): React.JSX.Element {
   const [adding, setAdding] = useState(false)
 
   return (
-    <div className="mt-5 border-t border-surface-700 pt-5">
+    <div className="max-w-xl">
       <label className="flex items-center gap-2 text-sm font-medium">
         <Type size={15} className="text-accent-400" />
         Custom fonts
@@ -797,7 +967,7 @@ function UpdatesSection(): React.JSX.Element {
   const installUpdate = useStore((s) => s.installUpdate)
 
   return (
-    <div className="mt-5 border-t border-surface-700 pt-5">
+    <div className="max-w-xl">
       <label className="flex items-center gap-2 text-sm font-medium">
         <RefreshCw size={15} className="text-accent-400" />
         App updates
