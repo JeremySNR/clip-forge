@@ -3,8 +3,8 @@ import type { ClipContentType, ClipEditState } from './types'
 /** Face coverage below this is treated as a screencast / demo / slides clip. */
 export const SCREENCAST_FACE_COVERAGE = 0.25
 
-export function classifyClipContent(faceCoverage: number, hasFocusTrack: boolean): ClipContentType {
-  if (!hasFocusTrack || faceCoverage < SCREENCAST_FACE_COVERAGE) return 'screencast'
+export function classifyClipContent(faceCoverage: number): ClipContentType {
+  if (faceCoverage < SCREENCAST_FACE_COVERAGE) return 'screencast'
   return 'speaker'
 }
 

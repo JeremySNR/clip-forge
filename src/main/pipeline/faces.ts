@@ -258,21 +258,22 @@ export async function analyzeClipFocus(
     const asd = await analyzeClipASD(videoPath, startSec, endSec, signal)
     if (asd) {
       const faceCoverage = asd.faceFrameRatio
-      if (asd.tracks.length === 0) {
-        return { focusTrack: null, contentType: classifyClipContent(faceCoverage, false) }
+      if (asd.tracks.length > 0) {
+        const { centres, switchCuts } = chooseSpeakerByScores(
+          asd.tracks,
+          asd.frameCount,
+          asd.sceneCuts,
+          asd.fps
+        )
+        const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
+        const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps)
+        return {
+          focusTrack,
+          contentType: classifyClipContent(faceCoverage)
+        }
       }
-      const { centres, switchCuts } = chooseSpeakerByScores(
-        asd.tracks,
-        asd.frameCount,
-        asd.sceneCuts,
-        asd.fps
-      )
-      const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
-      const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps)
-      return {
-        focusTrack,
-        contentType: classifyClipContent(faceCoverage, focusTrack !== null)
-      }
+      const contentType = classifyClipContent(faceCoverage)
+      if (contentType === 'screencast') return { focusTrack: null, contentType }
     }
   } catch (err) {
     if (signal?.aborted) throw err
@@ -286,7 +287,7 @@ export async function analyzeClipFocus(
     const focusTrack = buildFocusTrack(centres, startSec, cuts)
     return {
       focusTrack,
-      contentType: classifyClipContent(faceCoverage, focusTrack !== null)
+      contentType: classifyClipContent(faceCoverage)
     }
   } catch (err) {
     if (signal?.aborted) throw err
