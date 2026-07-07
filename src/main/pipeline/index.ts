@@ -8,6 +8,7 @@ import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus, applyFocusAnalysis } from './faces'
+import { shouldAnalyzeFaces } from '@shared/videoType'
 import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
@@ -39,7 +40,8 @@ export async function createProject(videoPath: string): Promise<Project> {
     video,
     transcript: null,
     clips: [],
-    prompt: ''
+    prompt: '',
+    videoType: 'auto'
   }
   await saveProject(project)
   return project
@@ -81,7 +83,8 @@ export async function createProjectFromUrl(
     video,
     transcript: null,
     clips: [],
-    prompt: ''
+    prompt: '',
+    videoType: 'auto'
   }
   await saveProject(project)
   onProgress({ progress: 1, message: 'Done' })
@@ -226,19 +229,28 @@ export async function analyzeProject(
 
     project.clips = clips
     project.prompt = options.prompt
+    project.videoType = options.videoType
     await saveProject(project)
 
     onProgress({ stage: 'reframe', progress: 0.72, message: 'Analysing layout (faces vs screen share)…' })
     let reframed = 0
     await mapLimit(clips, 2, async (clip) => {
       signal?.throwIfAborted()
-      const analysis = await analyzeClipFocus(
-        project.video.path,
-        clip.suggestedStart,
-        clip.suggestedEnd,
-        signal
-      )
-      applyFocusAnalysis(clip, analysis)
+      if (shouldAnalyzeFaces(options.videoType)) {
+        const analysis = await analyzeClipFocus(
+          project.video.path,
+          clip.suggestedStart,
+          clip.suggestedEnd,
+          signal
+        )
+        applyFocusAnalysis(clip, analysis, options.videoType)
+      } else {
+        applyFocusAnalysis(
+          clip,
+          { focusTrack: null, contentType: 'screencast' },
+          options.videoType
+        )
+      }
       reframed++
       onProgress({
         stage: 'reframe',

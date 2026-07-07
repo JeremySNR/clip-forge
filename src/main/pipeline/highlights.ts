@@ -6,6 +6,7 @@ import type {
   Transcript
 } from '@shared/types'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
+import { initialClipEditForVideoType } from '@shared/videoType'
 import { normalizeClipEnd, sentenceEndTimes, sentenceStartTimes } from '@shared/sentences'
 import { chatJSON } from './openai'
 
@@ -647,6 +648,7 @@ async function requestHighlights(
       }
       continue
     }
+    const typeDefaults = initialClipEditForVideoType(options.videoType)
     clips.push({
       id: randomUUID(),
       suggestedStart: start,
@@ -672,7 +674,8 @@ async function requestHighlights(
         captionStyleId: DEFAULT_CAPTION_STYLE_ID,
         showTitle: false,
         start,
-        end
+        end,
+        ...typeDefaults
       }
     })
   }

@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     API_KEY,
     'gpt-5.4-mini',
     transcript,
-    { prompt: '', clipLength: 'short', broll: false, hookFirst: false },
+    { prompt: '', clipLength: 'short', broll: false, hookFirst: false, videoType: 'auto' },
     info.durationSec
   )
   assert.ok(clips.length >= 1, 'no clips detected')

@@ -23,13 +23,17 @@ const baseEdit = (): ClipEditState => ({
 
 describe('classifyClipContent', () => {
   it('marks sparse faces as screencast', () => {
-    expect(classifyClipContent(0, false)).toBe('screencast')
-    expect(classifyClipContent(SCREENCAST_FACE_COVERAGE - 0.01, true)).toBe('screencast')
+    expect(classifyClipContent(0)).toBe('screencast')
+    expect(classifyClipContent(SCREENCAST_FACE_COVERAGE - 0.01)).toBe('screencast')
   })
 
   it('marks sustained faces as speaker', () => {
-    expect(classifyClipContent(SCREENCAST_FACE_COVERAGE, true)).toBe('speaker')
-    expect(classifyClipContent(0.8, true)).toBe('speaker')
+    expect(classifyClipContent(SCREENCAST_FACE_COVERAGE)).toBe('speaker')
+    expect(classifyClipContent(0.8)).toBe('speaker')
+  })
+
+  it('marks missing focus tracks as screencast', () => {
+    expect(classifyClipContent(0.8, false)).toBe('screencast')
   })
 })
 
