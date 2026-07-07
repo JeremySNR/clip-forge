@@ -2,25 +2,33 @@ import { describe, expect, it } from 'vitest'
 import { deriveWorkvivoApiBase, extractPermalink } from '../src/main/pipeline/workvivo'
 
 describe('deriveWorkvivoApiBase', () => {
-  it('appends /api/v1 to a full org URL', () => {
-    expect(deriveWorkvivoApiBase('https://acme.workvivo.com')).toBe('https://acme.workvivo.com/api/v1')
+  it('maps a .com tenant to the central api.workvivo.com host', () => {
+    expect(deriveWorkvivoApiBase('https://acme.workvivo.com')).toBe('https://api.workvivo.com/v1')
   })
 
-  it('handles the .us region', () => {
-    expect(deriveWorkvivoApiBase('https://acme.workvivo.us')).toBe('https://acme.workvivo.us/api/v1')
+  it('maps a .us tenant to the api.workvivo.us region host', () => {
+    expect(deriveWorkvivoApiBase('https://acme.workvivo.us')).toBe('https://api.workvivo.us/v1')
   })
 
   it('adds a scheme to a bare host', () => {
-    expect(deriveWorkvivoApiBase('acme.workvivo.com')).toBe('https://acme.workvivo.com/api/v1')
+    expect(deriveWorkvivoApiBase('acme.workvivo.com')).toBe('https://api.workvivo.com/v1')
   })
 
-  it('ignores any path already on the URL and uses the origin', () => {
+  it('ignores any path on the URL and keys off the tenant TLD only', () => {
+    expect(deriveWorkvivoApiBase('https://acme.workvivo.us/dashboard')).toBe(
+      'https://api.workvivo.us/v1'
+    )
     expect(deriveWorkvivoApiBase('https://acme.workvivo.com/api/v1/')).toBe(
-      'https://acme.workvivo.com/api/v1'
+      'https://api.workvivo.com/v1'
     )
-    expect(deriveWorkvivoApiBase('https://acme.workvivo.com/dashboard')).toBe(
-      'https://acme.workvivo.com/api/v1'
-    )
+  })
+
+  it('is idempotent when given the API host itself', () => {
+    expect(deriveWorkvivoApiBase('https://api.workvivo.com/v1')).toBe('https://api.workvivo.com/v1')
+  })
+
+  it('defaults a non-WorkVivo host to the .com region', () => {
+    expect(deriveWorkvivoApiBase('https://intranet.acme.co.uk')).toBe('https://api.workvivo.com/v1')
   })
 
   it('returns null for empty or unusable values', () => {

@@ -110,6 +110,12 @@ export interface Clip {
   summary: string
   /** AI-generated social post caption (TikTok-style); null until generated. */
   caption?: string | null
+  /**
+   * AI-generated caption for internal WorkVivo posts (brand-voiced, not
+   * hashtag-led); null until generated. Kept separate from `caption` because
+   * the two registers differ. Falls back to `caption`/`title` when unset.
+   */
+  workvivoCaption?: string | null
   viralityScore: number
   viralityReason: string
   /** One-line LLM assessment of what the visuals add/cost; null until scored. */
@@ -217,6 +223,23 @@ export interface BrandColors {
   outlineColor: string | null
   hookTextColor: string
   hookBackgroundColor: string
+}
+
+/**
+ * Editable brand tone-of-voice and style guidance that steers AI caption
+ * generation (used for WorkVivo captions today, and available to any future
+ * generated copy). All fields are free text; an empty string means "no
+ * preference" and the generator falls back to sensible defaults.
+ */
+export interface BrandVoiceSettings {
+  /** Organisation/brand name, woven into captions where it reads naturally. */
+  brandName: string
+  /** How the brand should sound, e.g. "warm, upbeat, human, never salesy". */
+  tone: string
+  /** Writing style/format rules, e.g. "British English, short sentences, no emojis". */
+  style: string
+  /** Things to avoid, e.g. "no hashtags, no hype, no corporate jargon". */
+  avoid: string
 }
 
 /** App-wide branding applied to the preview and burned into exports. */
@@ -374,6 +397,7 @@ export interface AppSettings {
   quality: QualityPreference
   gpu: GpuEncoderStatus
   branding: BrandingSettings
+  brandVoice: BrandVoiceSettings
   appVersion: string
   /** Browser to borrow login cookies from for URL imports ('' = none). */
   importCookiesBrowser: BrowserCookieSource
@@ -391,6 +415,7 @@ export interface SettingsUpdate {
   encoder?: EncoderPreference
   quality?: QualityPreference
   branding?: Partial<BrandingSettings>
+  brandVoice?: Partial<BrandVoiceSettings>
   importCookiesBrowser?: BrowserCookieSource
   clearImportCookiesFile?: boolean
   workvivo?: WorkvivoSettingsUpdate

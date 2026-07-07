@@ -581,9 +581,14 @@ function WorkvivoPostBlock({ clip }: { clip: Clip }): React.JSX.Element {
   const clear = useStore((s) => s.clearWorkvivoPost)
   const entry = useStore((s) => s.workvivoPosts[clip.id])
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
+  const updateClip = useStore((s) => s.updateClip)
+  const updateClipLocal = useStore((s) => s.updateClipLocal)
+  const genCaption = useStore((s) => s.generateWorkvivoCaption)
+  const captionBusy = useStore((s) => s.workvivoCaptionBusy[clip.id] ?? false)
   const configured = settings?.workvivo.configured ?? false
   const defaultSpaceId = settings?.workvivo.defaultSpaceId ?? ''
   const [picked, setPicked] = useState('')
+  const [captionError, setCaptionError] = useState<string | null>(null)
   // Effective selection: an explicit pick, else the configured default, else
   // the first space. Computed (not stored) so no effect has to seed it.
   const spaceId = picked || defaultSpaceId || spaces[0]?.id || ''
@@ -591,6 +596,19 @@ function WorkvivoPostBlock({ clip }: { clip: Clip }): React.JSX.Element {
   useEffect(() => {
     if (configured) void loadSpaces()
   }, [configured, loadSpaces])
+
+  const generateCaption = async (): Promise<void> => {
+    setCaptionError(null)
+    try {
+      await genCaption(clip.id)
+    } catch (err) {
+      setCaptionError(
+        err instanceof Error
+          ? err.message.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '')
+          : String(err)
+      )
+    }
+  }
 
   if (!configured) {
     return (
@@ -636,6 +654,30 @@ function WorkvivoPostBlock({ clip }: { clip: Clip }): React.JSX.Element {
         )}
       </select>
       {spacesError && <p className="mt-1.5 text-[11px] leading-relaxed text-red-400">{spacesError}</p>}
+
+      <div className="mb-1.5 mt-2 flex items-center justify-between">
+        <span className="text-[11px] text-zinc-500">Post caption</span>
+        <button
+          onClick={() => void generateCaption()}
+          disabled={captionBusy || posting}
+          className="flex items-center gap-1 rounded-md border border-surface-600 px-2 py-1 text-[11px] font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+        >
+          {captionBusy ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+          {captionBusy ? 'Writing…' : clip.workvivoCaption ? 'Regenerate' : 'Generate'}
+        </button>
+      </div>
+      <textarea
+        value={clip.workvivoCaption ?? ''}
+        onChange={(e) => updateClipLocal({ ...clip, workvivoCaption: e.target.value })}
+        onBlur={() => void updateClip(clip)}
+        disabled={posting}
+        placeholder="Write a caption for your colleagues, or generate one in your brand voice."
+        rows={3}
+        className="w-full resize-none rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-xs leading-relaxed text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none disabled:opacity-60"
+      />
+      {captionError && (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-red-400">{captionError}</p>
+      )}
 
       {posting ? (
         <div className="mt-2 rounded-lg border border-surface-600 px-3 py-2.5">
@@ -701,7 +743,8 @@ function WorkvivoPostBlock({ clip }: { clip: Clip }): React.JSX.Element {
         </div>
       )}
       <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-        Renders the clip and uploads it with the caption above as the post text.
+        Renders the clip and posts it to the selected space with the caption above. Large clips are
+        compressed automatically to fit WorkVivo&apos;s upload limit.
       </p>
     </div>
   )

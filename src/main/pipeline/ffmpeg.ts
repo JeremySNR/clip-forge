@@ -216,6 +216,48 @@ export async function extractAudioChunks(
   return chunks
 }
 
+/**
+ * Re-encode a video to land under `targetBytes`, for uploading to services that
+ * cap request body size (e.g. WorkVivo's Customer API, which rejects large
+ * inline multipart uploads with HTTP 413). Single-pass H.264 with an average
+ * bitrate derived from the clip's duration and a peak cap, optionally
+ * downscaling to `maxHeight`. It is not byte-exact, so it aims a little under
+ * the target and callers should still be ready to retry with a smaller target.
+ * Uses the bundled CPU encoder so it works without a GPU build.
+ */
+export async function compressToTargetSize(
+  inputPath: string,
+  outputPath: string,
+  targetBytes: number,
+  opts: { maxHeight?: number; onProgress?: (fraction: number) => void; signal?: AbortSignal } = {}
+): Promise<void> {
+  const info = await probeVideo(inputPath)
+  const audioKbps = 128
+  // Aim under the target to leave room for multipart/form overhead and VBR drift.
+  const budgetKbits = (targetBytes * 8 * 0.9) / 1000
+  const totalKbps = Math.max(1, Math.floor(budgetKbits / info.durationSec))
+  const videoKbps = Math.max(200, totalKbps - audioKbps)
+  const scale = opts.maxHeight ? ['-vf', `scale=-2:'min(${opts.maxHeight},ih)'`] : []
+  await runFfmpeg(
+    [
+      '-i', inputPath,
+      ...scale,
+      '-c:v', 'libx264', '-preset', 'veryfast',
+      '-b:v', `${videoKbps}k`,
+      '-maxrate', `${Math.floor(videoKbps * 1.35)}k`,
+      '-bufsize', `${videoKbps * 2}k`,
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', `${audioKbps}k`,
+      '-movflags', '+faststart',
+      outputPath
+    ],
+    {
+      onProgress: (t) => opts.onProgress?.(Math.min(1, t / info.durationSec)),
+      signal: opts.signal
+    }
+  )
+}
+
 /** Grab a single frame as a JPEG thumbnail. */
 export async function extractThumbnail(
   videoPath: string,

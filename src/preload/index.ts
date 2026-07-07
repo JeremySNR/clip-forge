@@ -55,8 +55,12 @@ const api = {
   generateCaption: (projectId: string, clipId: string): Promise<Project> =>
     ipcRenderer.invoke('clip:generateCaption', projectId, clipId),
 
+  generateWorkvivoCaption: (projectId: string, clipId: string): Promise<Project> =>
+    ipcRenderer.invoke('workvivo:generateCaption', projectId, clipId),
   testWorkvivo: (): Promise<WorkvivoTestResult> => ipcRenderer.invoke('workvivo:testConnection'),
   listWorkvivoSpaces: (): Promise<WorkvivoSpace[]> => ipcRenderer.invoke('workvivo:listSpaces'),
+  findWorkvivoUser: (email: string): Promise<{ id: string; name: string }> =>
+    ipcRenderer.invoke('workvivo:findUser', email),
   postClipToWorkvivo: (
     projectId: string,
     clipId: string,
