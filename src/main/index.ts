@@ -5,6 +5,17 @@ import { registerIpcHandlers } from './ipc'
 import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
 import { initialWindowSize, MIN_WINDOW } from './windowSize'
 
+// Backstop: a stray rejection or throw in a background task (pipeline stages,
+// network calls) would otherwise take the whole app down by Node's default.
+// Log it and keep running — individual features already surface their own
+// errors to the renderer.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err)
+})
+
 function appIconPath(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'icon.png')

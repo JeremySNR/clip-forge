@@ -71,6 +71,16 @@ function isNonRetryable(err: unknown): boolean {
   )
 }
 
+/**
+ * Combine an optional caller cancel signal with a hard timeout, so a connection
+ * a firewall silently blackholes aborts instead of hanging the request forever
+ * (fetch has no default timeout). Returns a signal that fires on either.
+ */
+export function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(ms)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
 export interface RetryOptions {
   attempts?: number
   baseDelayMs?: number
