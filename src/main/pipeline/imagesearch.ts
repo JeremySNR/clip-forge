@@ -1,6 +1,6 @@
 import { writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import { withRetries } from './openai'
+import { withRetries, withTimeout } from './openai'
 
 /**
  * Keyless image search for B-roll. Wikipedia's page-image API is tried first —
@@ -11,6 +11,12 @@ import { withRetries } from './openai'
  */
 
 const USER_AGENT = 'ClipForge/0.1 (open-source video clipper; https://github.com/clipforge)'
+
+// Without a timeout, a request a corporate firewall silently drops hangs forever
+// and freezes the whole B-roll stage. Fail fast instead so the clip just skips
+// its image inserts. Downloads get longer as the payload is larger.
+const SEARCH_TIMEOUT_MS = 15_000
+const DOWNLOAD_TIMEOUT_MS = 30_000
 
 export interface FoundImage {
   imageUrl: string
@@ -47,7 +53,7 @@ async function lookupWikipediaTitle(title: string, signal?: AbortSignal): Promis
   })
   const res = await fetch(`https://en.wikipedia.org/w/api.php?${params}`, {
     headers: { 'User-Agent': USER_AGENT },
-    signal
+    signal: withTimeout(SEARCH_TIMEOUT_MS, signal)
   })
   if (!res.ok) return null
   const data = (await res.json()) as WikiQueryResponse
@@ -81,7 +87,7 @@ async function searchWikipedia(query: string, signal?: AbortSignal): Promise<Fou
   })
   const res = await fetch(`https://en.wikipedia.org/w/api.php?${params}`, {
     headers: { 'User-Agent': USER_AGENT },
-    signal
+    signal: withTimeout(SEARCH_TIMEOUT_MS, signal)
   })
   if (!res.ok) return null
   const data = (await res.json()) as WikiQueryResponse
@@ -120,7 +126,7 @@ async function searchOpenverse(query: string, signal?: AbortSignal): Promise<Fou
   })
   const res = await fetch(`https://api.openverse.org/v1/images/?${params}`, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-    signal
+    signal: withTimeout(SEARCH_TIMEOUT_MS, signal)
   })
   if (!res.ok) return null
   const data = (await res.json()) as OpenverseResponse
@@ -170,7 +176,10 @@ export async function downloadImage(
   try {
     return await withRetries(
       async () => {
-        const res = await fetch(imageUrl, { headers: { 'User-Agent': USER_AGENT }, signal })
+        const res = await fetch(imageUrl, {
+          headers: { 'User-Agent': USER_AGENT },
+          signal: withTimeout(DOWNLOAD_TIMEOUT_MS, signal)
+        })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const type = res.headers.get('content-type') ?? ''
         if (!type.startsWith('image/')) throw new Error(`not an image: ${type}`)

@@ -1,4 +1,5 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -305,6 +306,9 @@ export function buildFilterGraph(
     (b) =>
       b.enabled &&
       b.imagePath !== null &&
+      // A downloaded image can go missing (project folder moved, cache cleared);
+      // handing a non-existent path to ffmpeg would fail the whole export.
+      existsSync(b.imagePath) &&
       b.end > clip.edit.start &&
       b.start < clip.edit.end
   )
