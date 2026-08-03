@@ -102,7 +102,7 @@ export async function addCustomFonts(paths: string[]): Promise<CustomFont[]> {
     if (!FONT_EXTENSIONS.has(extname(path).toLowerCase())) continue
     const font = await fontFromFile(path)
     if (!font) continue
-    // userData paths are implicitly allowed by the media:// allowlist.
+    // userData/fonts is one of the media:// allowlisted directories.
     await copyFile(path, join(dir, basename(path)))
   }
   return listCustomFonts()
