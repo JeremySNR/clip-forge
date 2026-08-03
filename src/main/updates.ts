@@ -299,6 +299,17 @@ const npmCmd = 'npm'
 let sourceUpdateRunning = false
 
 /**
+ * True when `git pull --ff-only` fetched nothing. Release discovery
+ * (checkForUpdates) and this checkout's origin are different repositories, so
+ * an announced release can exist before it reaches origin — rebuilding and
+ * relaunching identical code would just re-show the update banner. Exported
+ * for tests.
+ */
+export function isPullNoOp(pullOutput: string): boolean {
+  return /already up[ -]to[ -]date/i.test(pullOutput)
+}
+
+/**
  * The environment a source-update relaunch needs, or null when a plain
  * `app.relaunch()` is safe.
  *
@@ -389,7 +400,13 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
     }
 
     onProgress({ progress: -1, message: 'Pulling the latest code…' })
-    await runStep('git', ['pull', '--ff-only'], root)
+    const pullOutput = await runStep('git', ['pull', '--ff-only'], root)
+    if (isPullNoOp(pullOutput)) {
+      throw new Error(
+        'This checkout is already up to date with its origin, so there is nothing to rebuild. ' +
+          'The new release may not have been pushed to this repository yet — check the release page.'
+      )
+    }
 
     onProgress({ progress: -1, message: 'Installing dependencies…' })
     await runStep(npmCmd, ['install', '--no-audit', '--no-fund'], root)

@@ -6,6 +6,7 @@ import {
   detachedRelaunchEnv,
   evaluateUpdate,
   findGitRoot,
+  isPullNoOp,
   resolveSourceRepoRoot,
   spawnStepOptions
 } from '../src/main/updates'
@@ -60,6 +61,19 @@ describe('spawnStepOptions', () => {
     if (process.platform === 'win32') return
     expect(spawnStepOptions('npm', process.cwd()).shell).toBeUndefined()
     expect(spawnStepOptions('git', process.cwd()).shell).toBeUndefined()
+  })
+})
+
+describe('isPullNoOp', () => {
+  it('detects the no-op pull in both git phrasings', () => {
+    expect(isPullNoOp('Already up to date.\n')).toBe(true)
+    expect(isPullNoOp('Already up-to-date.\n')).toBe(true) // older git
+  })
+
+  it('treats a fast-forward as a real update', () => {
+    expect(
+      isPullNoOp('Updating 83111f8..abc1234\nFast-forward\n package.json | 2 +-\n')
+    ).toBe(false)
   })
 })
 
