@@ -334,36 +334,48 @@ export function detachedRelaunchEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv |
  * relaunch is fine; inside one we spawn the new instance ourselves, detached so
  * it outlives both this process and the electron-vite parent that is about to
  * exit with it.
+ *
+ * Resolves only in the (unreachable) case where exiting does not end this
+ * process; a failed handover rejects so the caller can surface it.
  */
-function relaunchAfterSourceUpdate(root: string): void {
+function relaunchAfterSourceUpdate(root: string): Promise<void> {
   const env = detachedRelaunchEnv(process.env)
   if (!env) {
     app.relaunch()
     app.exit(0)
-    return
+    return Promise.resolve()
   }
   // spawn reports launch failures on the 'error' event, not by throwing, so the
   // handover waits for 'spawn' before exiting. A failure keeps this instance
   // running: app.relaunch() would inherit ELECTRON_RENDERER_URL and land on the
   // dead dev server, and exiting outright would leave nothing at all.
-  const onFailure = (err: unknown): void => {
-    console.error('Could not relaunch after the update:', err)
-  }
-  try {
-    const child = spawn(process.execPath, [root], {
-      cwd: root,
-      detached: true,
-      stdio: 'ignore',
-      env
-    })
-    child.once('error', onFailure)
-    child.once('spawn', () => {
-      child.unref()
-      app.exit(0)
-    })
-  } catch (err) {
-    onFailure(err)
-  }
+  return new Promise((resolve, reject) => {
+    const onFailure = (err: unknown): void => {
+      reject(
+        new Error(
+          `The update is installed, but ClipForge could not restart itself (${
+            err instanceof Error ? err.message : String(err)
+          }). Quit and start it again to finish.`
+        )
+      )
+    }
+    try {
+      const child = spawn(process.execPath, [root], {
+        cwd: root,
+        detached: true,
+        stdio: 'ignore',
+        env
+      })
+      child.once('error', onFailure)
+      child.once('spawn', () => {
+        child.unref()
+        app.exit(0)
+        resolve()
+      })
+    } catch (err) {
+      onFailure(err)
+    }
+  })
 }
 
 /**
@@ -423,8 +435,11 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
     await runStep(npmCmd, ['run', 'build'], root)
 
     onProgress({ progress: 1, message: 'Restarting…' })
-    // Let the IPC reply and the "Restarting…" frame land before swapping.
-    setTimeout(() => relaunchAfterSourceUpdate(root), 800)
+    // Let the "Restarting…" frame land before swapping. Awaiting the handover
+    // keeps a failed relaunch from resolving as success and stranding the
+    // renderer on that frame with no way to retry.
+    await new Promise((r) => setTimeout(r, 800))
+    await relaunchAfterSourceUpdate(root)
   } finally {
     sourceUpdateRunning = false
   }
