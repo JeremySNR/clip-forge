@@ -297,6 +297,10 @@ function runStep(
 
 const npmCmd = 'npm'
 let sourceUpdateRunning = false
+// Set once a source update is pulled, installed and rebuilt, so only the
+// process handover is left. It survives a failed relaunch: pulling again would
+// be a no-op and abort, leaving no way to finish the installed update.
+let relaunchPending = false
 
 /**
  * True when `git pull --ff-only` fetched nothing. Release discovery
@@ -378,6 +382,20 @@ function relaunchAfterSourceUpdate(root: string): Promise<void> {
   })
 }
 
+/** Last step of a source update: hand the rebuilt checkout over to a new process. */
+async function finishSourceUpdate(
+  root: string,
+  onProgress: (p: ImportProgress) => void
+): Promise<void> {
+  relaunchPending = true
+  onProgress({ progress: 1, message: 'Restarting…' })
+  // Let the "Restarting…" frame land before swapping. Awaiting the handover
+  // keeps a failed relaunch from resolving as success and stranding the
+  // renderer on that frame with no way to retry.
+  await new Promise((r) => setTimeout(r, 800))
+  await relaunchAfterSourceUpdate(root)
+}
+
 /**
  * One-click update for source checkouts: fast-forward the repo, reinstall
  * dependencies, rebuild, then relaunch. Only manifest/build-cache churn is
@@ -397,6 +415,13 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
   if (sourceUpdateRunning) throw new Error('An update is already running.')
   sourceUpdateRunning = true
   try {
+    // Retry after a failed handover: the update is already built, so go
+    // straight back to restarting instead of re-running a now no-op pull.
+    if (relaunchPending) {
+      await finishSourceUpdate(root, onProgress)
+      return
+    }
+
     onProgress({ progress: -1, message: 'Checking the local checkout…' })
     const dirty = (await runStep('git', ['status', '--porcelain'], root))
       .split('\n')
@@ -434,12 +459,7 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
     onProgress({ progress: -1, message: 'Rebuilding the app…' })
     await runStep(npmCmd, ['run', 'build'], root)
 
-    onProgress({ progress: 1, message: 'Restarting…' })
-    // Let the "Restarting…" frame land before swapping. Awaiting the handover
-    // keeps a failed relaunch from resolving as success and stranding the
-    // renderer on that frame with no way to retry.
-    await new Promise((r) => setTimeout(r, 800))
-    await relaunchAfterSourceUpdate(root)
+    await finishSourceUpdate(root, onProgress)
   } finally {
     sourceUpdateRunning = false
   }
