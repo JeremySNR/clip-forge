@@ -81,6 +81,16 @@ export function withTimeout(ms: number, signal?: AbortSignal): AbortSignal {
   return signal ? AbortSignal.any([signal, timeout]) : timeout
 }
 
+/**
+ * Per-attempt request timeouts. Every fetch in this module must carry one:
+ * on a restricted network a silently blackholed connection otherwise hangs
+ * the pipeline (or a caption button) forever, and the retry loop never fires
+ * because the fetch never rejects. Each retry gets a fresh window.
+ * Transcription uploads ~7 MB per chunk, so it gets more headroom.
+ */
+export const CHAT_TIMEOUT_MS = 5 * 60_000
+export const TRANSCRIBE_TIMEOUT_MS = 10 * 60_000
+
 export interface RetryOptions {
   attempts?: number
   baseDelayMs?: number
@@ -178,7 +188,7 @@ export async function transcribeAudioFile(
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}` },
         body: form,
-        signal: opts.signal
+        signal: withTimeout(TRANSCRIBE_TIMEOUT_MS, opts.signal)
       })
       await raiseForStatus(res, 'Transcription')
       return (await res.json()) as WhisperResponse
@@ -220,7 +230,7 @@ export async function chatJSON<T>(
             json_schema: { name: schemaName, strict: true, schema }
           }
         }),
-        signal
+        signal: withTimeout(CHAT_TIMEOUT_MS, signal)
       })
       await raiseForStatus(res, 'Analysis')
       const body = (await res.json()) as {
