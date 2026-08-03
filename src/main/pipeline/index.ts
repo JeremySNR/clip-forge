@@ -27,7 +27,7 @@ import {
   type CookieAuthOptions
 } from './ytdlp'
 import { getApiKey, getImportPreferences, getModelPreferences } from '../settings'
-import { projectDir, saveProject } from '../projects'
+import { projectDir, saveProject, updateProject } from '../projects'
 
 export async function createProject(videoPath: string): Promise<Project> {
   const video = await probeVideo(videoPath)
@@ -181,8 +181,12 @@ export async function analyzeProject(
       onProgress({ stage: 'transcribe', progress: 0.56, message: 'Measuring vocal energy…' })
       await annotateEnergy(transcript, chunks)
       // Checkpoint: transcription is the most expensive stage, never redo it.
+      // Persist only the fields this pipeline owns — saving the whole local
+      // object would revert e.g. a rename that landed since it was loaded.
       project.transcript = transcript
-      await saveProject(project)
+      await updateProject(project.id, (p) => {
+        p.transcript = transcript
+      })
     } else {
       onProgress({ stage: 'transcribe', progress: 0.56, message: 'Using saved transcript…' })
     }
@@ -230,7 +234,11 @@ export async function analyzeProject(
     project.clips = clips
     project.prompt = options.prompt
     project.videoType = options.videoType
-    await saveProject(project)
+    await updateProject(project.id, (p) => {
+      p.clips = clips
+      p.prompt = options.prompt
+      p.videoType = options.videoType
+    })
 
     onProgress({ stage: 'reframe', progress: 0.72, message: 'Analysing layout (faces vs screen share)…' })
     let reframed = 0
@@ -278,7 +286,9 @@ export async function analyzeProject(
           message: 'Finding B-roll images…'
         })
       })
-      await saveProject(project)
+      await updateProject(project.id, (p) => {
+        p.clips = clips
+      })
     }
 
     onProgress({ stage: 'thumbnails', progress: 0.9, message: 'Creating thumbnails…' })
@@ -300,9 +310,13 @@ export async function analyzeProject(
       })
     }
 
-    await saveProject(project)
+    // Final save returns the freshest merged copy (clips from this run plus
+    // anything — like a rename — that changed on disk while it ran).
+    const persisted = await updateProject(project.id, (p) => {
+      p.clips = clips
+    })
     onProgress({ stage: 'done', progress: 1, message: 'Done' })
-    return project
+    return persisted
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
   }

@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { extname, resolve, sep } from 'node:path'
+import { extname, join, resolve, sep } from 'node:path'
 import { Readable } from 'node:stream'
 import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { app } from 'electron'
@@ -20,16 +20,34 @@ export function allowMediaPath(path: string): void {
 }
 
 /**
- * The renderer may only read files the app has a reason to show it: anything
- * inside userData (thumbnails, B-roll images, downloaded source videos) plus
- * user-selected source videos elsewhere on disk, registered explicitly when a
- * project is created or loaded.
+ * userData subdirectories the renderer has a legitimate reason to read:
+ * project media (thumbnails, B-roll images, downloaded source videos),
+ * custom caption fonts, the branding logo and cached timeline strips.
+ * Deliberately NOT the whole of userData — settings.json (API keys, the
+ * WorkVivo token) and cookies/import-cookies.txt (live session cookies)
+ * live there too and must never be reachable over media://.
+ */
+const USER_DATA_MEDIA_DIRS = ['projects', 'fonts', 'branding', 'timeline-cache'] as const
+
+/** Pure core of the allowlist check. Exported for tests. */
+export function isMediaPathAllowedIn(
+  userData: string,
+  allowed: ReadonlySet<string>,
+  path: string
+): boolean {
+  const full = resolve(path)
+  if (allowed.has(full)) return true
+  return USER_DATA_MEDIA_DIRS.some((dir) => full.startsWith(join(userData, dir) + sep))
+}
+
+/**
+ * The renderer may only read files the app has a reason to show it: the
+ * media subdirectories of userData above, plus user-selected source videos
+ * elsewhere on disk, registered explicitly when a project is created or
+ * loaded.
  */
 export function isMediaPathAllowed(path: string): boolean {
-  const full = resolve(path)
-  if (allowedFiles.has(full)) return true
-  const userData = resolve(app.getPath('userData'))
-  return full === userData || full.startsWith(userData + sep)
+  return isMediaPathAllowedIn(resolve(app.getPath('userData')), allowedFiles, path)
 }
 
 const MIME_TYPES: Record<string, string> = {

@@ -299,6 +299,86 @@ const npmCmd = 'npm'
 let sourceUpdateRunning = false
 
 /**
+ * True when `git pull --ff-only` fetched nothing. Release discovery
+ * (checkForUpdates) and this checkout's origin are different repositories, so
+ * an announced release can exist before it reaches origin — rebuilding and
+ * relaunching identical code would just re-show the update banner. Exported
+ * for tests.
+ */
+export function isPullNoOp(pullOutput: string): boolean {
+  return /already up[ -]to[ -]date/i.test(pullOutput)
+}
+
+/**
+ * The environment a source-update relaunch needs, or null when a plain
+ * `app.relaunch()` is safe.
+ *
+ * Under `npm run dev` the renderer is served over HTTP from
+ * ELECTRON_RENDERER_URL, and electron-vite exits the moment this process does
+ * (`ps.on('close', process.exit)`), taking that dev server down with it.
+ * `app.relaunch()` re-spawns with the environment inherited, so the new window
+ * pointed at a dead dev server and rendered nothing: the black screen you had to
+ * close before running `npm run dev` again. Stripping the variable makes the
+ * relaunched process load the freshly built `out/renderer/index.html` instead.
+ * Exported for tests.
+ */
+export function detachedRelaunchEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv | null {
+  if (!env.ELECTRON_RENDERER_URL) return null
+  const next = { ...env }
+  delete next.ELECTRON_RENDERER_URL
+  return next
+}
+
+/**
+ * Bring the rebuilt app back. Outside a dev-server session Electron's own
+ * relaunch is fine; inside one we spawn the new instance ourselves, detached so
+ * it outlives both this process and the electron-vite parent that is about to
+ * exit with it.
+ *
+ * Resolves only in the (unreachable) case where exiting does not end this
+ * process; a failed handover rejects so the caller can surface it.
+ */
+function relaunchAfterSourceUpdate(root: string): Promise<void> {
+  const env = detachedRelaunchEnv(process.env)
+  if (!env) {
+    app.relaunch()
+    app.exit(0)
+    return Promise.resolve()
+  }
+  // spawn reports launch failures on the 'error' event, not by throwing, so the
+  // handover waits for 'spawn' before exiting. A failure keeps this instance
+  // running: app.relaunch() would inherit ELECTRON_RENDERER_URL and land on the
+  // dead dev server, and exiting outright would leave nothing at all.
+  return new Promise((resolve, reject) => {
+    const onFailure = (err: unknown): void => {
+      reject(
+        new Error(
+          `The update is installed, but ClipForge could not restart itself (${
+            err instanceof Error ? err.message : String(err)
+          }). Quit and start it again to finish.`
+        )
+      )
+    }
+    try {
+      const child = spawn(process.execPath, [root], {
+        cwd: root,
+        detached: true,
+        stdio: 'ignore',
+        env
+      })
+      child.once('error', onFailure)
+      child.once('spawn', () => {
+        child.unref()
+        app.exit(0)
+        resolve()
+      })
+    } catch (err) {
+      onFailure(err)
+    }
+  })
+}
+
+/**
  * One-click update for source checkouts: fast-forward the repo, reinstall
  * dependencies, rebuild, then relaunch. Only manifest/build-cache churn is
  * discarded automatically (the classic blocked-pull culprit); real local
@@ -340,7 +420,13 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
     }
 
     onProgress({ progress: -1, message: 'Pulling the latest code…' })
-    await runStep('git', ['pull', '--ff-only'], root)
+    const pullOutput = await runStep('git', ['pull', '--ff-only'], root)
+    if (isPullNoOp(pullOutput)) {
+      throw new Error(
+        'This checkout is already up to date with its origin, so there is nothing to rebuild. ' +
+          'The new release may not have been pushed to this repository yet — check the release page.'
+      )
+    }
 
     onProgress({ progress: -1, message: 'Installing dependencies…' })
     await runStep(npmCmd, ['install', '--no-audit', '--no-fund'], root)
@@ -349,11 +435,11 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
     await runStep(npmCmd, ['run', 'build'], root)
 
     onProgress({ progress: 1, message: 'Restarting…' })
-    // Let the IPC reply and the "Restarting…" frame land before swapping.
-    setTimeout(() => {
-      app.relaunch()
-      app.exit(0)
-    }, 800)
+    // Let the "Restarting…" frame land before swapping. Awaiting the handover
+    // keeps a failed relaunch from resolving as success and stranding the
+    // renderer on that frame with no way to retry.
+    await new Promise((r) => setTimeout(r, 800))
+    await relaunchAfterSourceUpdate(root)
   } finally {
     sourceUpdateRunning = false
   }

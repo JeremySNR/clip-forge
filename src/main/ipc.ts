@@ -31,7 +31,7 @@ import { clearImportCookiesFile, installImportCookiesFile } from './cookies'
 import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource } from './updates'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
-import { deleteProject, listProjects, loadProject, saveProject } from './projects'
+import { deleteProject, listProjects, loadProject, updateProject } from './projects'
 import {
   getApiKey,
   getBrandingSettings,
@@ -146,35 +146,32 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('project:delete', async (_e, id: string) => deleteProject(id))
 
   ipcMain.handle('project:updateClip', async (_e, projectId: string, clip: Clip) => {
-    const project = await loadProject(projectId)
-    const idx = project.clips.findIndex((c) => c.id === clip.id)
-    if (idx === -1) throw new Error('Clip not found')
-    project.clips[idx] = clip
-    await saveProject(project)
-    return project
+    return updateProject(projectId, (project) => {
+      const idx = project.clips.findIndex((c) => c.id === clip.id)
+      if (idx === -1) throw new Error('Clip not found')
+      project.clips[idx] = clip
+    })
   })
 
   ipcMain.handle('project:rename', async (_e, projectId: string, name: string) => {
-    const project = await loadProject(projectId)
-    project.name = name.trim() || project.name
-    await saveProject(project)
-    return project
+    return updateProject(projectId, (project) => {
+      project.name = name.trim() || project.name
+    })
   })
 
   ipcMain.handle(
     'project:updateTranscriptWord',
     async (_e, projectId: string, segmentId: number, wordIndex: number, text: string) => {
-      const project = await loadProject(projectId)
-      const segment = project.transcript?.segments.find((s) => s.id === segmentId)
-      const word = segment?.words[wordIndex]
-      if (!segment || !word) throw new Error('Transcript word not found')
-      word.text = text.trim()
-      segment.text = segment.words
-        .map((w) => w.text)
-        .filter((t) => t.length > 0)
-        .join(' ')
-      await saveProject(project)
-      return project
+      return updateProject(projectId, (project) => {
+        const segment = project.transcript?.segments.find((s) => s.id === segmentId)
+        const word = segment?.words[wordIndex]
+        if (!segment || !word) throw new Error('Transcript word not found')
+        word.text = text.trim()
+        segment.text = segment.words
+          .map((w) => w.text)
+          .filter((t) => t.length > 0)
+          .join(' ')
+      })
     }
   )
 
@@ -191,10 +188,10 @@ export function registerIpcHandlers(): void {
           'pick the same video.'
       )
     }
-    project.video = video
-    project.sourceMissing = false
-    await saveProject(project)
-    return project
+    return updateProject(projectId, (fresh) => {
+      fresh.video = video
+      fresh.sourceMissing = false
+    })
   })
 
   ipcMain.handle('clip:export', async (event, projectId: string, opts: ExportOptions) => {
@@ -260,9 +257,13 @@ export function registerIpcHandlers(): void {
       clip,
       project.transcript
     )
-    clip.caption = caption
-    await saveProject(project)
-    return project
+    // Graft only the caption under the lock: edits made while the LLM ran
+    // must survive, so never save the pre-call project object.
+    return updateProject(projectId, (fresh) => {
+      const target = fresh.clips.find((c) => c.id === clipId)
+      if (!target) throw new Error('Clip not found')
+      target.caption = caption
+    })
   })
 
   ipcMain.handle('workvivo:generateCaption', async (_e, projectId: string, clipId: string) => {
@@ -278,9 +279,12 @@ export function registerIpcHandlers(): void {
       project.transcript,
       getBrandVoiceSettings()
     )
-    clip.workvivoCaption = caption
-    await saveProject(project)
-    return project
+    // Same graft-under-lock pattern as clip:generateCaption above.
+    return updateProject(projectId, (fresh) => {
+      const target = fresh.clips.find((c) => c.id === clipId)
+      if (!target) throw new Error('Clip not found')
+      target.workvivoCaption = caption
+    })
   })
 
   ipcMain.handle('workvivo:testConnection', async () => {

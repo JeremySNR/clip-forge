@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   compareVersions,
+  detachedRelaunchEnv,
   evaluateUpdate,
   findGitRoot,
+  isPullNoOp,
   resolveSourceRepoRoot,
   spawnStepOptions
 } from '../src/main/updates'
@@ -59,6 +61,42 @@ describe('spawnStepOptions', () => {
     if (process.platform === 'win32') return
     expect(spawnStepOptions('npm', process.cwd()).shell).toBeUndefined()
     expect(spawnStepOptions('git', process.cwd()).shell).toBeUndefined()
+  })
+})
+
+describe('isPullNoOp', () => {
+  it('detects the no-op pull in both git phrasings', () => {
+    expect(isPullNoOp('Already up to date.\n')).toBe(true)
+    expect(isPullNoOp('Already up-to-date.\n')).toBe(true) // older git
+  })
+
+  it('treats a fast-forward as a real update', () => {
+    expect(
+      isPullNoOp('Updating 83111f8..abc1234\nFast-forward\n package.json | 2 +-\n')
+    ).toBe(false)
+  })
+})
+
+describe('detachedRelaunchEnv', () => {
+  it('drops the dev-server URL so the relaunch loads the rebuilt renderer', () => {
+    const env = detachedRelaunchEnv({
+      ELECTRON_RENDERER_URL: 'http://localhost:5173',
+      PATH: '/usr/bin'
+    })
+    expect(env).not.toBeNull()
+    expect(env!.ELECTRON_RENDERER_URL).toBeUndefined()
+    // Everything else has to survive, or the new process loses its toolchain.
+    expect(env!.PATH).toBe('/usr/bin')
+  })
+
+  it('leaves the original environment untouched', () => {
+    const original = { ELECTRON_RENDERER_URL: 'http://localhost:5173' }
+    detachedRelaunchEnv(original)
+    expect(original.ELECTRON_RENDERER_URL).toBe('http://localhost:5173')
+  })
+
+  it('returns null outside a dev-server session, where app.relaunch works', () => {
+    expect(detachedRelaunchEnv({ PATH: '/usr/bin' })).toBeNull()
   })
 })
 
