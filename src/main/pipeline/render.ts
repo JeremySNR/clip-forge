@@ -485,17 +485,22 @@ export async function renderClip(job: RenderJob): Promise<string> {
   }
 
   try {
-    await runFfmpegWith(resolved.bin, buildArgs(encoderArgs(resolved.kind, quality)), runOpts)
-  } catch (err) {
-    // NVENC can fail at runtime (driver updates, GPU busy, session limits).
-    // Unless the user explicitly demanded GPU, fall back to a CPU encode.
-    if (resolved.kind === 'nvenc' && job.encoder !== 'gpu' && !job.signal?.aborted) {
-      console.error('NVENC render failed, retrying on CPU:', err)
-      await rm(job.outputPath, { force: true }).catch(() => undefined)
-      await runFfmpegWith(resolved.bin, buildArgs(encoderArgs('cpu', quality)), runOpts)
-    } else {
-      throw err
+    try {
+      await runFfmpegWith(resolved.bin, buildArgs(encoderArgs(resolved.kind, quality)), runOpts)
+    } catch (err) {
+      // NVENC can fail at runtime (driver updates, GPU busy, session limits).
+      // Unless the user explicitly demanded GPU, fall back to a CPU encode.
+      if (resolved.kind === 'nvenc' && job.encoder !== 'gpu' && !job.signal?.aborted) {
+        console.error('NVENC render failed, retrying on CPU:', err)
+        await rm(job.outputPath, { force: true }).catch(() => undefined)
+        await runFfmpegWith(resolved.bin, buildArgs(encoderArgs('cpu', quality)), runOpts)
+      } else {
+        throw err
+      }
     }
+  } finally {
+    // One temp .ass per captioned render; never leave them behind.
+    if (assPath) await rm(assPath, { force: true }).catch(() => undefined)
   }
   return job.outputPath
 }

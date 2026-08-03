@@ -603,6 +603,7 @@ async function requestHighlights(
     }
   }
   const sentenceStarts = sentenceStartTimes(transcript)
+  const sentenceEnds = sentenceEndTimes(transcript)
   const maxDur = maxDurationFor(options.clipLength)
   const normalizeEnd = (start: number, end: number): number =>
     normalizeClipEnd(start, end, transcript, videoDurationSec, {
@@ -634,7 +635,7 @@ async function requestHighlights(
     // that lands within the cap.
     if (end - start > maxDur) {
       const capTarget = start + maxDur
-      const lastSentenceEnd = [...sentenceEndTimes(transcript)]
+      const lastSentenceEnd = [...sentenceEnds]
         .reverse()
         .find((e) => e + END_POST_ROLL_SEC <= capTarget && e > start + MIN_CLIP_SEC)
       end =
