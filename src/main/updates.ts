@@ -342,6 +342,13 @@ function relaunchAfterSourceUpdate(root: string): void {
     app.exit(0)
     return
   }
+  // spawn reports launch failures on the 'error' event, not by throwing, so the
+  // handover waits for 'spawn' before exiting. A failure keeps this instance
+  // running: app.relaunch() would inherit ELECTRON_RENDERER_URL and land on the
+  // dead dev server, and exiting outright would leave nothing at all.
+  const onFailure = (err: unknown): void => {
+    console.error('Could not relaunch after the update:', err)
+  }
   try {
     const child = spawn(process.execPath, [root], {
       cwd: root,
@@ -349,13 +356,14 @@ function relaunchAfterSourceUpdate(root: string): void {
       stdio: 'ignore',
       env
     })
-    child.unref()
+    child.once('error', onFailure)
+    child.once('spawn', () => {
+      child.unref()
+      app.exit(0)
+    })
   } catch (err) {
-    // Nothing left to hand off to; fall back and let the user restart by hand.
-    console.error('Could not relaunch after the update:', err)
-    app.relaunch()
+    onFailure(err)
   }
-  app.exit(0)
 }
 
 /**
