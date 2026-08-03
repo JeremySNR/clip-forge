@@ -299,6 +299,55 @@ const npmCmd = 'npm'
 let sourceUpdateRunning = false
 
 /**
+ * The environment a source-update relaunch needs, or null when a plain
+ * `app.relaunch()` is safe.
+ *
+ * Under `npm run dev` the renderer is served over HTTP from
+ * ELECTRON_RENDERER_URL, and electron-vite exits the moment this process does
+ * (`ps.on('close', process.exit)`), taking that dev server down with it.
+ * `app.relaunch()` re-spawns with the environment inherited, so the new window
+ * pointed at a dead dev server and rendered nothing: the black screen you had to
+ * close before running `npm run dev` again. Stripping the variable makes the
+ * relaunched process load the freshly built `out/renderer/index.html` instead.
+ * Exported for tests.
+ */
+export function detachedRelaunchEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv | null {
+  if (!env.ELECTRON_RENDERER_URL) return null
+  const next = { ...env }
+  delete next.ELECTRON_RENDERER_URL
+  return next
+}
+
+/**
+ * Bring the rebuilt app back. Outside a dev-server session Electron's own
+ * relaunch is fine; inside one we spawn the new instance ourselves, detached so
+ * it outlives both this process and the electron-vite parent that is about to
+ * exit with it.
+ */
+function relaunchAfterSourceUpdate(root: string): void {
+  const env = detachedRelaunchEnv(process.env)
+  if (!env) {
+    app.relaunch()
+    app.exit(0)
+    return
+  }
+  try {
+    const child = spawn(process.execPath, [root], {
+      cwd: root,
+      detached: true,
+      stdio: 'ignore',
+      env
+    })
+    child.unref()
+  } catch (err) {
+    // Nothing left to hand off to; fall back and let the user restart by hand.
+    console.error('Could not relaunch after the update:', err)
+    app.relaunch()
+  }
+  app.exit(0)
+}
+
+/**
  * One-click update for source checkouts: fast-forward the repo, reinstall
  * dependencies, rebuild, then relaunch. Only manifest/build-cache churn is
  * discarded automatically (the classic blocked-pull culprit); real local
@@ -350,10 +399,7 @@ export async function updateFromSource(onProgress: (p: ImportProgress) => void):
 
     onProgress({ progress: 1, message: 'Restarting…' })
     // Let the IPC reply and the "Restarting…" frame land before swapping.
-    setTimeout(() => {
-      app.relaunch()
-      app.exit(0)
-    }, 800)
+    setTimeout(() => relaunchAfterSourceUpdate(root), 800)
   } finally {
     sourceUpdateRunning = false
   }
