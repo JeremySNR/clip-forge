@@ -12,6 +12,7 @@
 <p align="center">
   <a href="https://github.com/JeremySNR/clip-forge/releases/latest"><img src="https://img.shields.io/github/v/release/JeremySNR/clip-forge?color=10b981&label=release" alt="Latest release" /></a>
   <a href="https://github.com/JeremySNR/clip-forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JeremySNR/clip-forge/ci.yml?branch=main&label=CI" alt="CI status" /></a>
+  <a href="https://github.com/JeremySNR/clip-forge/releases"><img src="https://img.shields.io/github/downloads/JeremySNR/clip-forge/total?color=6366f1&label=downloads" alt="Total downloads" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms" />
   <a href="https://github.com/JeremySNR/clip-forge/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
