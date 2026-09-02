@@ -1,4 +1,4 @@
-import type { Clip, Transcript } from '@shared/types'
+import type { BrandVoiceSettings, Clip, Transcript } from '@shared/types'
 import { wordsInRange } from '@shared/captionLayout'
 import { chatJSON } from './openai'
 
@@ -36,11 +36,33 @@ const RESPONSE_SCHEMA = {
   }
 } as const
 
+/**
+ * Renders the user's brand voice settings as prompt guidance. Returns null when
+ * every field is blank, so an unconfigured brand voice adds nothing to the
+ * prompt rather than sending empty instructions.
+ */
+function brandVoiceGuidance(voice: BrandVoiceSettings | null): string | null {
+  if (!voice) return null
+  const lines = [
+    voice.brandName.trim() ? `Brand: ${voice.brandName.trim()}` : '',
+    voice.tone.trim() ? `Tone: ${voice.tone.trim()}` : '',
+    voice.style.trim() ? `Style: ${voice.style.trim()}` : '',
+    voice.avoid.trim() ? `Avoid: ${voice.avoid.trim()}` : ''
+  ].filter(Boolean)
+  if (lines.length === 0) return null
+  return [
+    'Brand voice to follow. Where it conflicts with the general rules above,',
+    'the brand voice wins:',
+    ...lines
+  ].join('\n')
+}
+
 export async function generateSocialCaption(
   apiKey: string,
   model: string,
   clip: Clip,
   transcript: Transcript | null,
+  voice: BrandVoiceSettings | null = null,
   signal?: AbortSignal
 ): Promise<string> {
   const excerpt = transcript
@@ -56,6 +78,7 @@ export async function generateSocialCaption(
     clip.summary ? `Summary: ${clip.summary}` : '',
     clip.hashtags.length > 0 ? `Suggested topic tags: ${clip.hashtags.join(', ')}` : '',
     excerpt ? `Transcript of the clip:\n"${excerpt}"` : '',
+    brandVoiceGuidance(voice) ?? '',
     'Write the caption.'
   ]
     .filter(Boolean)

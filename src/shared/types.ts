@@ -138,12 +138,6 @@ export interface Clip {
   summary: string
   /** AI-generated social post caption (TikTok-style); null until generated. */
   caption?: string | null
-  /**
-   * AI-generated caption for internal WorkVivo posts (brand-voiced, not
-   * hashtag-led); null until generated. Kept separate from `caption` because
-   * the two registers differ. Falls back to `caption`/`title` when unset.
-   */
-  workvivoCaption?: string | null
   viralityScore: number
   viralityReason: string
   /** One-line LLM assessment of what the visuals add/cost; null until scored. */
@@ -287,9 +281,8 @@ export interface BrandColors {
 
 /**
  * Editable brand tone-of-voice and style guidance that steers AI caption
- * generation (used for WorkVivo captions today, and available to any future
- * generated copy). All fields are free text; an empty string means "no
- * preference" and the generator falls back to sensible defaults.
+ * generation. All fields are free text; an empty string means "no preference"
+ * and the generator falls back to sensible defaults.
  */
 export interface BrandVoiceSettings {
   /** Organisation/brand name, woven into captions where it reads naturally. */
@@ -378,70 +371,6 @@ export interface GpuEncoderStatus {
   canDownloadFfmpeg: boolean
 }
 
-/** A WorkVivo space (audience) a clip can be posted to. */
-export interface WorkvivoSpace {
-  id: string
-  name: string
-}
-
-/**
- * Renderer-facing WorkVivo connection state. The Bearer token itself is never
- * exposed — only whether one is stored and a masked hint, mirroring how the
- * OpenAI key is surfaced.
- */
-export interface WorkvivoPublicSettings {
-  /** Org WorkVivo URL, e.g. https://acme.workvivo.com. */
-  url: string
-  /** Organisation ID sent as the `Workvivo-Id` header. */
-  companyId: string
-  /** WorkVivo user id posts are attributed to (empty = the token's own user). */
-  postAsUserId: string
-  /** Preferred default space id for one-click posting ('' = none). */
-  defaultSpaceId: string
-  /**
-   * Largest upload the API is believed to accept, in bytes. Clips are rendered
-   * to fit this in one pass; the app learns the real value from 413s.
-   */
-  maxUploadBytes: number
-  hasToken: boolean
-  tokenMasked: string
-  /** True when url + companyId + token are all present. */
-  configured: boolean
-}
-
-/** Partial WorkVivo config update; token is write-only. */
-export interface WorkvivoSettingsUpdate {
-  url?: string
-  companyId?: string
-  token?: string
-  postAsUserId?: string
-  defaultSpaceId?: string
-  maxUploadBytes?: number
-}
-
-/** Outcome of a WorkVivo "Test connection" call. */
-export interface WorkvivoTestResult {
-  ok: boolean
-  message: string
-  /** Number of spaces the token can see, when the test succeeded. */
-  spaceCount?: number
-}
-
-/** Outcome of posting a clip to WorkVivo. */
-export interface WorkvivoPostResult {
-  ok: boolean
-  /** Link to the created post, when WorkVivo returned one. */
-  permalink: string | null
-}
-
-/** Progress while rendering + uploading a clip to WorkVivo. */
-export interface WorkvivoPostProgress {
-  clipId: string
-  /** 0..1 overall (render then upload), or -1 when indeterminate. */
-  progress: number
-  message: string
-}
-
 export interface AppSettings {
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
@@ -469,8 +398,6 @@ export interface AppSettings {
   importCookiesBrowser: BrowserCookieSource
   /** True when a Netscape cookies.txt file is stored for URL imports. */
   hasImportCookiesFile: boolean
-  /** WorkVivo posting integration. */
-  workvivo: WorkvivoPublicSettings
 }
 
 export interface SettingsUpdate {
@@ -484,7 +411,6 @@ export interface SettingsUpdate {
   brandVoice?: Partial<BrandVoiceSettings>
   importCookiesBrowser?: BrowserCookieSource
   clearImportCookiesFile?: boolean
-  workvivo?: WorkvivoSettingsUpdate
 }
 
 export interface PipelineError {

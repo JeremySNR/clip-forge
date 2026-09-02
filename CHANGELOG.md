@@ -6,6 +6,24 @@ the [releases page](https://github.com/JeremySNR/clip-forge/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [Unreleased]
+
+### Removed
+
+- **The WorkVivo posting integration.** It was specific to one organisation's
+  internal comms platform and depended on an undocumented endpoint set, which
+  made it an odd fit for a general-purpose tool. Everything it did that was not
+  WorkVivo-specific stayed: the size-targeted two-pass encode
+  (`src/shared/uploadBudget.ts`) is still here and still tested, and brand voice
+  now steers the TikTok/Reels/Shorts post captions rather than only the internal
+  ones.
+
+### Changed
+
+- Brand voice settings (name, tone, style, things to avoid) now feed the AI post
+  caption writer. Previously they only affected the internal posting captions,
+  so the setting appeared to do nothing for most users.
+
 ## [0.7.0] - 2026-09-02
 
 ### Added

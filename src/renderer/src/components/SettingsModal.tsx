@@ -15,11 +15,8 @@ import {
   Download,
   Languages,
   Loader2,
-  LogIn,
-  Send,
   Palette,
   MessageSquareQuote,
-  Search
 } from 'lucide-react'
 import { useStore } from '../store'
 import { DEFAULT_BRAND_COLORS, resolveCaptionStyle } from '@shared/captionStyles'
@@ -73,14 +70,13 @@ const WATERMARK_POSITIONS: Array<{ value: WatermarkPosition; label: string }> = 
   { value: 'bottom-right', label: 'Bottom right' }
 ]
 
-type SectionId = 'general' | 'export' | 'branding' | 'voice' | 'workvivo' | 'fonts' | 'updates'
+type SectionId = 'general' | 'export' | 'branding' | 'voice' | 'fonts' | 'updates'
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: typeof KeyRound }> = [
   { id: 'general', label: 'API & models', icon: KeyRound },
   { id: 'export', label: 'Export', icon: MonitorPlay },
   { id: 'branding', label: 'Branding', icon: Stamp },
   { id: 'voice', label: 'Brand voice', icon: MessageSquareQuote },
-  { id: 'workvivo', label: 'WorkVivo', icon: Send },
   { id: 'fonts', label: 'Fonts', icon: Type },
   { id: 'updates', label: 'Updates', icon: RefreshCw }
 ]
@@ -345,7 +341,6 @@ export default function SettingsModal(): React.JSX.Element {
 
           {section === 'branding' && <BrandingSection />}
           {section === 'voice' && <BrandVoiceSection />}
-          {section === 'workvivo' && <WorkvivoSection />}
           {section === 'fonts' && <FontsSection />}
           {section === 'updates' && <UpdatesSection />}
         </div>
@@ -634,8 +629,8 @@ function ColorField({
 
 /**
  * Brand tone-of-voice and style guidance. Free-text fields that steer AI
- * caption generation (WorkVivo posts today). Persisted on blur so typing does
- * not fire a save per keystroke.
+ * caption generation. Persisted on blur so typing does not fire a save per
+ * keystroke.
  */
 function BrandVoiceSection(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
@@ -693,328 +688,13 @@ function BrandVoiceSection(): React.JSX.Element {
         Brand voice
       </label>
       <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-        Steers AI-generated captions (like WorkVivo posts) so they sound like your organisation.
-        Leave blank for a neutral, friendly default.
+        Steers the AI-generated post captions so they sound like your organisation. Leave blank
+        for a neutral, friendly default.
       </p>
       {field('brandName', 'Brand / organisation name', 'e.g. your company name', 1)}
       {field('tone', 'Tone of voice', 'e.g. warm, upbeat and human; confident but never salesy', 2)}
       {field('style', 'Writing style', 'e.g. British English, short sentences, no emojis', 2)}
       {field('avoid', 'Things to avoid', 'e.g. no hashtags, no hype, no corporate jargon', 2)}
-    </div>
-  )
-}
-
-/**
- * WorkVivo connector: posts clips straight to a chosen WorkVivo space. Auth is
- * an org-level app token (Bearer) plus the Organisation ID header — not the
- * user's SSO login — so posts appear as the configured identity.
- */
-/**
- * Browser sign-in for WorkVivo's web upload path.
- *
- * The Customer API token below cannot carry a video of any real size: it takes
- * the file as an inline request body and the infrastructure in front of it
- * refuses anything much over ~10MB. The web app instead presigns an upload
- * straight to S3, which has no such ceiling, but authenticates as a person
- * rather than as the organisation. So this is a separate, additional login.
- */
-function WorkvivoWebSignIn({
-  signedIn,
-  onChange
-}: {
-  signedIn: boolean
-  onChange: (signedIn: boolean) => void
-}): React.JSX.Element {
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const signIn = async (): Promise<void> => {
-    setBusy(true)
-    setError(null)
-    try {
-      const { signedIn: ok } = await window.clipforge.workvivoWebSignIn()
-      onChange(ok)
-      if (!ok) setError('Sign-in window closed before you were signed in.')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="mt-4 rounded-xl border border-surface-600 bg-surface-850/60 p-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <span className="flex items-center gap-1.5 text-sm font-medium">
-          <LogIn size={14} className="text-accent-400" />
-          Full-quality uploads
-        </span>
-        {signedIn ? (
-          <span className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-400">
-            <Check size={12} /> Signed in
-          </span>
-        ) : (
-          <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-400">
-            Not signed in
-          </span>
-        )}
-      </div>
-      <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
-        {signedIn
-          ? 'Clips upload straight to WorkVivo at full export quality, with no size limit. Sign out to fall back to the API, which has to shrink them.'
-          : 'Sign in to WorkVivo in a browser window to upload clips at full quality. Without this, posts go through the API, which caps uploads at a few megabytes and visibly degrades longer clips.'}
-      </p>
-      <div className="mt-2.5 flex gap-1.5">
-        <button
-          onClick={() => void signIn()}
-          disabled={busy}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
-        >
-          {busy ? <Loader2 size={13} className="animate-spin" /> : <LogIn size={13} />}
-          {busy ? 'Waiting for sign-in…' : signedIn ? 'Sign in again' : 'Sign in to WorkVivo'}
-        </button>
-        {signedIn && (
-          <button
-            onClick={() =>
-              void window.clipforge.workvivoWebSignOut().then((s) => onChange(s.signedIn))
-            }
-            className="rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-surface-800 hover:text-zinc-200"
-          >
-            Sign out
-          </button>
-        )}
-      </div>
-      {error && <p className="mt-1.5 text-[11px] leading-relaxed text-red-400">{error}</p>}
-    </div>
-  )
-}
-
-/**
- * Upload-size choices, always including whatever is currently stored: a cap
- * learned from a 413 is a halving of a preset, not a preset itself, and a
- * `<select>` whose value matches no option renders blank.
- */
-function uploadSizeOptions(current: number): number[] {
-  const MB = 1024 * 1024
-  const presets = [8, 18, 38, 60, 90].map((mb) => mb * MB)
-  return presets.includes(current) ? presets : [...presets, current].sort((a, b) => a - b)
-}
-
-function WorkvivoSection(): React.JSX.Element {
-  const settings = useStore((s) => s.settings)
-  const saveSettings = useStore((s) => s.saveSettings)
-  const spaces = useStore((s) => s.workvivoSpaces)
-  const loadSpaces = useStore((s) => s.loadWorkvivoSpaces)
-  const wv = settings?.workvivo
-  // Seeded once from settings, which are loaded before this modal can open.
-  const [url, setUrl] = useState(wv?.url ?? '')
-  const [companyId, setCompanyId] = useState(wv?.companyId ?? '')
-  const [token, setToken] = useState('')
-  const [postAsUserId, setPostAsUserId] = useState(wv?.postAsUserId ?? '')
-  const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null)
-  const [lookupEmail, setLookupEmail] = useState('')
-  const [lookupBusy, setLookupBusy] = useState(false)
-  const [lookupMsg, setLookupMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [webSignedIn, setWebSignedIn] = useState(false)
-
-  useEffect(() => {
-    void window.clipforge.workvivoWebStatus().then((s) => setWebSignedIn(s.signedIn))
-  }, [])
-
-  useEffect(() => {
-    if (wv?.configured) void loadSpaces()
-  }, [wv?.configured, loadSpaces])
-
-  const saveAndTest = async (): Promise<void> => {
-    setBusy(true)
-    setResult(null)
-    try {
-      await saveSettings({
-        workvivo: {
-          url,
-          companyId,
-          postAsUserId,
-          ...(token.trim() ? { token: token.trim() } : {})
-        }
-      })
-      setToken('')
-      const test = await window.clipforge.testWorkvivo()
-      setResult(test)
-      if (test.ok) await loadSpaces()
-    } catch (err) {
-      setResult({ ok: false, message: err instanceof Error ? err.message : String(err) })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const lookUp = async (): Promise<void> => {
-    setLookupBusy(true)
-    setLookupMsg(null)
-    try {
-      const user = await window.clipforge.findWorkvivoUser(lookupEmail.trim())
-      setPostAsUserId(user.id)
-      await saveSettings({ workvivo: { postAsUserId: user.id } })
-      setLookupMsg({ ok: true, text: `Found ${user.name} (id ${user.id}) and saved.` })
-    } catch (err) {
-      setLookupMsg({
-        ok: false,
-        text:
-          err instanceof Error
-            ? err.message.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, '')
-            : String(err)
-      })
-    } finally {
-      setLookupBusy(false)
-    }
-  }
-
-  const inputClass =
-    'mt-1.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none'
-
-  return (
-    <div className="max-w-xl">
-      <label className="flex items-center gap-2 text-sm font-medium">
-        <Send size={15} className="text-accent-400" />
-        WorkVivo
-      </label>
-      <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-        Post clips straight to a WorkVivo space. Uses an org app token (not your SSO login), so
-        posts appear as the identity below. Ask a WorkVivo admin to enable API access and mint a
-        token with the <span className="text-zinc-400">spaces:read</span> and posting scopes.
-      </p>
-
-      <div className="mt-3">
-        <span className="text-[11px] text-zinc-500">WorkVivo URL</span>
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://yourcompany.workvivo.com"
-          className={inputClass}
-        />
-      </div>
-      <div className="mt-3">
-        <span className="text-[11px] text-zinc-500">Organisation ID (Workvivo-Id)</span>
-        <input
-          value={companyId}
-          onChange={(e) => setCompanyId(e.target.value)}
-          placeholder="e.g. 12345"
-          className={inputClass}
-        />
-      </div>
-      <div className="mt-3">
-        <span className="text-[11px] text-zinc-500">API key (Bearer token)</span>
-        <input
-          type="password"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder={wv?.hasToken ? `Current: ${wv.tokenMasked}` : 'Paste the API token'}
-          className={inputClass}
-        />
-      </div>
-      <div className="mt-3">
-        <span className="text-[11px] text-zinc-500">Post as — WorkVivo user ID (required)</span>
-        <input
-          value={postAsUserId}
-          onChange={(e) => setPostAsUserId(e.target.value)}
-          placeholder="e.g. 4821 (a shared Comms account)"
-          className={inputClass}
-        />
-        <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-          WorkVivo attributes every post to a user, so this is required to post. Don&apos;t know the
-          id? Look it up by email below (needs the connection saved first).
-        </p>
-        <div className="mt-2 flex gap-2">
-          <input
-            type="email"
-            value={lookupEmail}
-            onChange={(e) => setLookupEmail(e.target.value)}
-            placeholder="you@company.com"
-            className="min-w-0 flex-1 rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
-          />
-          <button
-            onClick={() => void lookUp()}
-            disabled={lookupBusy || !lookupEmail.trim()}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
-          >
-            {lookupBusy ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-            Look up
-          </button>
-        </div>
-        {lookupMsg && (
-          <p
-            className={`mt-1.5 text-[11px] leading-relaxed ${
-              lookupMsg.ok ? 'text-emerald-400' : 'text-red-400'
-            }`}
-          >
-            {lookupMsg.text}
-          </p>
-        )}
-      </div>
-
-      {wv?.configured && spaces.length > 0 && (
-        <div className="mt-3">
-          <span className="text-[11px] text-zinc-500">Default space (optional)</span>
-          <select
-            value={wv.defaultSpaceId}
-            onChange={(e) => void saveSettings({ workvivo: { defaultSpaceId: e.target.value } })}
-            className={inputClass}
-          >
-            <option value="">No default</option>
-            {spaces.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <WorkvivoWebSignIn signedIn={webSignedIn} onChange={setWebSignedIn} />
-
-      {wv && !webSignedIn && (
-        <div className="mt-3">
-          <span className="text-[11px] text-zinc-500">Maximum upload size (API fallback)</span>
-          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
-            Only used when you are not signed in above. WorkVivo does not publish the API&apos;s
-            request-size limit, so clips are rendered once to fit this budget. If a post is
-            rejected as too large, ClipForge halves this and re-renders, then remembers it.
-          </p>
-          <select
-            value={String(wv.maxUploadBytes)}
-            onChange={(e) =>
-              void saveSettings({ workvivo: { maxUploadBytes: Number(e.target.value) } })
-            }
-            className={inputClass}
-          >
-            {uploadSizeOptions(wv.maxUploadBytes).map((bytes) => (
-              <option key={bytes} value={bytes}>
-                {(bytes / (1024 * 1024)).toFixed(bytes % (1024 * 1024) === 0 ? 0 : 1)} MB
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {result && (
-        <p
-          className={`mt-3 rounded-lg px-3 py-2 text-xs leading-relaxed ${
-            result.ok ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
-          }`}
-        >
-          {result.message}
-        </p>
-      )}
-
-      <button
-        onClick={() => void saveAndTest()}
-        disabled={busy}
-        className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
-      >
-        {busy ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-        {busy ? 'Saving & testing…' : 'Save & test connection'}
-      </button>
     </div>
   )
 }

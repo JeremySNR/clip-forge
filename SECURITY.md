@@ -26,8 +26,6 @@ interesting areas are:
 - **Browser cookies.** To download private or SSO-protected videos, ClipForge
   can borrow cookies from your installed browser. Anything that sends those
   somewhere they should not go is in scope.
-- **The WorkVivo session.** The optional WorkVivo integration keeps a session
-  cookie in its own Electron partition. Same rules.
 - **The `media://` protocol.** It serves local files to the renderer. Path
   traversal out of the allowed directories, or serving files it should not
   (settings, cookie stores), is in scope.
@@ -47,7 +45,7 @@ interesting areas are:
 - The fact that audio, transcripts and sampled frames are sent to the OpenAI
   API. That is the documented design; only the full video staying local is
   promised.
-- Vulnerabilities in OpenAI, WorkVivo, yt-dlp or other third-party services.
+- Vulnerabilities in OpenAI, yt-dlp or other third-party services.
   Please report those to them.
 
 ## Supported versions

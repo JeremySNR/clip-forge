@@ -23,9 +23,9 @@ export function allowMediaPath(path: string): void {
  * userData subdirectories the renderer has a legitimate reason to read:
  * project media (thumbnails, B-roll images, downloaded source videos),
  * custom caption fonts, the branding logo and cached timeline strips.
- * Deliberately NOT the whole of userData — settings.json (API keys, the
- * WorkVivo token) and cookies/import-cookies.txt (live session cookies)
- * live there too and must never be reachable over media://.
+ * Deliberately NOT the whole of userData — settings.json (the encrypted API
+ * key) and cookies/import-cookies.txt (live session cookies) live there too
+ * and must never be reachable over media://.
  */
 const USER_DATA_MEDIA_DIRS = ['projects', 'fonts', 'branding', 'timeline-cache'] as const
 

@@ -1,7 +1,8 @@
 /**
  * Bitrate planning for renders that must land under a hard byte cap, for
- * services that reject large request bodies (WorkVivo's Customer API answers
- * HTTP 413; the cap is undocumented, see `WORKVIVO_DEFAULT_UPLOAD_CAP_BYTES`).
+ * destinations that reject large bodies: a platform upload limit, an email
+ * attachment ceiling, or a chat service that refuses anything over a few
+ * megabytes.
  *
  * The point of planning up front is that the render can then be a *single*
  * size-targeted encode straight from the source. Rendering at a quality target

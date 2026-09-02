@@ -16,11 +16,7 @@ import type {
   SettingsUpdate,
   TimelineData,
   UpdateCheckResult,
-  UpdateDownloadProgress,
-  WorkvivoPostProgress,
-  WorkvivoPostResult,
-  WorkvivoSpace,
-  WorkvivoTestResult
+  UpdateDownloadProgress
 } from '@shared/types'
 
 const api = {
@@ -57,38 +53,6 @@ const api = {
   cancelExport: (clipId: string): Promise<void> => ipcRenderer.invoke('clip:cancelExport', clipId),
   generateCaption: (projectId: string, clipId: string): Promise<Project> =>
     ipcRenderer.invoke('clip:generateCaption', projectId, clipId),
-
-  generateWorkvivoCaption: (projectId: string, clipId: string): Promise<Project> =>
-    ipcRenderer.invoke('workvivo:generateCaption', projectId, clipId),
-  testWorkvivo: (): Promise<WorkvivoTestResult> => ipcRenderer.invoke('workvivo:testConnection'),
-  listWorkvivoSpaces: (): Promise<WorkvivoSpace[]> => ipcRenderer.invoke('workvivo:listSpaces'),
-  findWorkvivoUser: (email: string): Promise<{ id: string; name: string }> =>
-    ipcRenderer.invoke('workvivo:findUser', email),
-  postClipToWorkvivo: (
-    projectId: string,
-    clipId: string,
-    spaceId: string,
-    workvivoCaption?: string | null
-  ): Promise<WorkvivoPostResult> =>
-    ipcRenderer.invoke('workvivo:postClip', projectId, clipId, spaceId, workvivoCaption),
-  cancelWorkvivoPost: (clipId: string): Promise<void> =>
-    ipcRenderer.invoke('workvivo:cancelPost', clipId),
-  /**
-   * Browser sign-in for WorkVivo's web upload path, which has no request-size
-   * ceiling. Separate from the Customer API token: it authenticates as the
-   * person posting, so it needs a real login window.
-   */
-  workvivoWebSignIn: (): Promise<{ signedIn: boolean }> =>
-    ipcRenderer.invoke('workvivo:webSignIn'),
-  workvivoWebSignOut: (): Promise<{ signedIn: boolean }> =>
-    ipcRenderer.invoke('workvivo:webSignOut'),
-  workvivoWebStatus: (): Promise<{ signedIn: boolean }> =>
-    ipcRenderer.invoke('workvivo:webStatus'),
-  onWorkvivoProgress: (cb: (p: WorkvivoPostProgress) => void): (() => void) => {
-    const listener = (_e: Electron.IpcRendererEvent, p: WorkvivoPostProgress): void => cb(p)
-    ipcRenderer.on('workvivo:progress', listener)
-    return () => ipcRenderer.removeListener('workvivo:progress', listener)
-  },
 
   getTimeline: (videoPath: string, startSec: number, endSec: number): Promise<TimelineData> =>
     ipcRenderer.invoke('video:timeline', videoPath, startSec, endSec),

@@ -1,8 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
-import { copyFile, mkdir, rm, stat } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
-import { randomUUID } from 'node:crypto'
+import { copyFile, mkdir, rm } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import type {
   AnalyzeOptions,
@@ -20,20 +18,6 @@ import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { generateSocialCaption } from './pipeline/socialCaption'
-import { generateWorkvivoCaption } from './pipeline/workvivoCaption'
-import { postClipViaWeb } from './pipeline/workvivoWeb'
-import {
-  clearWorkvivoWebSession,
-  hasWorkvivoWebSession,
-  openWorkvivoLogin
-} from './workvivoSession'
-import {
-  findUserByEmail,
-  listSpaces,
-  postClipToSpace,
-  testConnection,
-  WorkvivoError
-} from './pipeline/workvivo'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
 import { clearImportCookiesFile, installImportCookiesFile } from './cookies'
 import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource } from './updates'
@@ -47,36 +31,15 @@ import {
   getExportPreferences,
   getModelPreferences,
   getSettings,
-  getWorkvivoConfig,
-  getWorkvivoUploadCap,
-  getWorkvivoWebUrl,
-  rememberWorkvivoUploadCap,
-  WORKVIVO_MIN_UPLOAD_CAP_BYTES,
   updateSettings
 } from './settings'
 
 const runningAnalyses = new Map<string, AbortController>()
 const runningExports = new Map<string, AbortController>()
-const runningWorkvivoPosts = new Map<string, AbortController>()
 
 export const ANALYSIS_CANCELLED_MESSAGE = 'Analysis cancelled'
 export const EXPORT_CANCELLED_MESSAGE = 'Export cancelled'
-export const WORKVIVO_POST_CANCELLED_MESSAGE = 'WorkVivo post cancelled'
 
-const MB = 1024 * 1024
-/**
- * WorkVivo's Customer API rejects large inline uploads with HTTP 413, well below
- * the size its web uploader accepts (that path uses chunked upload; the API does
- * not). The cap is undocumented — WorkVivo's own OpenAPI spec states no size
- * limit on the `video` field and defines no 413 response — so the app renders
- * to a remembered budget and learns the real value from any 413 it gets.
- *
- * The clip is rendered *once*, straight to that budget, rather than rendered at
- * quality and then transcoded down: a second encode costs a whole extra lossy
- * generation and spends its bits reproducing the first one's artefacts. See
- * `@shared/uploadBudget` and `RenderJob.sizeTargetBytes`.
- */
-const WORKVIVO_MAX_FIT_ATTEMPTS = 2
 
 /** How far apart durations may be for a relinked file to count as the same video. */
 const RELINK_DURATION_TOLERANCE_SEC = 2
@@ -302,7 +265,8 @@ export function registerIpcHandlers(): void {
       apiKey,
       getModelPreferences().analysisModel,
       clip,
-      project.transcript
+      project.transcript,
+      getBrandVoiceSettings()
     )
     // Graft only the caption under the lock: edits made while the LLM ran
     // must survive, so never save the pre-call project object.
@@ -311,235 +275,6 @@ export function registerIpcHandlers(): void {
       if (!target) throw new Error('Clip not found')
       target.caption = caption
     })
-  })
-
-  ipcMain.handle('workvivo:generateCaption', async (_e, projectId: string, clipId: string) => {
-    const project = await loadProject(projectId)
-    const clip = project.clips.find((c) => c.id === clipId)
-    if (!clip) throw new Error('Clip not found')
-    const apiKey = getApiKey()
-    if (!apiKey) throw new Error('Add your OpenAI API key in Settings first.')
-    const caption = await generateWorkvivoCaption(
-      apiKey,
-      getModelPreferences().analysisModel,
-      clip,
-      project.transcript,
-      getBrandVoiceSettings()
-    )
-    // Same graft-under-lock pattern as clip:generateCaption above.
-    return updateProject(projectId, (fresh) => {
-      const target = fresh.clips.find((c) => c.id === clipId)
-      if (!target) throw new Error('Clip not found')
-      target.workvivoCaption = caption
-    })
-  })
-
-  ipcMain.handle('workvivo:testConnection', async () => {
-    const cfg = getWorkvivoConfig()
-    if (!cfg) {
-      return { ok: false, message: 'Add your WorkVivo URL, Organisation ID and API key first.' }
-    }
-    return testConnection(cfg.request)
-  })
-
-  ipcMain.handle('workvivo:listSpaces', async () => {
-    const cfg = getWorkvivoConfig()
-    if (!cfg) return []
-    return listSpaces(cfg.request)
-  })
-
-  ipcMain.handle('workvivo:findUser', async (_e, email: string) => {
-    const cfg = getWorkvivoConfig()
-    if (!cfg) {
-      throw new Error('Add your WorkVivo URL, Organisation ID and API key first.')
-    }
-    if (!email.trim()) throw new Error('Enter an email address to look up.')
-    return findUserByEmail(cfg.request, email.trim())
-  })
-
-  ipcMain.handle(
-    'workvivo:postClip',
-    async (
-      event,
-      projectId: string,
-      clipId: string,
-      spaceId: string,
-      workvivoCaption?: string | null
-    ) => {
-      const cfg = getWorkvivoConfig()
-      if (!cfg) {
-        throw new Error(
-          'WorkVivo is not connected. Add your URL, Organisation ID and API key in Settings.'
-        )
-      }
-      if (!spaceId) throw new Error('Choose a WorkVivo space to post to.')
-      if (!cfg.postAsUserId) {
-        throw new Error(
-          'Set the “Post as” WorkVivo user ID in Settings → WorkVivo first — WorkVivo requires every post to be attributed to a user.'
-        )
-      }
-      const project = await loadProject(projectId)
-      const clip = project.clips.find((c) => c.id === clipId)
-      if (!clip) throw new Error('Clip not found')
-      if (project.sourceMissing) {
-        throw new Error(`The source video is missing (${project.video.path}). Relink it to post.`)
-      }
-      if (runningWorkvivoPosts.has(clipId)) throw new Error('This clip is already being posted.')
-
-      const text =
-        typeof workvivoCaption === 'string'
-          ? workvivoCaption.trim()
-          : (clip.workvivoCaption?.trim() || clip.caption?.trim() || clip.title || '').trim()
-      const prefs = getExportPreferences()
-      const branding = getBrandingSettings()
-      const controller = new AbortController()
-      runningWorkvivoPosts.set(clipId, controller)
-      const dir = join(tmpdir(), 'clipforge', 'workvivo')
-      await mkdir(dir, { recursive: true })
-      const renderPaths: string[] = []
-      const send = (progress: number, message: string): void => {
-        if (!event.sender.isDestroyed()) {
-          event.sender.send('workvivo:progress', { clipId, progress, message })
-        }
-      }
-      const fontsDirPath = await renderFontsDir()
-      const brandingForRender =
-        branding.enabled && branding.imagePath && existsSync(branding.imagePath) ? branding : null
-
-      // Prefer the web upload path when the user has signed in. It presigns an
-      // S3 upload and sends the video straight to the bucket, so there is no
-      // request-size ceiling and the clip goes up at full export quality.
-      //
-      // The Customer API below is the fallback. It accepts a video only as an
-      // inline multipart body, which the infrastructure in front of it rejects
-      // somewhere around 10-17MB, so that path has to squeeze the clip into a
-      // size-targeted render and loses real quality doing it.
-      if (await hasWorkvivoWebSession(cfg.webUrl)) {
-        try {
-          const outputPath = join(dir, `${clipId}-${randomUUID()}.mp4`)
-          renderPaths.push(outputPath)
-          send(0, 'Rendering clip…')
-          await renderClip({
-            clip,
-            source: project.video,
-            transcript: project.transcript,
-            outputPath,
-            encoder: prefs.encoder,
-            quality: prefs.quality,
-            branding: brandingForRender,
-            fontsDirPath,
-            signal: controller.signal,
-            // Rendering is the first 60%; a full-quality upload is a real wait.
-            onProgress: (fraction) => send(fraction * 0.6, 'Rendering clip…')
-          })
-          const web = await postClipViaWeb({
-            url: cfg.webUrl,
-            videoPath: outputPath,
-            durationSec: clip.edit.end - clip.edit.start,
-            text,
-            spaceId,
-            signal: controller.signal,
-            onProgress: (f, message) => send(0.6 + f * 0.39, message)
-          })
-          send(1, 'Posted to WorkVivo')
-          return { ok: true, permalink: web.permalink }
-        } catch (err) {
-          if (controller.signal.aborted) {
-            throw new Error(WORKVIVO_POST_CANCELLED_MESSAGE, { cause: err })
-          }
-          throw err
-        } finally {
-          runningWorkvivoPosts.delete(clipId)
-          await Promise.all(renderPaths.map((p) => rm(p, { force: true }).catch(() => undefined)))
-        }
-      }
-
-      let capBytes = getWorkvivoUploadCap()
-      try {
-        for (let attempt = 0; ; attempt++) {
-          const outputPath = join(dir, `${clipId}-${randomUUID()}.mp4`)
-          renderPaths.push(outputPath)
-          send(0, 'Rendering clip for WorkVivo…')
-          await renderClip({
-            clip,
-            source: project.video,
-            transcript: project.transcript,
-            outputPath,
-            encoder: prefs.encoder,
-            quality: prefs.quality,
-            // Size-targeted only on the API path, where the ceiling is real.
-            sizeTargetBytes: capBytes,
-            branding: brandingForRender,
-            fontsDirPath,
-            signal: controller.signal,
-            // Rendering is the first 85% of the job; upload is the rest.
-            onProgress: (fraction) => send(fraction * 0.85, 'Rendering clip for WorkVivo…')
-          })
-          try {
-            send(0.87, 'Uploading to WorkVivo…')
-            const result = await postClipToSpace(cfg.request, {
-              videoPath: outputPath,
-              text,
-              spaceId,
-              postAsUserId: cfg.postAsUserId || undefined,
-              signal: controller.signal
-            })
-            // Confirmed good: remember it so the next post skips the discovery.
-            const accepted = await stat(outputPath).then((f) => f.size).catch(() => 0)
-            if (accepted > 0) rememberWorkvivoUploadCap(Math.max(accepted, capBytes))
-            send(1, 'Posted to WorkVivo')
-            return result
-          } catch (uploadErr) {
-            const tooLarge = uploadErr instanceof WorkvivoError && uploadErr.status === 413
-            if (!tooLarge) throw uploadErr
-            // The remembered cap was too generous. Halve it, persist so this is
-            // a one-off cost, and render once more at the smaller budget.
-            const next = Math.floor(capBytes / 2)
-            if (attempt >= WORKVIVO_MAX_FIT_ATTEMPTS || next < WORKVIVO_MIN_UPLOAD_CAP_BYTES) {
-              throw new Error(
-                `WorkVivo's API rejected this clip as too large even at ${Math.round(capBytes / MB)}MB. Sign in to WorkVivo in Settings to upload at full quality instead.`,
-                { cause: uploadErr }
-              )
-            }
-            capBytes = next
-            rememberWorkvivoUploadCap(capBytes)
-            send(0.05, `Too large for WorkVivo — re-rendering under ${Math.round(capBytes / MB)}MB…`)
-          }
-        }
-      } catch (err) {
-        if (controller.signal.aborted) {
-          throw new Error(WORKVIVO_POST_CANCELLED_MESSAGE, { cause: err })
-        }
-        throw err
-      } finally {
-        runningWorkvivoPosts.delete(clipId)
-        await Promise.all(renderPaths.map((p) => rm(p, { force: true }).catch(() => undefined)))
-      }
-    }
-  )
-
-  ipcMain.handle('workvivo:cancelPost', async (_e, clipId: string) => {
-    runningWorkvivoPosts.get(clipId)?.abort()
-  })
-
-  /**
-   * Browser sign-in for the web upload path. Unlike the API token, this
-   * authenticates as the person posting, so it needs a real login window
-   * (SSO included) and its cookies live in their own Electron partition.
-   */
-  ipcMain.handle('workvivo:webSignIn', async () => {
-    const url = getWorkvivoWebUrl()
-    const signedIn = await openWorkvivoLogin(url)
-    return { signedIn }
-  })
-
-  ipcMain.handle('workvivo:webSignOut', async () => {
-    await clearWorkvivoWebSession(getWorkvivoWebUrl())
-    return { signedIn: false }
-  })
-
-  ipcMain.handle('workvivo:webStatus', async () => {
-    return { signedIn: await hasWorkvivoWebSession(getWorkvivoWebUrl()) }
   })
 
   ipcMain.handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {

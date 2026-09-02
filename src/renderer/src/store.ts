@@ -11,9 +11,9 @@ import type {
   ProjectMode,
   ProjectSummary,
   SettingsUpdate,
-  UpdateCheckResult,
-  WorkvivoSpace
+  UpdateCheckResult
 } from '@shared/types'
+
 import { findWholeVideoClip, highlightClips, isWholeVideoClip } from '@shared/wholeVideo'
 
 /** Font faces already registered with document.fonts (FontFace API). */
@@ -62,13 +62,6 @@ export interface ExportEntry {
   error?: string
 }
 
-export interface WorkvivoPostEntry {
-  status: 'posting' | 'done' | 'error'
-  progress: number
-  message: string
-  permalink?: string | null
-  error?: string
-}
 
 interface AppState {
   screen: Screen
@@ -86,9 +79,6 @@ interface AppState {
   selectedClipId: string | null
   exports: Record<string, ExportEntry>
   exportDir: string | null
-  workvivoSpaces: WorkvivoSpace[]
-  workvivoSpacesError: string | null
-  workvivoPosts: Record<string, WorkvivoPostEntry>
   customFonts: CustomFont[]
   updateCheck: UpdateCheckResult | null
   checkingForUpdates: boolean
@@ -121,18 +111,12 @@ interface AppState {
   updateClipLocal: (clip: Clip) => void
   generateCaption: (clipId: string) => Promise<void>
   captionBusy: Record<string, boolean>
-  generateWorkvivoCaption: (clipId: string) => Promise<void>
-  workvivoCaptionBusy: Record<string, boolean>
   updateTranscriptWord: (segmentId: number, wordIndex: number, text: string) => Promise<void>
   exportClip: (clipId: string) => Promise<void>
   cancelExport: (clipId: string) => Promise<void>
   exportAll: () => Promise<void>
   chooseExportDir: () => Promise<void>
   clearExport: (clipId: string) => void
-  loadWorkvivoSpaces: () => Promise<void>
-  postClipToWorkvivo: (clipId: string, spaceId: string) => Promise<void>
-  cancelWorkvivoPost: (clipId: string) => Promise<void>
-  clearWorkvivoPost: (clipId: string) => void
   addFonts: () => Promise<void>
   removeFont: (fileName: string) => Promise<void>
   importCookiesFile: () => Promise<void>
@@ -158,16 +142,12 @@ export const useStore = create<AppState>((set, get) => ({
   selectedClipId: null,
   exports: {},
   exportDir: null,
-  workvivoSpaces: [],
-  workvivoSpacesError: null,
-  workvivoPosts: {},
   customFonts: [],
   updateCheck: null,
   checkingForUpdates: false,
   updateDownload: { status: 'idle', progress: 0 },
   sourceUpdate: { status: 'idle', message: '' },
   captionBusy: {},
-  workvivoCaptionBusy: {},
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -188,17 +168,6 @@ export const useStore = create<AppState>((set, get) => ({
       const entry = get().exports[p.clipId]
       if (entry?.status === 'exporting') {
         set({ exports: { ...get().exports, [p.clipId]: { ...entry, progress: p.progress } } })
-      }
-    })
-    window.clipforge.onWorkvivoProgress((p) => {
-      const entry = get().workvivoPosts[p.clipId]
-      if (entry?.status === 'posting') {
-        set({
-          workvivoPosts: {
-            ...get().workvivoPosts,
-            [p.clipId]: { ...entry, progress: p.progress, message: p.message }
-          }
-        })
       }
     })
   },
@@ -400,32 +369,6 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  generateWorkvivoCaption: async (clipId) => {
-    const project = get().project
-    if (!project || get().workvivoCaptionBusy[clipId]) return
-    set({ workvivoCaptionBusy: { ...get().workvivoCaptionBusy, [clipId]: true } })
-    try {
-      const updated = await window.clipforge.generateWorkvivoCaption(project.id, clipId)
-      const fresh = updated.clips.find((c) => c.id === clipId)
-      const current = get().project
-      // Only graft the caption on: other clip edits may be in flight.
-      if (fresh && current?.id === updated.id) {
-        set({
-          project: {
-            ...current,
-            clips: current.clips.map((c) =>
-              c.id === clipId ? { ...c, workvivoCaption: fresh.workvivoCaption } : c
-            )
-          }
-        })
-      }
-    } finally {
-      const busy = { ...get().workvivoCaptionBusy }
-      delete busy[clipId]
-      set({ workvivoCaptionBusy: busy })
-    }
-  },
-
   updateTranscriptWord: async (segmentId, wordIndex, text) => {
     const project = get().project
     if (!project) return
@@ -502,64 +445,6 @@ export const useStore = create<AppState>((set, get) => ({
     const exports = { ...get().exports }
     delete exports[clipId]
     set({ exports })
-  },
-
-  loadWorkvivoSpaces: async () => {
-    if (!get().settings?.workvivo.configured) return
-    try {
-      const workvivoSpaces = await window.clipforge.listWorkvivoSpaces()
-      set({ workvivoSpaces, workvivoSpacesError: null })
-    } catch (err) {
-      set({ workvivoSpacesError: err instanceof Error ? cleanIpcError(err.message) : String(err) })
-    }
-  },
-
-  postClipToWorkvivo: async (clipId, spaceId) => {
-    const project = get().project
-    if (!project) return
-    const clip = project.clips.find((c) => c.id === clipId)
-    set({
-      workvivoPosts: {
-        ...get().workvivoPosts,
-        [clipId]: { status: 'posting', progress: 0, message: 'Starting…' }
-      }
-    })
-    try {
-      const result = await window.clipforge.postClipToWorkvivo(
-        project.id,
-        clipId,
-        spaceId,
-        clip?.workvivoCaption ?? null
-      )
-      set({
-        workvivoPosts: {
-          ...get().workvivoPosts,
-          [clipId]: { status: 'done', progress: 1, message: 'Posted', permalink: result.permalink }
-        }
-      })
-    } catch (err) {
-      const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
-      if (message.includes('WorkVivo post cancelled')) {
-        get().clearWorkvivoPost(clipId)
-        return
-      }
-      set({
-        workvivoPosts: {
-          ...get().workvivoPosts,
-          [clipId]: { status: 'error', progress: 0, message: '', error: message }
-        }
-      })
-    }
-  },
-
-  cancelWorkvivoPost: async (clipId) => {
-    await window.clipforge.cancelWorkvivoPost(clipId)
-  },
-
-  clearWorkvivoPost: (clipId) => {
-    const workvivoPosts = { ...get().workvivoPosts }
-    delete workvivoPosts[clipId]
-    set({ workvivoPosts })
   },
 
   addFonts: async () => {

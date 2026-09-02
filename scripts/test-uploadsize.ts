@@ -1,5 +1,5 @@
 /**
- * Offline end-to-end check for size-targeted rendering (the WorkVivo upload
+ * Offline end-to-end check for size-targeted rendering (the export-under-a
  * path). Renders a synthetic clip against a hard byte cap and asserts the
  * finished file actually fits, at the frame size the planner chose, in a
  * single generation.
@@ -40,7 +40,6 @@ function makeClip(): Clip {
     summary: '',
     hook: 'Hook line',
     caption: null,
-    workvivoCaption: null,
     viralityScore: 50,
     viralityReason: '',
     visualSummary: null,
