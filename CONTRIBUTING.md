@@ -88,6 +88,11 @@ output (View → Toggle Developer Tools) are what make a report actionable.
 If you think you have found a security issue, please read
 [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
+## Code of conduct
+
+Participation is covered by our [Code of Conduct](CODE_OF_CONDUCT.md). In
+short: be kind, assume good faith.
+
 ## Style
 
 - TypeScript throughout, no `any` without a comment explaining why.

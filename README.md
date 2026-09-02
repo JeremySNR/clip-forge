@@ -221,6 +221,8 @@ the obvious first step.
 
 Issues and PRs are welcome. The codebase is TypeScript end-to-end. `npm test && npm run typecheck && npm run lint` must pass. CI enforces all three plus an offline render test.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (including how to explore the UI without an API key), how the code is laid out, and the handful of things that are easy to get wrong. Release history is in [CHANGELOG.md](CHANGELOG.md). Security issues go through [SECURITY.md](SECURITY.md) rather than a public issue.
+
 ## License
 
 [MIT](LICENSE)
