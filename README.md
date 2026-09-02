@@ -41,6 +41,12 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
   <img src=".github/assets/screenshot-editor.png" alt="Clip editor with live preview, caption styles and branding watermark" width="49%" />
 </p>
 
+<p align="center">
+  <img src=".github/assets/screenshot-caption-video.png" alt="Choosing between finding viral clips and captioning the whole video, with output shape, speaker tracking and auto zoom options" width="80%" />
+</p>
+
+<p align="center"><em>Pick a mode at setup: let the AI find clips, or caption the whole video end to end.</em></p>
+
 ## Features
 
 **Two ways to work**
