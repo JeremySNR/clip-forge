@@ -12,9 +12,21 @@
 <meta property="og:title" content="ClipForge: free open-source Opus Clip alternative">
 <meta property="og:description" content="Turn long videos into captioned vertical clips on your own desktop. No subscription, no uploads, no processing cap.">
 <meta property="og:url" content="https://jeremysnr.github.io/clip-forge/">
-<meta property="og:image" content="https://jeremysnr.github.io/clip-forge/assets/screenshot-clips.png">
+<meta property="og:image" content="https://jeremysnr.github.io/clip-forge/assets/social-card.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="800">
+<meta property="og:image:alt" content="ClipForge: one long video branching into three scored vertical clips with captions">
+<meta property="og:site_name" content="ClipForge">
+<meta property="og:locale" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ClipForge: free open-source Opus Clip alternative">
+<meta name="twitter:description" content="Turn long videos into captioned vertical clips on your own desktop. No subscription, no uploads, no processing cap.">
+<meta name="twitter:image" content="https://jeremysnr.github.io/clip-forge/assets/social-card.jpg">
 <meta name="theme-color" content="#0a0a0a">
+
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,9 +46,12 @@
   --white: #f4f6f5;
   --grey: #a9b2ae;
   --grey-dim: #737b78;
-  --accent: #10b981;
-  --accent-lift: #3ddc9a;
-  --accent-deep: #04140d;
+  /* Brand violet, sampled from the logo mark in the project banner.
+     The CTA uses the deeper step so white label text clears AA. */
+  --accent: #8b5cf6;
+  --accent-lift: #a78bfa;
+  --accent-cta: #7c3aed;
+  --accent-on: #ffffff;
   --line: rgba(244, 246, 245, .08);
   --line-strong: rgba(244, 246, 245, .16);
 
@@ -154,7 +169,7 @@ a { color: var(--accent-lift); text-decoration: none; }
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 55% 45% at 22% 38%, rgba(16, 185, 129, .07) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 45% at 22% 38%, rgba(139, 92, 246, .07) 0%, transparent 68%),
     radial-gradient(ellipse 60% 50% at 78% 62%, rgba(244, 246, 245, .035) 0%, transparent 70%);
 }
 
@@ -198,20 +213,20 @@ h1 em { font-style: normal; color: var(--accent); }
   min-height: 48px;
   padding: 13px 26px;
   border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-deep);
+  background: var(--accent-cta);
+  color: var(--accent-on);
   font-family: var(--body);
   font-size: 14.5px;
   font-weight: 600;
   letter-spacing: .02em;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--accent-cta);
   transition: transform .5s var(--ease), box-shadow .5s var(--ease), background .3s var(--ease);
 }
 .cta:hover {
-  background: var(--accent-lift);
-  border-color: var(--accent-lift);
+  background: var(--accent);
+  border-color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 10px 34px rgba(16, 185, 129, .22);
+  box-shadow: 0 10px 34px rgba(139, 92, 246, .22);
 }
 .cta:active { transform: translateY(0) scale(.98); }
 
@@ -470,7 +485,7 @@ h2 {
 .cell--lead p { color: var(--grey); font-size: 16px; }
 .cell--lead .lead-shot { margin: 0 28px; border: 1px solid var(--line-strong); border-top-left-radius: 9px; border-top-right-radius: 9px; overflow: hidden; }
 
-.cell--accent { background: linear-gradient(168deg, rgba(16,185,129,.11), rgba(16,185,129,.03)); border-color: rgba(16,185,129,.24); }
+.cell--accent { background: linear-gradient(168deg, rgba(139,92,246,.11), rgba(139,92,246,.03)); border-color: rgba(139,92,246,.24); }
 .cell--accent p { color: var(--grey); }
 
 /* Fills the final row so the grid never ends on an empty cell. */
@@ -524,7 +539,7 @@ h2 {
    ============================================================ */
 .boundary { margin-top: 54px; display: grid; grid-template-columns: 1.25fr .95fr; gap: 18px; align-items: start; }
 .bpanel { border-radius: 12px; padding: 28px; border: 1px solid var(--line); background: var(--panel); }
-.bpanel--stay { border-color: rgba(16,185,129,.26); background: linear-gradient(168deg, rgba(16,185,129,.08), rgba(16,185,129,.02)); }
+.bpanel--stay { border-color: rgba(139,92,246,.26); background: linear-gradient(168deg, rgba(139,92,246,.08), rgba(139,92,246,.02)); }
 .bpanel h3 { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 18px; font-weight: 500; }
 .bpanel--stay h3 { color: var(--accent); }
 .bpanel--go h3 { color: var(--grey-dim); }
@@ -544,7 +559,7 @@ th, td { text-align: left; padding: 15px 20px; border-bottom: 1px solid var(--li
 thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--grey-dim); font-weight: 500; }
 thead th.mine { color: var(--accent); }
 tbody th { font-weight: 400; color: var(--grey-dim); font-size: 15px; white-space: nowrap; }
-td.mine { color: var(--white); background: rgba(16, 185, 129, .055); }
+td.mine { color: var(--white); background: rgba(139, 92, 246, .055); }
 td.theirs { color: var(--grey-dim); }
 tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
 
@@ -591,7 +606,7 @@ details[open] .answer { grid-template-rows: 1fr; }
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 50% 60% at 50% 100%, rgba(16, 185, 129, .10) 0%, transparent 70%);
+  background: radial-gradient(ellipse 50% 60% at 50% 100%, rgba(139, 92, 246, .10) 0%, transparent 70%);
 }
 .closer-in { position: relative; z-index: 2; }
 .closer h2 { margin: 0 auto; max-width: 22ch; }
@@ -639,6 +654,132 @@ code { font-family: var(--mono); font-size: .86em; background: var(--panel-2); p
   .nav-links a:not(.nav-gh) { display: none; }
 }
 </style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ClipForge",
+  "applicationCategory": "MultimediaApplication",
+  "applicationSubCategory": "Video Editing",
+  "operatingSystem": "macOS, Windows, Linux",
+  "url": "https://jeremysnr.github.io/clip-forge/",
+  "downloadUrl": "https://github.com/JeremySNR/clip-forge/releases/latest",
+  "codeRepository": "https://github.com/JeremySNR/clip-forge",
+  "license": "https://opensource.org/licenses/MIT",
+  "isAccessibleForFree": true,
+  "description": "Free, open-source desktop app that turns long videos into captioned vertical clips. Finds the moments worth posting and scores them, reframes to 9:16 using on-device active speaker detection, and burns in animated captions. An open-source alternative to Opus Clip that runs locally.",
+  "featureList": [
+    "AI clip detection with virality scoring",
+    "Caption a whole video end to end",
+    "On-device active speaker detection and auto-reframe to 9:16",
+    "Karaoke-style burned-in captions with custom fonts",
+    "Scene-aware auto zoom",
+    "Filler-word and pause removal",
+    "Import from local files or any yt-dlp supported URL"
+  ],
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+  },
+  "screenshot": "https://jeremysnr.github.io/clip-forge/assets/screenshot-clips.png",
+  "image": "https://jeremysnr.github.io/clip-forge/assets/social-card.jpg",
+  "author": {
+    "@type": "Person",
+    "name": "Jeremy Smith",
+    "url": "https://github.com/JeremySNR"
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is it actually free?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The app is free and MIT licensed, permanently. You pay OpenAI directly for transcription and analysis, which works out at roughly $0.36 per hour of video. There is no subscription, no account, no processing cap and no paid tier holding features back."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need an OpenAI API key?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "For finding clips and captioning, yes, because that is what does the transcription and the analysis. Everything else runs without one: the editor, trimming, caption styling, auto zoom, speaker reframing, watermarks and export. Running Whisper locally so transcription costs nothing is the most requested open issue, and contributions are welcome."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does my video get uploaded anywhere?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Only extracted audio, the transcript and a handful of sampled frames go to the OpenAI API. The full video never leaves your machine."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Do I need a GPU?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. ClipForge uses NVIDIA NVENC if it finds it and falls back to CPU encoding automatically. A GPU makes exports faster, nothing more. Speaker detection runs on CPU perfectly well."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How long can my video be?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "There is no fixed limit. Audio is chunked and transcription is checkpointed to disk as it goes, so hour-plus recordings work, and a failure part way through does not mean paying to transcribe it again."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Does it work in languages other than English?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Transcription does. Set the language in Settings; it defaults to English because auto-detect occasionally mislabels English as a similar-sounding language. Captions burn in whatever Whisper returns. Translating captions into another language is on the roadmap, not built yet."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can it post to TikTok or YouTube for me?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Not automatically. It writes the post caption and hands you the file, then you upload. Direct publishing needs an audited TikTok or YouTube app, which is on the roadmap."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use the clips commercially?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes. MIT licence, and the output is yours. Do check the rights on any source footage you did not create."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "macOS says the app cannot be opened. Why?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The macOS builds are not code-signed yet, so Gatekeeper objects on first launch. Right-click the app and choose Open, which is a one-time step. Signing and notarisation are wanted, and help is welcome."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Why does the source video look like a test pattern?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Because it is one. The screenshots come from a demo project that generates its own video with ffmpeg, so the test suite needs no downloads and no API calls. Real demo footage is wanted, and there is an open issue for anyone happy to contribute a clip."
+      }
+    }
+  ]
+}
+</script>
 </head>
 <body>
 
