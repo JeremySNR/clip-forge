@@ -14,463 +14,952 @@
 <meta property="og:url" content="https://jeremysnr.github.io/clip-forge/">
 <meta property="og:image" content="https://jeremysnr.github.io/clip-forge/assets/screenshot-clips.png">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0a0a0a">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 
 <style>
-  :root {
-    --bg: #0b0f0e;
-    --bg-2: #121817;
-    --panel: #161d1b;
-    --ink: #edf2ef;
-    --ink-2: #b9c5c0;
-    --muted: #7f8e88;
-    --accent: #10b981;
-    --accent-bright: #3ddc9a;
-    --accent-ink: #04140d;
-    --border: #232c29;
-    --border-strong: #33403b;
-    --f-display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
-    --f-body: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --f-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
-  }
+/* ============================================================
+   Tokens. Single committed dark palette: off-black, near-white,
+   one accent. #0a0a0a rather than pure black so the ambient
+   gradients below have data to register against.
+   ============================================================ */
+:root {
+  --black: #0a0a0a;
+  --raise: #101211;
+  --panel: #151817;
+  --panel-2: #1b1f1e;
+  --white: #f4f6f5;
+  --grey: #a9b2ae;
+  --grey-dim: #737b78;
+  --accent: #10b981;
+  --accent-lift: #3ddc9a;
+  --accent-deep: #04140d;
+  --line: rgba(244, 246, 245, .08);
+  --line-strong: rgba(244, 246, 245, .16);
 
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
+  --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --body: "Instrument Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
 
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--f-body);
-    font-size: 17px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
+  --ease: cubic-bezier(.16, 1, .3, 1);
+}
 
-  img { max-width: 100%; height: auto; display: block; }
-  a { color: var(--accent-bright); }
+* { box-sizing: border-box; }
 
-  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 22px; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
-  /* ---------------- hero ---------------- */
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
 
-  .hero {
-    padding: 68px 0 56px;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-    align-items: center;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
-  }
+/* Film grain. Fixed so it never repaints on scroll. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+}
 
-  .brand {
-    font-family: var(--f-mono);
-    font-size: 12px;
-    letter-spacing: .18em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin: 0;
-  }
+img { max-width: 100%; height: auto; display: block; }
 
-  h1 {
-    font-family: var(--f-display);
-    font-weight: 800;
-    font-size: clamp(38px, 7vw, 68px);
-    line-height: 1.0;
-    letter-spacing: -.03em;
-    margin: 0;
-    max-width: 20ch;
-    text-wrap: balance;
-  }
-  h1 em { font-style: normal; color: var(--accent); }
+a { color: var(--accent-lift); text-decoration: none; }
 
-  .sub {
-    font-size: clamp(17px, 2.2vw, 21px);
-    color: var(--ink-2);
-    margin: 0;
-    max-width: 58ch;
-    text-wrap: balance;
-  }
+:focus-visible { outline: 2px solid var(--accent-lift); outline-offset: 3px; }
 
-  .cta-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding-top: 6px; }
+.shell { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 28px; }
+.shell-tight { width: 100%; max-width: 900px; margin: 0 auto; padding: 0 28px; }
 
-  .btn {
-    font-family: var(--f-body);
-    font-size: 15px;
-    font-weight: 600;
-    text-decoration: none;
-    padding: 11px 20px;
-    border-radius: 7px;
-    border: 1px solid var(--border-strong);
-    color: var(--ink);
-    background: var(--panel);
-    transition: background .15s, border-color .15s, transform .15s;
-  }
-  .btn:hover { background: var(--bg-2); border-color: var(--muted); }
-  .btn.primary {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--accent-ink);
-  }
-  .btn.primary:hover { background: var(--accent-bright); border-color: var(--accent-bright); }
-  .btn:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
+.mono {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--grey-dim);
+}
 
-  .price {
-    font-family: var(--f-mono);
-    font-size: 13px;
-    color: var(--muted);
-  }
-  .price b { color: var(--ink-2); font-weight: 500; }
+/* ============================================================
+   Entry motion. Transform and opacity only, gated on
+   prefers-reduced-motion.
+   ============================================================ */
+.rise { opacity: 0; transform: translateY(26px); filter: blur(8px); animation: rise .8s var(--ease) forwards; }
+.d1 { animation-delay: .10s; }
+.d2 { animation-delay: .22s; }
+.d3 { animation-delay: .34s; }
+.d4 { animation-delay: .44s; }
 
-  /* ---------------- shots ---------------- */
+@keyframes rise {
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
 
-  .shots { padding: 46px 0; display: flex; flex-direction: column; gap: 14px; }
-  .shots-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .shot {
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    overflow: hidden;
-    background: var(--panel);
-  }
-  .caption { font-size: 14px; color: var(--muted); text-align: center; margin: 0; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .rise { opacity: 1; transform: none; filter: none; animation: none; }
+  *, *::before, *::after { animation-duration: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; }
+}
 
-  /* ---------------- sections ---------------- */
+/* ============================================================
+   Nav. Logo left, one link right.
+   ============================================================ */
+.nav {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  padding-top: 26px;
+}
+.nav-in { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.wordmark {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -.02em;
+  color: var(--white);
+}
+.wordmark span { color: var(--accent); }
+.nav-links { display: flex; gap: 26px; align-items: center; }
+.nav-links a {
+  font-size: 14px;
+  color: var(--grey);
+  transition: color .3s var(--ease);
+}
+.nav-links a:hover { color: var(--white); }
 
-  section { padding: 52px 0; border-top: 1px solid var(--border); }
+/* ============================================================
+   HERO. Architecture B: asymmetric split, deliberate vertical
+   offset between the two columns.
+   ============================================================ */
+.hero {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  padding: 130px 0 70px;
+  overflow: hidden;
+}
+/* Ambient glow: felt, not seen. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 45% at 22% 38%, rgba(16, 185, 129, .07) 0%, transparent 68%),
+    radial-gradient(ellipse 60% 50% at 78% 62%, rgba(244, 246, 245, .035) 0%, transparent 70%);
+}
 
-  h2 {
-    font-family: var(--f-display);
-    font-weight: 600;
-    font-size: clamp(26px, 3.6vw, 36px);
-    letter-spacing: -.02em;
-    line-height: 1.1;
-    margin: 0 0 10px;
-    text-wrap: balance;
-  }
+.hero-grid {
+  position: relative;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 1.18fr .92fr;
+  align-items: center;
+  gap: 56px;
+}
 
-  .section-lede { color: var(--ink-2); margin: 0 0 30px; max-width: 62ch; font-size: 17px; }
+.hero-lede { align-self: center; }
 
-  /* two modes */
+h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.9rem, 6.4vw, 6.4rem);
+  line-height: .93;
+  letter-spacing: -.035em;
+  margin: 18px 0 0;
+  max-width: 15ch;
+  text-wrap: balance;
+}
+h1 em { font-style: normal; color: var(--accent); }
 
-  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .mode {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    padding: 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .mode-tag {
-    font-family: var(--f-mono);
-    font-size: 11px;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--accent);
-  }
-  .mode h3 { font-family: var(--f-body); font-size: 19px; font-weight: 600; margin: 0; }
-  .mode p { margin: 0; color: var(--ink-2); font-size: 16px; }
+.hero-sub {
+  margin: 22px 0 0;
+  font-size: clamp(1.02rem, 1.25vw, 1.2rem);
+  line-height: 1.6;
+  color: var(--grey);
+  max-width: 42ch;
+}
 
-  /* features */
+.hero-act { margin-top: 34px; display: flex; flex-direction: column; gap: 14px; align-items: flex-start; }
 
-  .feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(272px, 1fr)); gap: 4px 34px; }
-  .feat { padding: 15px 0; border-top: 1px solid var(--border); }
-  .feat h3 {
-    font-family: var(--f-body);
-    font-size: 16.5px;
-    font-weight: 600;
-    margin: 0 0 3px;
-  }
-  .feat p { margin: 0; color: var(--muted); font-size: 15.5px; line-height: 1.55; }
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-deep);
+  font-family: var(--body);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  border: 1px solid var(--accent);
+  transition: transform .5s var(--ease), box-shadow .5s var(--ease), background .3s var(--ease);
+}
+.cta:hover {
+  background: var(--accent-lift);
+  border-color: var(--accent-lift);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 34px rgba(16, 185, 129, .22);
+}
+.cta:active { transform: translateY(0) scale(.98); }
 
-  /* comparison */
+.hero-meta { font-family: var(--mono); font-size: 11.5px; color: var(--grey-dim); letter-spacing: .04em; }
+.hero-meta b { color: var(--grey); font-weight: 500; }
 
-  .tbl-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 9px; }
-  table { border-collapse: collapse; width: 100%; font-size: 15.5px; min-width: 560px; }
-  caption { text-align: left; padding: 0 0 12px; color: var(--muted); font-size: 14.5px; }
-  th, td { text-align: left; padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
-  thead th {
-    font-family: var(--f-mono);
-    font-size: 11px;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    color: var(--muted);
-    font-weight: 500;
-  }
-  thead th.us { color: var(--accent); }
-  tbody th { font-weight: 400; color: var(--muted); font-size: 15px; white-space: nowrap; }
-  td.us { color: var(--ink); background: rgba(16, 185, 129, .05); }
-  tr:last-child th, tr:last-child td { border-bottom: none; }
+/* ---- Hero focal element: the reframe, as a live diagram ---- */
 
-  /* privacy */
+.reframe { align-self: end; }
 
-  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
-  .flow-item {
-    border: 1px solid var(--border);
-    border-radius: 9px;
-    padding: 18px;
-    background: var(--panel);
-  }
-  .flow-item.leaves { border-color: var(--border-strong); }
-  .flow-head {
-    font-family: var(--f-mono);
-    font-size: 11px;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    margin: 0 0 8px;
-    color: var(--accent);
-  }
-  .flow-item.leaves .flow-head { color: var(--muted); }
-  .flow-item ul { margin: 0; padding-left: 17px; color: var(--ink-2); font-size: 15.5px; }
-  .flow-item li { margin-bottom: 3px; }
+.stage {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background:
+    linear-gradient(160deg, #1d2422 0%, #141918 55%, #101413 100%);
+  border: 1px solid var(--line-strong);
+}
 
-  /* faq */
+/* Two figures in a wide frame, as a talking-head two-shot would sit. */
+.figure {
+  position: absolute;
+  bottom: -6%;
+  width: 21%;
+  aspect-ratio: 3 / 4;
+  border-radius: 46% 46% 12% 12% / 58% 58% 12% 12%;
+  background: linear-gradient(180deg, rgba(244,246,245,.20), rgba(244,246,245,.05));
+}
+.figure.one { left: 13%; }
+.figure.two { right: 13%; }
+.figure::before {
+  content: "";
+  position: absolute;
+  top: -34%;
+  left: 50%;
+  width: 62%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(244,246,245,.26), rgba(244,246,245,.12));
+}
 
-  .faq { display: flex; flex-direction: column; gap: 0; max-width: 76ch; }
-  details {
-    border-top: 1px solid var(--border);
-    padding: 4px 0;
-  }
-  details[open] { padding-bottom: 12px; }
-  summary {
-    cursor: pointer;
-    padding: 14px 0;
-    font-weight: 600;
-    font-size: 16.5px;
-    list-style: none;
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: baseline;
-  }
-  summary::-webkit-details-marker { display: none; }
-  summary::after {
-    content: "+";
-    font-family: var(--f-mono);
-    color: var(--accent);
-    font-size: 18px;
-    line-height: 1;
-  }
-  details[open] summary::after { content: "\2013"; }
-  summary:focus-visible { outline: 2px solid var(--accent-bright); outline-offset: 3px; }
-  details p { margin: 0 0 10px; color: var(--ink-2); font-size: 16px; max-width: 68ch; }
-  details p:last-child { margin-bottom: 0; }
+/* The 9:16 window. box-shadow punches a hole: everything outside
+   is dimmed, which is exactly what the crop is doing. */
+.crop {
+  position: absolute;
+  top: 4%;
+  bottom: 4%;
+  left: 7%;
+  aspect-ratio: 9 / 16;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  box-shadow: 0 0 0 2000px rgba(6, 9, 8, .68);
+  animation: switch 9s var(--ease) infinite;
+}
+@keyframes switch {
+  0%, 40%   { transform: translateX(0); }
+  50%, 90%  { transform: translateX(176%); }
+  100%      { transform: translateX(0); }
+}
 
-  /* footer */
+.crop-tag {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  transform: translateY(-100%);
+  background: var(--accent);
+  color: var(--accent-deep);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border-radius: 3px 3px 0 0;
+  white-space: nowrap;
+}
 
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 42px 0 60px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px 30px;
-    align-items: baseline;
-    justify-content: space-between;
-    color: var(--muted);
-    font-size: 14.5px;
-  }
-  footer nav { display: flex; flex-wrap: wrap; gap: 8px 20px; }
-  footer a { text-decoration: none; }
-  footer a:hover { color: var(--ink); }
+/* Karaoke caption line, the way the burned-in captions read. */
+.cap {
+  position: absolute;
+  bottom: 9%;
+  left: 6%;
+  right: 6%;
+  text-align: center;
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(11px, 1.15vw, 15px);
+  line-height: 1.2;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+  color: var(--white);
+  text-shadow: 0 2px 5px rgba(0,0,0,.85);
+}
+.cap i { font-style: normal; transition: color .2s linear; }
+.cap i:nth-child(1) { animation: hot 9s steps(1) infinite; animation-delay: 0s; }
+.cap i:nth-child(2) { animation: hot 9s steps(1) infinite; animation-delay: 1.4s; }
+.cap i:nth-child(3) { animation: hot 9s steps(1) infinite; animation-delay: 2.8s; }
+@keyframes hot {
+  0%, 14% { color: var(--accent); }
+  15%, 100% { color: var(--white); }
+}
 
-  code {
-    font-family: var(--f-mono);
-    font-size: .87em;
-    background: var(--bg-2);
-    padding: 2px 6px;
-    border-radius: 4px;
-    color: var(--ink-2);
-  }
+.reframe-note { margin-top: 14px; }
 
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    * { transition: none !important; }
-  }
+/* ============================================================
+   Section frame
+   ============================================================ */
+.band { padding: 108px 0; position: relative; }
+.band--raise { background: var(--raise); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.band--slim { padding: 74px 0; }
 
-  @media (max-width: 700px) {
-    body { font-size: 16px; }
-    .hero { padding: 46px 0 40px; }
-    .shots-pair, .modes { grid-template-columns: 1fr; }
-    section { padding: 40px 0; }
-  }
+h2 {
+  font-family: var(--display);
+  font-weight: 800;
+  letter-spacing: -.028em;
+  line-height: 1.02;
+  margin: 14px 0 0;
+  text-wrap: balance;
+}
+.h2-xl { font-size: clamp(2.1rem, 4.4vw, 3.7rem); }
+.h2-md { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+.h2-sm { font-size: clamp(1.5rem, 2.2vw, 1.95rem); font-weight: 600; }
+
+.band-lede {
+  margin: 18px 0 0;
+  color: var(--grey);
+  max-width: 56ch;
+  font-size: 17px;
+}
+
+/* ============================================================
+   MODES. Feature Architecture B: stacked showcase, alternating.
+   ============================================================ */
+.modes { margin-top: 66px; display: flex; flex-direction: column; gap: 88px; }
+
+.mode-row {
+  display: grid;
+  grid-template-columns: .9fr 1.1fr;
+  gap: 46px;
+  align-items: center;
+}
+.mode-row.flip .mode-copy { order: 2; }
+.mode-row.flip .mode-visual { order: 1; }
+
+.mode-copy h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(1.4rem, 2.3vw, 1.95rem);
+  letter-spacing: -.022em;
+  line-height: 1.1;
+  margin: 12px 0 0;
+}
+.mode-copy p { color: var(--grey); margin: 14px 0 0; font-size: 16.5px; }
+
+.mode-facts { list-style: none; margin: 22px 0 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.mode-facts li {
+  display: grid;
+  grid-template-columns: 15px 1fr;
+  gap: 11px;
+  font-size: 15px;
+  color: var(--grey);
+}
+.mode-facts li::before {
+  content: "";
+  width: 6px; height: 6px;
+  margin-top: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.frame {
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: 0 26px 60px -28px rgba(0, 0, 0, .8);
+}
+
+/* ============================================================
+   BREAK. Giant stat: the number that does the persuading.
+   ============================================================ */
+.break-stat { text-align: center; padding: 104px 0; }
+.stat-fig {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(4rem, 13vw, 11rem);
+  line-height: .84;
+  letter-spacing: -.05em;
+  font-variant-numeric: tabular-nums;
+  color: var(--white);
+}
+.stat-fig sup { font-size: .36em; vertical-align: super; letter-spacing: 0; color: var(--accent); top: -.1em; }
+.stat-under { margin: 26px auto 0; max-width: 44ch; color: var(--grey); font-size: 17px; }
+
+/* ============================================================
+   CAPABILITIES. Feature Architecture A: bento, one cell leads.
+   ============================================================ */
+.bento {
+  margin-top: 58px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(168px, auto);
+  gap: 16px;
+}
+.cell {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 26px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.cell h3 {
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0;
+  letter-spacing: -.005em;
+}
+.cell p { margin: 0; color: var(--grey-dim); font-size: 15px; line-height: 1.55; }
+
+.cell--lead {
+  grid-column: span 2;
+  grid-row: span 2;
+  padding: 0;
+  overflow: hidden;
+  background: linear-gradient(168deg, var(--panel-2), var(--panel));
+  border-color: var(--line-strong);
+}
+.cell--lead .lead-copy { padding: 28px 28px 22px; display: flex; flex-direction: column; gap: 9px; }
+.cell--lead h3 { font-family: var(--display); font-weight: 600; font-size: clamp(1.25rem, 1.9vw, 1.6rem); letter-spacing: -.02em; }
+.cell--lead p { color: var(--grey); font-size: 16px; }
+.cell--lead .lead-shot { margin: 0 28px; border: 1px solid var(--line-strong); border-top-left-radius: 9px; border-top-right-radius: 9px; overflow: hidden; }
+
+.cell--accent { background: linear-gradient(168deg, rgba(16,185,129,.11), rgba(16,185,129,.03)); border-color: rgba(16,185,129,.24); }
+.cell--accent p { color: var(--grey); }
+
+/* Fills the final row so the grid never ends on an empty cell. */
+.cell--wide { grid-column: span 2; }
+
+.cell-num {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 2.1rem;
+  line-height: 1;
+  letter-spacing: -.03em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   PIPELINE. Process Architecture A: numbered steps on a spine.
+   ============================================================ */
+.steps { margin-top: 60px; position: relative; display: flex; flex-direction: column; gap: 34px; }
+.step { display: grid; grid-template-columns: 46px 1fr; gap: 22px; align-items: start; position: relative; }
+.step::before {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 46px;
+  bottom: -34px;
+  width: 1px;
+  background: var(--line-strong);
+}
+.step:last-child::before { display: none; }
+.step-n {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--black);
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--grey);
+  position: relative;
+  z-index: 1;
+}
+.step-body { padding-top: 9px; }
+.step-body h3 { font-family: var(--body); font-weight: 600; font-size: 17.5px; margin: 0 0 5px; }
+.step-body p { margin: 0; color: var(--grey-dim); font-size: 15.5px; max-width: 58ch; }
+.step-body .local { color: var(--accent); font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
+
+/* ============================================================
+   BOUNDARY. What stays vs what leaves. Two unequal panels.
+   ============================================================ */
+.boundary { margin-top: 54px; display: grid; grid-template-columns: 1.25fr .95fr; gap: 18px; align-items: start; }
+.bpanel { border-radius: 12px; padding: 28px; border: 1px solid var(--line); background: var(--panel); }
+.bpanel--stay { border-color: rgba(16,185,129,.26); background: linear-gradient(168deg, rgba(16,185,129,.08), rgba(16,185,129,.02)); }
+.bpanel h3 { font-family: var(--mono); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; margin: 0 0 18px; font-weight: 500; }
+.bpanel--stay h3 { color: var(--accent); }
+.bpanel--go h3 { color: var(--grey-dim); }
+.bpanel ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.bpanel li { font-size: 16px; color: var(--grey); padding-left: 16px; position: relative; }
+.bpanel li::before { content: ""; position: absolute; left: 0; top: 10px; width: 5px; height: 5px; border-radius: 50%; background: var(--line-strong); }
+.bpanel--stay li::before { background: var(--accent); }
+.bpanel-foot { margin: 20px 0 0; font-size: 14px; color: var(--grey-dim); line-height: 1.55; }
+
+/* ============================================================
+   COMPARISON. Table, deliberately not a card grid.
+   ============================================================ */
+.tscroll { margin-top: 50px; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 16px; }
+caption { text-align: left; padding: 0 0 14px; color: var(--grey-dim); font-size: 14px; }
+th, td { text-align: left; padding: 15px 20px; border-bottom: 1px solid var(--line); vertical-align: top; }
+thead th { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--grey-dim); font-weight: 500; }
+thead th.mine { color: var(--accent); }
+tbody th { font-weight: 400; color: var(--grey-dim); font-size: 15px; white-space: nowrap; }
+td.mine { color: var(--white); background: rgba(16, 185, 129, .055); }
+td.theirs { color: var(--grey-dim); }
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: none; }
+
+/* ============================================================
+   FAQ. Accordion.
+   ============================================================ */
+.faq { margin-top: 44px; border-top: 1px solid var(--line); }
+details { border-bottom: 1px solid var(--line); }
+summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 20px 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 22px;
+  font-size: 17px;
+  font-weight: 500;
+  transition: color .3s var(--ease);
+}
+summary:hover { color: var(--accent-lift); }
+summary::-webkit-details-marker { display: none; }
+summary::after {
+  content: "+";
+  font-family: var(--mono);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+details[open] summary::after { content: "\2212"; }
+.answer { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .35s var(--ease); }
+details[open] .answer { grid-template-rows: 1fr; }
+.answer > div { overflow: hidden; }
+.answer p { margin: 0 0 16px; color: var(--grey); font-size: 16px; max-width: 66ch; }
+.answer p:first-child { margin-top: 2px; }
+
+/* ============================================================
+   CLOSER + FOOTER
+   ============================================================ */
+.closer { text-align: center; padding: 116px 0; position: relative; overflow: hidden; }
+.closer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 50% 60% at 50% 100%, rgba(16, 185, 129, .10) 0%, transparent 70%);
+}
+.closer-in { position: relative; z-index: 2; }
+.closer h2 { margin: 0 auto; max-width: 22ch; }
+.closer p { margin: 20px auto 0; max-width: 40ch; color: var(--grey); }
+.closer .cta { margin-top: 34px; }
+
+.foot { border-top: 1px solid var(--line); padding: 34px 0 54px; }
+.foot-in { display: flex; flex-wrap: wrap; gap: 18px 30px; align-items: center; justify-content: space-between; }
+.foot-note { font-size: 14px; color: var(--grey-dim); }
+.foot nav { display: flex; flex-wrap: wrap; gap: 10px 24px; }
+.foot nav a { font-size: 14px; color: var(--grey-dim); transition: color .3s var(--ease); }
+.foot nav a:hover { color: var(--white); }
+
+code { font-family: var(--mono); font-size: .86em; background: var(--panel-2); padding: 2px 6px; border-radius: 4px; color: var(--grey); }
+
+/* ============================================================
+   Collapse
+   ============================================================ */
+@media (max-width: 1000px) {
+  .hero-grid { grid-template-columns: 1fr; gap: 52px; }
+  .hero-lede { align-self: start; }
+  .reframe { align-self: start; max-width: 560px; }
+  h1 { max-width: 18ch; }
+  .mode-row { grid-template-columns: 1fr; gap: 28px; }
+  .mode-row.flip .mode-copy, .mode-row.flip .mode-visual { order: initial; }
+  .bento { grid-template-columns: repeat(2, 1fr); }
+  .cell--lead { grid-column: span 2; grid-row: span 1; }
+  .cell--wide { grid-column: span 1; }
+  .boundary { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .shell, .shell-tight { padding: 0 20px; }
+  .hero { padding: 108px 0 56px; min-height: auto; }
+  h1 { font-size: clamp(2.2rem, 11vw, 3.1rem); max-width: 100%; }
+  .band { padding: 72px 0; }
+  .band--slim { padding: 52px 0; }
+  .break-stat, .closer { padding: 76px 0; }
+  .modes { gap: 58px; margin-top: 46px; }
+  .bento { grid-template-columns: 1fr; }
+  .cell--lead { grid-column: span 1; }
+  .cell--lead .lead-shot { margin: 0 20px; }
+  .cell { padding: 22px; }
+  .nav-links a:not(.nav-gh) { display: none; }
+  /* Stop the crop animation translating out of a narrow frame. */
+  .crop { left: 8%; }
+}
 </style>
 </head>
 <body>
 
-<main>
-  <div class="wrap">
-    <div class="hero">
-      <p class="brand">ClipForge</p>
-      <h1>Long videos into <em>vertical clips</em>, on your own machine</h1>
-      <p class="sub">
-        A free, open-source desktop app that finds the moments worth clipping, reframes them
-        to 9:16 following whoever is speaking, and burns in animated captions.
-      </p>
-      <div class="cta-row">
-        <a class="btn primary" href="https://github.com/JeremySNR/clip-forge/releases/latest">Download for macOS, Windows or Linux</a>
-        <a class="btn" href="https://github.com/JeremySNR/clip-forge">View on GitHub</a>
-      </div>
-      <p class="price">
-        MIT licensed. No subscription, no account, no processing cap. Bring an OpenAI key and pay about
-        <b>$0.36 per hour of video</b>.
-      </p>
-    </div>
-
-    <div class="shots">
-      <div class="shots-pair">
-        <div class="shot">
-          <img src="assets/screenshot-clips.png" alt="ClipForge showing AI-found clips ranked by virality score" width="1604" height="1004" loading="lazy">
-        </div>
-        <div class="shot">
-          <img src="assets/screenshot-editor.png" alt="The ClipForge editor with live 9:16 preview, caption styles and a branding watermark" width="1604" height="1004" loading="lazy">
-        </div>
-      </div>
-      <p class="caption">
-        Clips ranked by score, and the editor where you trim, restyle and export. The source video in
-        these screenshots is a test pattern, not real footage.
-      </p>
-    </div>
+<header class="nav">
+  <div class="shell nav-in">
+    <a class="wordmark" href="#top">Clip<span>Forge</span></a>
+    <nav class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#local">Privacy</a>
+      <a href="#questions">Questions</a>
+      <a class="nav-gh" href="https://github.com/JeremySNR/clip-forge">GitHub</a>
+    </nav>
   </div>
+</header>
 
-  <section id="modes">
-    <div class="wrap">
-      <h2>Two ways to work</h2>
-      <p class="section-lede">
+<main id="top">
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero">
+    <div class="shell hero-grid">
+
+      <div class="hero-lede">
+        <p class="mono rise">Open source video clipper</p>
+        <h1 class="rise d1">Wide video in. <em>Vertical clips</em> out.</h1>
+        <p class="hero-sub rise d2">
+          Finds the moments worth posting, crops to whoever is speaking, and burns in
+          the captions. On your machine, not a server.
+        </p>
+        <div class="hero-act">
+          <a class="cta rise d3" href="https://github.com/JeremySNR/clip-forge/releases/latest">
+            Download for macOS, Windows or Linux
+          </a>
+          <p class="hero-meta rise d4">
+            MIT licensed. No subscription. Roughly <b>$0.36</b> per hour of video.
+          </p>
+        </div>
+      </div>
+
+      <div class="reframe rise d2">
+        <div class="stage">
+          <div class="figure one"></div>
+          <div class="figure two"></div>
+          <div class="crop">
+            <span class="crop-tag">9:16 &middot; tracking speaker</span>
+            <p class="cap"><i>NOBODY</i> <i>TELLS</i> <i>YOU&hellip;</i></p>
+          </div>
+        </div>
+        <p class="mono reframe-note">The crop follows the voice, not the movement</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================== TWO MODES ===================== -->
+  <section class="band band--raise">
+    <div class="shell">
+      <p class="mono">Two ways to work</p>
+      <h2 class="h2-xl">Cut the highlights, or caption the lot</h2>
+      <p class="band-lede">
         Both run on the same project and share the transcript, so moving between them never
         pays for transcription twice.
       </p>
+
       <div class="modes">
-        <div class="mode">
-          <span class="mode-tag">Mode one</span>
-          <h3>Find viral clips</h3>
-          <p>
-            The AI reads the transcript, cuts the best self-contained moments out and scores each
-            one, and you pick from the results. Steer it with your own brief if you want, such as
-            "find the funniest exchanges".
-          </p>
+
+        <div class="mode-row">
+          <div class="mode-copy">
+            <p class="mono">Mode one</p>
+            <h3>Find the clips worth posting</h3>
+            <p>
+              The AI reads the transcript and cuts out self-contained moments, each with a hook,
+              a build and a payoff, then scores them. A second pass checks every ending and
+              extends it to the beat that finishes the thought.
+            </p>
+            <ul class="mode-facts">
+              <li>Scored 0 to 99, with the reasoning shown</li>
+              <li>Steer it with your own brief, such as "find the funniest exchanges"</li>
+              <li>Pauses and filler words removed on request</li>
+            </ul>
+          </div>
+          <div class="mode-visual">
+            <div class="frame">
+              <img src="assets/screenshot-clips.png" alt="ClipForge listing AI-found clips, each with a virality score and the reasoning behind it" width="1604" height="1004" loading="lazy" decoding="async">
+            </div>
+          </div>
         </div>
-        <div class="mode">
-          <span class="mode-tag">Mode two</span>
-          <h3>Caption the whole video</h3>
-          <p>
-            No clip finding. Hand it a 16:9 video and it comes back as one vertical, captioned
-            edit you can trim, restyle and export, with optional speaker tracking and auto zoom.
-          </p>
+
+        <div class="mode-row flip">
+          <div class="mode-copy">
+            <p class="mono">Mode two</p>
+            <h3>Caption the whole video</h3>
+            <p>
+              No clip finding. Hand it a 16:9 video and it comes back as one vertical, captioned
+              edit, ready to trim and restyle. Useful when you already know the video is the
+              thing you want to post.
+            </p>
+            <ul class="mode-facts">
+              <li>Optional speaker tracking across the full runtime</li>
+              <li>Scene-aware auto zoom, or a fixed crop you set yourself</li>
+              <li>Letterbox instead of crop, for screencasts and slides</li>
+            </ul>
+          </div>
+          <div class="mode-visual">
+            <div class="frame">
+              <img src="assets/screenshot-caption-video.png" alt="The ClipForge setup screen, choosing between finding viral clips and captioning the whole video, with output shape, speaker tracking and auto zoom options" width="1344" height="840" loading="lazy" decoding="async">
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="shot" style="margin-top: 18px;">
-        <img src="assets/screenshot-caption-video.png" alt="The ClipForge setup screen, choosing between finding viral clips and captioning the whole video, with output shape, speaker tracking and auto zoom options" width="1344" height="840" loading="lazy">
+
       </div>
     </div>
   </section>
 
-  <section id="features">
-    <div class="wrap">
-      <h2>What it does</h2>
-      <div class="feats">
-        <div class="feat">
-          <h3>Speaker-aware reframing, on-device</h3>
-          <p>
-            Audio-visual active speaker detection checks every face's lip movement against the
-            actual soundtrack, so the 9:16 crop stays on the person talking rather than whoever is
-            gesturing. It cuts between speakers like a camera switch. Runs locally through ONNX
-            Runtime, no cloud.
-          </p>
-        </div>
-        <div class="feat">
-          <h3>Virality scoring with a basis</h3>
-          <p>
-            A text rubric derived from Berger and Milkman's research into what gets shared, plus
-            measured vocal energy, combined with a vision pass that scores sampled frames for
-            scroll-stopping potential.
-          </p>
-        </div>
-        <div class="feat">
-          <h3>Captions that match the export</h3>
-          <p>
-            Karaoke-style word highlighting in a dozen styles, burned in with libass. Upload your
-            own TTF or OTF fonts. The preview and the exported file use the same layout code, so
-            what you see is what renders.
-          </p>
-        </div>
-        <div class="feat">
-          <h3>Auto zoom and tighter cuts</h3>
-          <p>
-            Scene-aware punch-ins on the most energetic lines, jump zooms that cover cuts, and slow
-            creep over static stretches. Pauses and filler words can be removed automatically, with
-            captions, zoom and the face track all remapped to the shorter timeline.
-          </p>
-        </div>
-        <div class="feat">
-          <h3>Import almost anything</h3>
-          <p>
-            Local files, or a URL from YouTube, Vimeo, TikTok, Twitch and anywhere else yt-dlp
-            reaches. Private and SSO-protected videos work by borrowing the login from your browser.
-          </p>
-        </div>
-        <div class="feat">
-          <h3>Export ready to post</h3>
-          <p>
-            H.264/AAC MP4 with burned-in captions, loudness-normalised to &minus;14 LUFS. NVIDIA
-            NVENC when available, CPU fallback when not. Your own logo or watermark, or none.
-          </p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section id="compare">
-    <div class="wrap">
-      <h2>Why this instead of Opus Clip</h2>
-      <p class="section-lede">
-        The hosted tools are good. They also charge monthly, cap your minutes, and want your
-        footage on their infrastructure.
+  <!-- ===================== BREAK: the number ===================== -->
+  <section class="break-stat">
+    <div class="shell-tight">
+      <p class="stat-fig"><sup>$</sup>0.36</p>
+      <p class="stat-under">
+        Per hour of video, paid to OpenAI directly, for transcription and analysis. That is the
+        whole cost. There is no plan, no cap and no account.
       </p>
-      <div class="tbl-scroll">
+    </div>
+  </section>
+
+  <!-- ===================== CAPABILITIES (bento) ===================== -->
+  <section class="band band--raise">
+    <div class="shell">
+      <p class="mono">Under the bonnet</p>
+      <h2 class="h2-md">Built like an editor, not a wrapper</h2>
+
+      <div class="bento">
+
+        <article class="cell cell--lead">
+          <div class="lead-copy">
+            <h3>The preview is the export</h3>
+            <p>
+              Caption layout, tighten-cuts and zoom planning all live in one place, used by both
+              the live preview and the renderer. What you see playing back is what lands in the
+              file, which is a constraint that has caught more bugs than any test.
+            </p>
+          </div>
+          <div class="lead-shot">
+            <img src="assets/screenshot-editor.png" alt="The ClipForge editor showing a live 9:16 preview beside trim, layout and caption controls" width="1604" height="1004" loading="lazy" decoding="async">
+          </div>
+        </article>
+
+        <article class="cell cell--accent">
+          <h3>Speaker detection, on-device</h3>
+          <p>
+            Every face's lip movement is checked against the actual soundtrack, so the crop holds
+            on the person talking rather than the person gesturing. Runs locally through ONNX
+            Runtime.
+          </p>
+        </article>
+
+        <article class="cell">
+          <h3>Scoring with a basis</h3>
+          <p>
+            A rubric drawn from Berger and Milkman's work on what gets shared, plus measured vocal
+            energy and a vision pass over sampled frames.
+          </p>
+        </article>
+
+        <article class="cell">
+          <p class="cell-num">12</p>
+          <h3>Caption styles, plus your fonts</h3>
+          <p>
+            Karaoke word highlighting burned in with libass. Drop in any TTF or OTF and the
+            preview matches.
+          </p>
+        </article>
+
+        <article class="cell cell--wide">
+          <h3>Imports almost anything</h3>
+          <p>
+            Local files, or a link from YouTube, Vimeo, TikTok and anywhere else yt-dlp reaches.
+            Private and SSO-protected videos work by borrowing your browser's login.
+          </p>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section class="band" id="how">
+    <div class="shell-tight">
+      <p class="mono">The pipeline</p>
+      <h2 class="h2-md">What happens after you hit go</h2>
+
+      <div class="steps">
+
+        <div class="step">
+          <div class="step-n">01</div>
+          <div class="step-body">
+            <h3>Import</h3>
+            <p>A local file, or a URL. Long recordings are fine; nothing is capped.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">02</div>
+          <div class="step-body">
+            <h3>Transcribe</h3>
+            <p>
+              Whisper, with word-level timestamps. Audio is chunked and the result is
+              checkpointed to disk as it arrives, so a failure part way through never means
+              paying twice.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">03</div>
+          <div class="step-body">
+            <h3>Find or caption</h3>
+            <p>Either the AI picks and scores the moments, or the whole video becomes one edit.</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">04</div>
+          <div class="step-body">
+            <span class="local">No network</span>
+            <h3>Track and reframe</h3>
+            <p>
+              Face tracking and active speaker detection build a focus track, and the crop cuts
+              between speakers like a camera switch. Entirely on your hardware.
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-n">05</div>
+          <div class="step-body">
+            <span class="local">No network</span>
+            <h3>Edit and export</h3>
+            <p>
+              Trim on a filmstrip with a waveform, restyle the captions, add your watermark, then
+              render to H.264 with the audio normalised to &minus;14 LUFS. GPU when you have one,
+              CPU when you do not.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BOUNDARY ===================== -->
+  <section class="band band--raise" id="local">
+    <div class="shell">
+      <p class="mono">The boundary</p>
+      <h2 class="h2-md">What leaves your computer</h2>
+      <p class="band-lede">
+        Worth being precise about, because "local-first" gets used loosely. Two things need a
+        hosted model. Everything else runs on your hardware.
+      </p>
+
+      <div class="boundary">
+        <div class="bpanel bpanel--stay">
+          <h3>Never leaves</h3>
+          <ul>
+            <li>The video file itself</li>
+            <li>Rendering and export</li>
+            <li>Face tracking and speaker detection</li>
+            <li>Zoom planning and scene cuts</li>
+            <li>Caption layout and burn-in</li>
+            <li>Every edit you make</li>
+          </ul>
+          <p class="bpanel-foot">
+            Your API key is stored encrypted through the OS keychain, using Electron
+            <code>safeStorage</code>.
+          </p>
+        </div>
+        <div class="bpanel bpanel--go">
+          <h3>Sent to the OpenAI API</h3>
+          <ul>
+            <li>Extracted audio, to transcribe</li>
+            <li>The transcript text, to analyse</li>
+            <li>A few sampled frames, to score visually</li>
+          </ul>
+          <p class="bpanel-foot">
+            Running Whisper locally, so even this stays on your machine, is the most requested
+            open issue.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== COMPARISON ===================== -->
+  <section class="band">
+    <div class="shell">
+      <p class="mono">The trade</p>
+      <h2 class="h2-md">Against the subscription tools</h2>
+      <p class="band-lede">
+        The hosted tools are good at this. They also charge monthly, cap your minutes, and want
+        your footage on their infrastructure.
+      </p>
+
+      <div class="tscroll">
         <table>
-          <caption>ClipForge compared with subscription tools in the same category.</caption>
+          <caption>ClipForge compared with Opus Clip and similar subscription tools.</caption>
           <thead>
             <tr>
               <th scope="col">&nbsp;</th>
-              <th scope="col" class="us">ClipForge</th>
-              <th scope="col">Opus Clip and similar</th>
+              <th scope="col" class="mine">ClipForge</th>
+              <th scope="col">Hosted alternatives</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <th scope="row">Price</th>
-              <td class="us">Free and open source. You pay the OpenAI API directly, in cents</td>
-              <td>Monthly subscription</td>
+              <td class="mine">Free and open source. You pay the API directly, in cents</td>
+              <td class="theirs">Monthly subscription</td>
             </tr>
             <tr>
               <th scope="row">Your footage</th>
-              <td class="us">Stays on your machine</td>
-              <td>Uploaded to their cloud</td>
+              <td class="mine">Stays on your machine</td>
+              <td class="theirs">Uploaded to their cloud</td>
             </tr>
             <tr>
-              <th scope="row">Processing minutes</th>
-              <td class="us">Unlimited, it is your hardware</td>
-              <td>Capped per plan</td>
+              <th scope="row">Processing time</th>
+              <td class="mine">Unlimited. It is your hardware</td>
+              <td class="theirs">Capped per plan</td>
             </tr>
             <tr>
               <th scope="row">Watermark</th>
-              <td class="us">Your own logo, or none</td>
-              <td>Removed on paid tiers</td>
+              <td class="mine">Your own logo, or none at all</td>
+              <td class="theirs">Removed on paid tiers</td>
             </tr>
             <tr>
               <th scope="row">Models</th>
-              <td class="us">Your choice, and configurable</td>
-              <td>Theirs</td>
+              <td class="mine">Your choice, and configurable</td>
+              <td class="theirs">Theirs</td>
             </tr>
             <tr>
-              <th scope="row">Extensible</th>
-              <td class="us">Fork it, script it, send a pull request</td>
-              <td>Closed</td>
+              <th scope="row">Changing it</th>
+              <td class="mine">Fork it, script it, send a pull request</td>
+              <td class="theirs">Closed</td>
             </tr>
           </tbody>
         </table>
@@ -478,142 +967,155 @@
     </div>
   </section>
 
-  <section id="privacy">
-    <div class="wrap">
-      <h2>What leaves your computer</h2>
-      <p class="section-lede">
-        Worth being precise about, because "local-first" gets used loosely. Two things need a
-        hosted model: transcription and the analysis that picks and scores clips. Everything
-        else is local.
-      </p>
-      <div class="flow">
-        <div class="flow-item">
-          <p class="flow-head">Stays local</p>
-          <ul>
-            <li>The video file itself</li>
-            <li>Rendering and export</li>
-            <li>Face tracking and speaker detection</li>
-            <li>Zoom planning</li>
-            <li>Caption layout and burn-in</li>
-            <li>Every edit you make</li>
-          </ul>
-        </div>
-        <div class="flow-item leaves">
-          <p class="flow-head">Sent to the OpenAI API</p>
-          <ul>
-            <li>Extracted audio, for transcription</li>
-            <li>The transcript text, for analysis</li>
-            <li>A few sampled frames, for visual scoring</li>
-          </ul>
-        </div>
-        <div class="flow-item">
-          <p class="flow-head">Stored, encrypted</p>
-          <ul>
-            <li>Your API key, in the OS keychain via Electron <code>safeStorage</code></li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </section>
+  <!-- ===================== FAQ ===================== -->
+  <section class="band band--raise" id="questions">
+    <div class="shell-tight">
+      <p class="mono">Before you download</p>
+      <h2 class="h2-sm">Questions</h2>
 
-  <section id="faq">
-    <div class="wrap">
-      <h2>Questions</h2>
       <div class="faq">
+
         <details open>
           <summary>Is it actually free?</summary>
-          <p>
-            The app is free and MIT licensed, permanently. You pay OpenAI directly for transcription
-            and analysis, which works out at roughly $0.36 per hour of video. There is no
-            subscription, no account, no processing cap and no paid tier holding features back.
-          </p>
+          <div class="answer"><div>
+            <p>
+              The app is free and MIT licensed, permanently. You pay OpenAI directly for
+              transcription and analysis, which works out at roughly $0.36 per hour of video.
+              There is no subscription, no account, no processing cap and no paid tier holding
+              features back.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>Do I need an OpenAI API key?</summary>
-          <p>
-            For finding clips and captioning, yes, because that is what does the transcription and
-            the analysis. Everything else runs without one: the editor, trimming, caption styling,
-            auto zoom, speaker reframing, watermarks and export.
-          </p>
-          <p>
-            Running Whisper locally so transcription costs nothing is the most-wanted open issue,
-            and contributions are welcome.
-          </p>
+          <div class="answer"><div>
+            <p>
+              For finding clips and captioning, yes, because that is what does the transcription
+              and the analysis. Everything else runs without one: the editor, trimming, caption
+              styling, auto zoom, speaker reframing, watermarks and export.
+            </p>
+            <p>
+              Running Whisper locally so transcription costs nothing is the most requested open
+              issue, and contributions are welcome.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>Does my video get uploaded anywhere?</summary>
-          <p>
-            No. Only extracted audio, the transcript and a handful of sampled frames go to the
-            OpenAI API. The full video never leaves your machine.
-          </p>
+          <div class="answer"><div>
+            <p>
+              No. Only extracted audio, the transcript and a handful of sampled frames go to the
+              OpenAI API. The full video never leaves your machine.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>Do I need a GPU?</summary>
-          <p>
-            No. ClipForge uses NVIDIA NVENC if it finds it and falls back to CPU encoding
-            automatically. A GPU makes exports faster, nothing more. Speaker detection runs on CPU
-            perfectly well.
-          </p>
+          <div class="answer"><div>
+            <p>
+              No. ClipForge uses NVIDIA NVENC if it finds it and falls back to CPU encoding
+              automatically. A GPU makes exports faster, nothing more. Speaker detection runs on
+              CPU perfectly well.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>How long can my video be?</summary>
-          <p>
-            There is no fixed limit. Audio is chunked and transcription is checkpointed to disk as
-            it goes, so hour-plus recordings work, and a failure part way through does not mean
-            paying to transcribe it again.
-          </p>
+          <div class="answer"><div>
+            <p>
+              There is no fixed limit. Audio is chunked and transcription is checkpointed to disk
+              as it goes, so hour-plus recordings work, and a failure part way through does not
+              mean paying to transcribe it again.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>Does it work in languages other than English?</summary>
-          <p>
-            Transcription does. Set the language in Settings; it defaults to English because
-            auto-detect occasionally mislabels English as a similar-sounding language. Captions burn
-            in whatever Whisper returns. Translating captions into another language is on the
-            roadmap, not built yet.
-          </p>
+          <div class="answer"><div>
+            <p>
+              Transcription does. Set the language in Settings; it defaults to English because
+              auto-detect occasionally mislabels English as a similar-sounding language. Captions
+              burn in whatever Whisper returns. Translating captions into another language is on
+              the roadmap, not built yet.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>Can it post to TikTok or YouTube for me?</summary>
-          <p>
-            Not automatically. It writes the post caption and hands you the file, then you upload.
-            Direct publishing needs an audited TikTok or YouTube app, which is on the roadmap.
-          </p>
+          <div class="answer"><div>
+            <p>
+              Not automatically. It writes the post caption and hands you the file, then you
+              upload. Direct publishing needs an audited TikTok or YouTube app, which is on the
+              roadmap.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>Can I use the clips commercially?</summary>
-          <p>
-            Yes. MIT licence, and the output is yours. Do check the rights on any source footage you
-            did not create.
-          </p>
+          <div class="answer"><div>
+            <p>
+              Yes. MIT licence, and the output is yours. Do check the rights on any source footage
+              you did not create.
+            </p>
+          </div></div>
         </details>
+
         <details>
           <summary>macOS says the app cannot be opened. Why?</summary>
-          <p>
-            The macOS builds are not code-signed yet, so Gatekeeper objects on first launch.
-            Right-click the app and choose Open, which is a one-time step. Signing and notarisation
-            are wanted, and help is welcome.
-          </p>
+          <div class="answer"><div>
+            <p>
+              The macOS builds are not code-signed yet, so Gatekeeper objects on first launch.
+              Right-click the app and choose Open, which is a one-time step. Signing and
+              notarisation are wanted, and help is welcome.
+            </p>
+          </div></div>
         </details>
+
+        <details>
+          <summary>Why does the source video look like a test pattern?</summary>
+          <div class="answer"><div>
+            <p>
+              Because it is one. The screenshots come from a demo project that generates its own
+              video with ffmpeg, so the test suite needs no downloads and no API calls. Real demo
+              footage is wanted, and there is an open issue for anyone happy to contribute a clip.
+            </p>
+          </div></div>
+        </details>
+
       </div>
     </div>
   </section>
 
-  <div class="wrap">
-    <footer>
-      <div>
-        <strong style="color: var(--ink-2); font-weight: 600;">ClipForge</strong>
-        &nbsp;&middot;&nbsp; MIT licensed &nbsp;&middot;&nbsp; Built with Electron, React and FFmpeg
-      </div>
-      <nav>
-        <a href="https://github.com/JeremySNR/clip-forge">Source</a>
-        <a href="https://github.com/JeremySNR/clip-forge/releases/latest">Download</a>
-        <a href="https://github.com/JeremySNR/clip-forge/issues">Issues</a>
-        <a href="https://github.com/JeremySNR/clip-forge/discussions">Discussions</a>
-        <a href="https://github.com/JeremySNR/clip-forge/blob/main/CONTRIBUTING.md">Contribute</a>
-      </nav>
-    </footer>
-  </div>
+  <!-- ===================== CLOSER ===================== -->
+  <section class="closer">
+    <div class="shell-tight closer-in">
+      <h2 class="h2-xl">Clip your own footage tonight</h2>
+      <p>Free, open source, and it runs on the machine you are reading this on.</p>
+      <a class="cta" href="https://github.com/JeremySNR/clip-forge/releases/latest">Download ClipForge</a>
+    </div>
+  </section>
+
 </main>
+
+<footer class="foot">
+  <div class="shell foot-in">
+    <p class="foot-note">ClipForge &middot; MIT licensed &middot; Electron, React and FFmpeg</p>
+    <nav>
+      <a href="https://github.com/JeremySNR/clip-forge">Source</a>
+      <a href="https://github.com/JeremySNR/clip-forge/releases/latest">Download</a>
+      <a href="https://github.com/JeremySNR/clip-forge/issues">Issues</a>
+      <a href="https://github.com/JeremySNR/clip-forge/discussions">Discussions</a>
+      <a href="https://github.com/JeremySNR/clip-forge/blob/main/CONTRIBUTING.md">Contribute</a>
+    </nav>
+  </div>
+</footer>
 
 </body>
 </html>
