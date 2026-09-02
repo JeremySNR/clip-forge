@@ -4,6 +4,8 @@
 
 <h3 align="center">The open-source Opus Clip alternative that runs on your desktop.</h3>
 
+<p align="center"><a href="https://jeremysnr.github.io/clip-forge/"><strong>clipforge site</strong></a> &nbsp;·&nbsp; <a href="https://github.com/JeremySNR/clip-forge/releases/latest">download</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
+
 <p align="center">
   Turn podcasts, webinars, streams and interviews into ready-to-post vertical clips.<br/>
   AI-picked moments, virality scores, animated captions, auto zoom and speaker-aware reframing.
