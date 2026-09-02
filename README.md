@@ -213,9 +213,15 @@ the obvious first step.
 
 ## Roadmap
 
-- Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app; contributions welcome)
-- Multi-language caption translation
-- Manual zoom keyframes on the timeline
+Each of these is an open issue, so the discussion and the detail live there. Contributions very welcome.
+
+- [Multi-language caption translation](https://github.com/JeremySNR/clip-forge/issues/49)
+- [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/clip-forge/issues/50)
+- [OpenAI-compatible endpoints and local Whisper](https://github.com/JeremySNR/clip-forge/issues/46), so transcription can run free and offline
+- [Size-targeted export](https://github.com/JeremySNR/clip-forge/issues/48) ("fit under N MB"), where the encoder work is already done
+- Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app)
+
+Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/clip-forge/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.
 
 ## Contributing
 
