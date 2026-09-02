@@ -70,6 +70,80 @@ export function parseFontFamily(buf: Buffer): string | null {
   }
 }
 
+export interface FontMetrics {
+  unitsPerEm: number
+  /**
+   * OS/2 usWinAscent + usWinDescent, in font units. libass sizes text against
+   * this span rather than the em square, so it is what converts a CSS-style
+   * em size into an ASS Fontsize — see `assFontSize` in pipeline/captions.
+   */
+  winSpan: number
+}
+
+/** Offset of a table in an sfnt buffer, or -1. */
+function tableOffset(buf: Buffer, tag: string): number {
+  if (buf.length < 12) return -1
+  const numTables = buf.readUInt16BE(4)
+  for (let i = 0; i < numTables; i++) {
+    const rec = 12 + i * 16
+    if (rec + 16 > buf.length) return -1
+    if (buf.toString('latin1', rec, rec + 4) === tag) return buf.readUInt32BE(rec + 8)
+  }
+  return -1
+}
+
+/**
+ * Read the metrics that decide rendered text size: `unitsPerEm` from `head`
+ * and the OS/2 window ascent/descent span. Returns null when either table is
+ * missing or nonsensical, so callers fall back to a default ratio.
+ */
+export function parseFontMetrics(buf: Buffer): FontMetrics | null {
+  try {
+    const head = tableOffset(buf, 'head')
+    const os2 = tableOffset(buf, 'OS/2')
+    if (head < 0 || os2 < 0) return null
+    if (head + 20 > buf.length || os2 + 78 > buf.length) return null
+    const unitsPerEm = buf.readUInt16BE(head + 18)
+    const winAscent = buf.readUInt16BE(os2 + 74)
+    const winDescent = buf.readUInt16BE(os2 + 76)
+    const winSpan = winAscent + winDescent
+    if (unitsPerEm <= 0 || winSpan <= 0) return null
+    return { unitsPerEm, winSpan }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Metrics for a family, looked up in a fonts directory the same way libass
+ * will resolve it at render time (by the family embedded in the file, not the
+ * file name). Returns null when the family is not in the directory.
+ */
+export async function fontMetricsForFamily(
+  dir: string,
+  family: string
+): Promise<FontMetrics | null> {
+  const wanted = family.trim().toLowerCase()
+  if (!wanted) return null
+  let entries: string[]
+  try {
+    entries = await readdir(dir)
+  } catch {
+    return null
+  }
+  for (const name of entries) {
+    if (!FONT_EXTENSIONS.has(extname(name).toLowerCase())) continue
+    try {
+      const buf = await readFile(join(dir, name))
+      if (parseFontFamily(buf)?.trim().toLowerCase() !== wanted) continue
+      return parseFontMetrics(buf)
+    } catch {
+      /* unreadable font: keep looking */
+    }
+  }
+  return null
+}
+
 async function fontFromFile(path: string): Promise<CustomFont | null> {
   try {
     const family = parseFontFamily(await readFile(path))

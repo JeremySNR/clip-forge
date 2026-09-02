@@ -5,6 +5,7 @@ import {
   Check,
   Loader2,
   AlertTriangle,
+  Captions,
   FolderOpen,
   FolderCog,
   RefreshCw,
@@ -16,6 +17,7 @@ import { formatDuration } from '../lib/format'
 import ScoreBadge from './ScoreBadge'
 import MissingSourceBanner from './MissingSourceBanner'
 import type { Clip } from '@shared/types'
+import { findWholeVideoClip, highlightClips } from '@shared/wholeVideo'
 
 export default function ClipsScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
@@ -28,7 +30,11 @@ export default function ClipsScreen(): React.JSX.Element {
 
   if (!project) return <div />
 
-  const doneCount = project.clips.filter((c) => exports[c.id]?.status === 'done').length
+  // The full-video edit is not one of the found clips: it gets its own banner
+  // and is exported from its editor, never swept into "Export all".
+  const clips = highlightClips(project)
+  const wholeVideo = findWholeVideoClip(project)
+  const doneCount = clips.filter((c) => exports[c.id]?.status === 'done').length
 
   return (
     <div className="h-full overflow-y-auto">
@@ -37,7 +43,7 @@ export default function ClipsScreen(): React.JSX.Element {
           <div>
             <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
               <Sparkles size={20} className="text-accent-400" />
-              {project.clips.length} clips found
+              {clips.length} clips found
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
               Ranked by virality score. Open a clip to trim, reframe and style captions before
@@ -47,6 +53,7 @@ export default function ClipsScreen(): React.JSX.Element {
           <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={goHome}
+              data-testid="regenerate-button"
               title="Change the AI instructions and generate a new set of clips — the saved transcript is reused, so it only takes seconds"
               className="flex items-center gap-2 rounded-xl border border-surface-600 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-surface-800"
             >
@@ -77,20 +84,48 @@ export default function ClipsScreen(): React.JSX.Element {
               className="flex items-center gap-2 rounded-xl bg-zinc-100 px-4 py-2.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-black/40 transition hover:bg-white disabled:opacity-60"
             >
               {exportingAll ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              {exportingAll ? `Exporting… (${doneCount}/${project.clips.length})` : 'Export all'}
+              {exportingAll ? `Exporting… (${doneCount}/${clips.length})` : 'Export all'}
             </button>
           </div>
         </div>
 
         <MissingSourceBanner />
 
+        {wholeVideo && <WholeVideoBanner clip={wholeVideo} />}
+
         <div className="mt-6 grid grid-cols-2 gap-5 xl:grid-cols-3">
-          {project.clips.map((clip, i) => (
+          {clips.map((clip, i) => (
             <ClipCard key={clip.id} clip={clip} rank={i + 1} />
           ))}
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * This project also has a captioned full-video edit. It is deliberately not a
+ * card in the grid: it is not a found clip, has no score to rank, and is
+ * exported on its own from the editor.
+ */
+function WholeVideoBanner({ clip }: { clip: Clip }): React.JSX.Element {
+  const openEditor = useStore((s) => s.openEditor)
+  return (
+    <button
+      onClick={() => openEditor(clip.id)}
+      className="mt-6 flex w-full items-center gap-3 rounded-2xl border border-surface-700 bg-surface-900 px-4 py-3 text-left transition hover:border-surface-600 hover:bg-surface-850"
+    >
+      <Captions size={16} className="shrink-0 text-accent-400" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-zinc-200">
+          Captioned full video ({formatDuration(clip.edit.end - clip.edit.start)})
+        </span>
+        <span className="mt-0.5 block text-xs text-zinc-500">
+          The whole thing, cropped and captioned. Open it to style and export.
+        </span>
+      </span>
+      <Pencil size={14} className="shrink-0 text-zinc-500" />
+    </button>
   )
 }
 

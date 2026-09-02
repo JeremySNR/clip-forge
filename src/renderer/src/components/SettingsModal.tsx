@@ -15,6 +15,7 @@ import {
   Download,
   Languages,
   Loader2,
+  LogIn,
   Send,
   Palette,
   MessageSquareQuote,
@@ -708,6 +709,97 @@ function BrandVoiceSection(): React.JSX.Element {
  * an org-level app token (Bearer) plus the Organisation ID header — not the
  * user's SSO login — so posts appear as the configured identity.
  */
+/**
+ * Browser sign-in for WorkVivo's web upload path.
+ *
+ * The Customer API token below cannot carry a video of any real size: it takes
+ * the file as an inline request body and the infrastructure in front of it
+ * refuses anything much over ~10MB. The web app instead presigns an upload
+ * straight to S3, which has no such ceiling, but authenticates as a person
+ * rather than as the organisation. So this is a separate, additional login.
+ */
+function WorkvivoWebSignIn({
+  signedIn,
+  onChange
+}: {
+  signedIn: boolean
+  onChange: (signedIn: boolean) => void
+}): React.JSX.Element {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const signIn = async (): Promise<void> => {
+    setBusy(true)
+    setError(null)
+    try {
+      const { signedIn: ok } = await window.clipforge.workvivoWebSignIn()
+      onChange(ok)
+      if (!ok) setError('Sign-in window closed before you were signed in.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-surface-600 bg-surface-850/60 p-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <LogIn size={14} className="text-accent-400" />
+          Full-quality uploads
+        </span>
+        {signedIn ? (
+          <span className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-400">
+            <Check size={12} /> Signed in
+          </span>
+        ) : (
+          <span className="rounded-md bg-amber-500/10 px-2 py-1 text-[11px] font-medium text-amber-400">
+            Not signed in
+          </span>
+        )}
+      </div>
+      <p className="mt-1.5 text-[11px] leading-relaxed text-zinc-500">
+        {signedIn
+          ? 'Clips upload straight to WorkVivo at full export quality, with no size limit. Sign out to fall back to the API, which has to shrink them.'
+          : 'Sign in to WorkVivo in a browser window to upload clips at full quality. Without this, posts go through the API, which caps uploads at a few megabytes and visibly degrades longer clips.'}
+      </p>
+      <div className="mt-2.5 flex gap-1.5">
+        <button
+          onClick={() => void signIn()}
+          disabled={busy}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800 disabled:opacity-60"
+        >
+          {busy ? <Loader2 size={13} className="animate-spin" /> : <LogIn size={13} />}
+          {busy ? 'Waiting for sign-in…' : signedIn ? 'Sign in again' : 'Sign in to WorkVivo'}
+        </button>
+        {signedIn && (
+          <button
+            onClick={() =>
+              void window.clipforge.workvivoWebSignOut().then((s) => onChange(s.signedIn))
+            }
+            className="rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-400 transition hover:bg-surface-800 hover:text-zinc-200"
+          >
+            Sign out
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-1.5 text-[11px] leading-relaxed text-red-400">{error}</p>}
+    </div>
+  )
+}
+
+/**
+ * Upload-size choices, always including whatever is currently stored: a cap
+ * learned from a 413 is a halving of a preset, not a preset itself, and a
+ * `<select>` whose value matches no option renders blank.
+ */
+function uploadSizeOptions(current: number): number[] {
+  const MB = 1024 * 1024
+  const presets = [8, 18, 38, 60, 90].map((mb) => mb * MB)
+  return presets.includes(current) ? presets : [...presets, current].sort((a, b) => a - b)
+}
+
 function WorkvivoSection(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
   const saveSettings = useStore((s) => s.saveSettings)
@@ -724,6 +816,11 @@ function WorkvivoSection(): React.JSX.Element {
   const [lookupEmail, setLookupEmail] = useState('')
   const [lookupBusy, setLookupBusy] = useState(false)
   const [lookupMsg, setLookupMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [webSignedIn, setWebSignedIn] = useState(false)
+
+  useEffect(() => {
+    void window.clipforge.workvivoWebStatus().then((s) => setWebSignedIn(s.signedIn))
+  }, [])
 
   useEffect(() => {
     if (wv?.configured) void loadSpaces()
@@ -868,6 +965,32 @@ function WorkvivoSection(): React.JSX.Element {
             {spaces.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <WorkvivoWebSignIn signedIn={webSignedIn} onChange={setWebSignedIn} />
+
+      {wv && !webSignedIn && (
+        <div className="mt-3">
+          <span className="text-[11px] text-zinc-500">Maximum upload size (API fallback)</span>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">
+            Only used when you are not signed in above. WorkVivo does not publish the API&apos;s
+            request-size limit, so clips are rendered once to fit this budget. If a post is
+            rejected as too large, ClipForge halves this and re-renders, then remembers it.
+          </p>
+          <select
+            value={String(wv.maxUploadBytes)}
+            onChange={(e) =>
+              void saveSettings({ workvivo: { maxUploadBytes: Number(e.target.value) } })
+            }
+            className={inputClass}
+          >
+            {uploadSizeOptions(wv.maxUploadBytes).map((bytes) => (
+              <option key={bytes} value={bytes}>
+                {(bytes / (1024 * 1024)).toFixed(bytes % (1024 * 1024) === 0 ? 0 : 1)} MB
               </option>
             ))}
           </select>

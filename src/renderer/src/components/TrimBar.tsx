@@ -29,6 +29,7 @@ export default function TrimBar({
   const trackRef = useRef<HTMLDivElement>(null)
   const time = usePreviewBus((s) => s.time)
   const seek = usePreviewBus((s) => s.seek)
+  const scrub = usePreviewBus((s) => s.scrub)
   const windowDur = Math.max(0.1, windowEnd - windowStart)
 
   const toFrac = (t: number): number => Math.max(0, Math.min(1, (t - windowStart) / windowDur))
@@ -42,23 +43,46 @@ export default function TrimBar({
     [windowStart, windowDur]
   )
 
-  const beginDrag = (which: 'start' | 'end') => (e: React.PointerEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const MIN_LEN = 2
-    const move = (ev: PointerEvent): void => {
-      const t = fromClientX(ev.clientX)
-      if (which === 'start') onChange(Math.min(t, end - MIN_LEN), end)
-      else onChange(start, Math.max(t, start + MIN_LEN))
-    }
-    const up = (): void => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', up)
-      onCommit()
-    }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }
+  const beginDrag = useCallback(
+    (which: 'start' | 'end', e: React.PointerEvent): void => {
+      e.preventDefault()
+      e.stopPropagation()
+      const MIN_LEN = 2
+      const bound = which === 'start' ? start : end
+      // Drag relative to where the handle was grabbed, in seconds, so it
+      // tracks the pointer instead of snapping its centre under the cursor on
+      // the first move.
+      const grabDelta = fromClientX(e.clientX) - bound
+
+      // The preview follows the handle, so the frame being set is always the
+      // one on screen. Without this you only saw the new bound when the drag
+      // happened to push the playhead out of range, which meant dragging a
+      // handle back inwards showed nothing at all.
+      const apply = (clientX: number): void => {
+        const t = fromClientX(clientX) - grabDelta
+        if (which === 'start') {
+          const next = Math.min(t, end - MIN_LEN)
+          onChange(next, end)
+          scrub(next)
+        } else {
+          const next = Math.max(t, start + MIN_LEN)
+          onChange(start, next)
+          scrub(next)
+        }
+      }
+      // Show the frame at the grabbed bound immediately, without moving it.
+      scrub(bound)
+      const move = (ev: PointerEvent): void => apply(ev.clientX)
+      const up = (): void => {
+        window.removeEventListener('pointermove', move)
+        window.removeEventListener('pointerup', up)
+        onCommit()
+      }
+      window.addEventListener('pointermove', move)
+      window.addEventListener('pointerup', up)
+    },
+    [start, end, fromClientX, onChange, onCommit, scrub]
+  )
 
   const leftPct = toFrac(start) * 100
   const rightPct = toFrac(end) * 100
@@ -126,14 +150,14 @@ export default function TrimBar({
         <div
           className="absolute inset-y-0 w-3 cursor-ew-resize rounded-l-md bg-zinc-100"
           style={{ left: `calc(${leftPct}% - 0px)` }}
-          onPointerDown={beginDrag('start')}
+          onPointerDown={(e) => beginDrag('start', e)}
         >
           <div className="absolute left-1/2 top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-zinc-600" />
         </div>
         <div
           className="absolute inset-y-0 w-3 cursor-ew-resize rounded-r-md bg-zinc-100"
           style={{ left: `calc(${rightPct}% - 12px)` }}
-          onPointerDown={beginDrag('end')}
+          onPointerDown={(e) => beginDrag('end', e)}
         >
           <div className="absolute left-1/2 top-1/2 h-4 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded bg-zinc-600" />
         </div>

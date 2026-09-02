@@ -4,12 +4,11 @@ import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import type { AnalyzeOptions, BrowserCookieSource, ImportProgress, PipelineProgress, Project } from '@shared/types'
 import { mapLimit } from './concurrency'
-import { extractAudioChunks, extractThumbnail, probeVideo } from './ffmpeg'
-import { transcribeChunks } from './transcribe'
+import { extractThumbnail, probeVideo } from './ffmpeg'
+import { ensureTranscript } from './projectTranscript'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus, applyFocusAnalysis } from './faces'
 import { shouldAnalyzeFaces } from '@shared/videoType'
-import { annotateEnergy } from './energy'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
 import {
@@ -146,50 +145,19 @@ export async function analyzeProject(
   await mkdir(workDir, { recursive: true })
 
   try {
-    let transcript = project.transcript
-    if (!transcript) {
-      onProgress({ stage: 'audio', progress: 0.02, message: 'Extracting audio…' })
-      const chunks = await extractAudioChunks(
-        project.video.path,
-        workDir,
-        project.video.durationSec,
-        (f) => onProgress({ stage: 'audio', progress: 0.02 + f * 0.13, message: 'Extracting audio…' }),
-        signal
-      )
-
-      onProgress({ stage: 'transcribe', progress: 0.16, message: 'Transcribing with Whisper…' })
-      transcript = await transcribeChunks(
+    const transcript = await ensureTranscript(
+      project,
+      workDir,
+      {
         apiKey,
-        settings.transcriptionModel,
-        chunks,
-        settings.transcriptionLanguage,
-        (f) =>
-          onProgress({
-            stage: 'transcribe',
-            progress: 0.16 + f * 0.4,
-            message:
-              chunks.length > 1
-                ? `Transcribing (part ${Math.min(chunks.length, Math.ceil(f * chunks.length))}/${chunks.length})…`
-                : 'Transcribing with Whisper…'
-          }),
-        signal
-      )
-      if (transcript.segments.length === 0) {
-        throw new Error('No speech was detected in this video, so no clips could be generated.')
-      }
-      // Vocal-energy annotation feeds the virality analysis (arousal signal).
-      onProgress({ stage: 'transcribe', progress: 0.56, message: 'Measuring vocal energy…' })
-      await annotateEnergy(transcript, chunks)
-      // Checkpoint: transcription is the most expensive stage, never redo it.
-      // Persist only the fields this pipeline owns — saving the whole local
-      // object would revert e.g. a rename that landed since it was loaded.
-      project.transcript = transcript
-      await updateProject(project.id, (p) => {
-        p.transcript = transcript
-      })
-    } else {
-      onProgress({ stage: 'transcribe', progress: 0.56, message: 'Using saved transcript…' })
-    }
+        model: settings.transcriptionModel,
+        language: settings.transcriptionLanguage,
+        span: { from: 0.02, to: 0.58 },
+        noSpeechError: 'No speech was detected in this video, so no clips could be generated.'
+      },
+      onProgress,
+      signal
+    )
 
     onProgress({ stage: 'analyze', progress: 0.58, message: 'Finding viral moments…' })
     const clips = await detectHighlights(

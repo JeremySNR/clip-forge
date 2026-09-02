@@ -23,6 +23,14 @@ interface StoredWorkvivo {
   tokenEncrypted: string
   postAsUserId: string
   defaultSpaceId: string
+  /**
+   * Largest upload the API has been seen to accept, in bytes. WorkVivo does
+   * not document this (its OpenAPI spec states no size limit on the `video`
+   * field and defines no 413 response), and it is an infrastructure cap that
+   * may differ per tenant, so the app learns it: a 413 halves the value, a
+   * successful post confirms it.
+   */
+  maxUploadBytes: number
 }
 
 interface StoredSettings {
@@ -56,12 +64,23 @@ const DEFAULT_BRAND_VOICE: BrandVoiceSettings = {
   avoid: ''
 }
 
+/**
+ * Starting guess for WorkVivo's undocumented request-size cap. Sized just
+ * under a 20MB limit, which is where the observed 413s point once single-pass
+ * ABR overshoot is accounted for. Wrong guesses self-correct on the first 413.
+ */
+export const WORKVIVO_DEFAULT_UPLOAD_CAP_BYTES = 18 * 1024 * 1024
+
+/** Below this there is no point re-rendering; the clip is simply too long. */
+export const WORKVIVO_MIN_UPLOAD_CAP_BYTES = 4 * 1024 * 1024
+
 const DEFAULT_WORKVIVO: StoredWorkvivo = {
   url: '',
   companyId: '',
   tokenEncrypted: '',
   postAsUserId: '',
-  defaultSpaceId: ''
+  defaultSpaceId: '',
+  maxUploadBytes: WORKVIVO_DEFAULT_UPLOAD_CAP_BYTES
 }
 
 const DEFAULTS: StoredSettings = {
@@ -176,11 +195,46 @@ function getWorkvivoPublicSettings(): WorkvivoPublicSettings {
     companyId: w.companyId,
     postAsUserId: w.postAsUserId,
     defaultSpaceId: w.defaultSpaceId,
+    maxUploadBytes: normaliseUploadCap(w.maxUploadBytes),
     hasToken: token.length > 0,
     tokenMasked: token.length > 8 ? `${token.slice(0, 4)}…${token.slice(-4)}` : token ? '•••' : '',
     configured:
       token.length > 0 && w.companyId.trim().length > 0 && deriveWorkvivoApiBase(w.url) !== null
   }
+}
+
+/** Keep a stored or user-entered cap inside sane bounds. */
+function normaliseUploadCap(bytes: number | undefined): number {
+  if (!Number.isFinite(bytes) || (bytes as number) <= 0) {
+    return WORKVIVO_DEFAULT_UPLOAD_CAP_BYTES
+  }
+  return Math.max(WORKVIVO_MIN_UPLOAD_CAP_BYTES, Math.floor(bytes as number))
+}
+
+/**
+ * The tenant's WorkVivo web address. Unlike `getWorkvivoConfig`, this does not
+ * require the Customer API token: browser sign-in for the web upload path
+ * needs only the URL.
+ */
+export function getWorkvivoWebUrl(): string {
+  return load().workvivo.url.trim()
+}
+
+/** The cap the next WorkVivo upload should be rendered to fit. */
+export function getWorkvivoUploadCap(): number {
+  return normaliseUploadCap(load().workvivo.maxUploadBytes)
+}
+
+/**
+ * Record what the API actually accepted or rejected, so the next post renders
+ * to the right size first time instead of rediscovering the cap.
+ */
+export function rememberWorkvivoUploadCap(bytes: number): void {
+  const s = load()
+  const next = normaliseUploadCap(bytes)
+  if (s.workvivo.maxUploadBytes === next) return
+  s.workvivo = { ...s.workvivo, maxUploadBytes: next }
+  persist(s)
 }
 
 /**
@@ -191,6 +245,11 @@ export function getWorkvivoConfig(): {
   request: WorkvivoRequestConfig
   postAsUserId: string
   defaultSpaceId: string
+  /**
+   * The tenant's own web address, for the browser-session upload path. This is
+   * the host the user signs in to, not the central Customer API host.
+   */
+  webUrl: string
 } | null {
   const w = load().workvivo
   const apiBase = deriveWorkvivoApiBase(w.url)
@@ -199,7 +258,8 @@ export function getWorkvivoConfig(): {
   return {
     request: { apiBase, companyId: w.companyId.trim(), token },
     postAsUserId: w.postAsUserId.trim(),
-    defaultSpaceId: w.defaultSpaceId.trim()
+    defaultSpaceId: w.defaultSpaceId.trim(),
+    webUrl: w.url.trim()
   }
 }
 
@@ -279,7 +339,10 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
       ...(w.companyId !== undefined ? { companyId: w.companyId.trim() } : {}),
       ...(w.token !== undefined ? { tokenEncrypted: encryptKey(w.token.trim()) } : {}),
       ...(w.postAsUserId !== undefined ? { postAsUserId: w.postAsUserId.trim() } : {}),
-      ...(w.defaultSpaceId !== undefined ? { defaultSpaceId: w.defaultSpaceId.trim() } : {})
+      ...(w.defaultSpaceId !== undefined ? { defaultSpaceId: w.defaultSpaceId.trim() } : {}),
+      ...(w.maxUploadBytes !== undefined
+        ? { maxUploadBytes: normaliseUploadCap(w.maxUploadBytes) }
+        : {})
     }
   }
   persist(s)

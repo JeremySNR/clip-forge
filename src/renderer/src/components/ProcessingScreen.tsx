@@ -3,7 +3,13 @@ import { AudioLines, FileAudio, Brain, Image, ImagePlus, Check, Loader2, ScanFac
 import { useStore } from '../store'
 import type { PipelineStage } from '@shared/types'
 
-const STAGES: Array<{ id: PipelineStage; label: string; icon: React.ElementType }> = [
+interface StageRow {
+  id: PipelineStage
+  label: string
+  icon: React.ElementType
+}
+
+const CLIP_STAGES: StageRow[] = [
   { id: 'audio', label: 'Extract audio', icon: FileAudio },
   { id: 'transcribe', label: 'Transcribe speech', icon: AudioLines },
   { id: 'analyze', label: 'Find viral moments', icon: Brain },
@@ -12,16 +18,30 @@ const STAGES: Array<{ id: PipelineStage; label: string; icon: React.ElementType 
   { id: 'thumbnails', label: 'Create thumbnails', icon: Image }
 ]
 
+/** Captioning the whole video: no highlight detection, no B-roll. */
+const WHOLE_VIDEO_STAGES: StageRow[] = [
+  { id: 'audio', label: 'Extract audio', icon: FileAudio },
+  { id: 'transcribe', label: 'Transcribe speech', icon: AudioLines },
+  { id: 'reframe', label: 'Follow the speaker', icon: ScanFace },
+  { id: 'thumbnails', label: 'Finish up', icon: Image }
+]
+
 const STAGE_ORDER: PipelineStage[] = ['probe', 'audio', 'transcribe', 'analyze', 'reframe', 'broll', 'thumbnails', 'done']
 
 export default function ProcessingScreen(): React.JSX.Element {
   const progress = useStore((s) => s.pipelineProgress)
   const project = useStore((s) => s.project)
+  const mode = useStore((s) => s.pipelineMode)
+  const followSpeaker = useStore((s) => s.pipelineFollowSpeaker)
   const cancelAnalyze = useStore((s) => s.cancelAnalyze)
   const [cancelling, setCancelling] = useState(false)
 
   const currentIdx = progress ? STAGE_ORDER.indexOf(progress.stage) : 0
   const pct = Math.round((progress?.progress ?? 0) * 100)
+  const stages =
+    mode === 'whole-video'
+      ? WHOLE_VIDEO_STAGES.filter((s) => s.id !== 'reframe' || followSpeaker)
+      : CLIP_STAGES
 
   return (
     <div className="flex h-full flex-col items-center justify-center px-8">
@@ -40,7 +60,7 @@ export default function ProcessingScreen(): React.JSX.Element {
         <div className="mt-2 text-right text-xs tabular-nums text-zinc-500">{pct}%</div>
 
         <div className="mt-8 space-y-2.5">
-          {STAGES.map((stage) => {
+          {stages.map((stage) => {
             const stageIdx = STAGE_ORDER.indexOf(stage.id)
             const isDone = currentIdx > stageIdx
             const isActive = currentIdx === stageIdx
@@ -90,9 +110,21 @@ export default function ProcessingScreen(): React.JSX.Element {
         </button>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-zinc-600">
-          Transcription and analysis run on the OpenAI API. Long videos are transcribed in
-          chunks — an hour of footage typically takes a couple of minutes. The transcript is
-          saved as soon as it completes, so retries and regenerations skip straight to analysis.
+          {mode === 'whole-video' ? (
+            <>
+              Only the audio leaves your machine, for Whisper transcription. Long videos are
+              transcribed in chunks and the transcript is saved as soon as it lands, so redoing
+              this skips straight past it.
+              {followSpeaker && ' Speaker tracking runs locally and is the slow part.'}
+            </>
+          ) : (
+            <>
+              Transcription and analysis run on the OpenAI API. Long videos are transcribed in
+              chunks — an hour of footage typically takes a couple of minutes. The transcript is
+              saved as soon as it completes, so retries and regenerations skip straight to
+              analysis.
+            </>
+          )}
         </p>
       </div>
     </div>

@@ -1,10 +1,11 @@
 import { Settings, ChevronLeft, ArrowUpCircle, Plus } from 'lucide-react'
 import appIcon from '../assets/icon.webp'
-import { useStore } from '../store'
+import { editorBackScreen, useStore } from '../store'
 
 export default function TopBar(): React.JSX.Element {
   const screen = useStore((s) => s.screen)
   const project = useStore((s) => s.project)
+  const selectedClipId = useStore((s) => s.selectedClipId)
   const goHome = useStore((s) => s.goHome)
   const closeEditor = useStore((s) => s.closeEditor)
   const newProject = useStore((s) => s.newProject)
@@ -13,6 +14,11 @@ export default function TopBar(): React.JSX.Element {
   const updateCheck = useStore((s) => s.updateCheck)
 
   const showBack = screen === 'clips' || screen === 'editor'
+  // A full-video edit with no AI clips behind it goes back to the setup screen.
+  const backLabel =
+    screen === 'editor' && editorBackScreen(project, selectedClipId) === 'clips'
+      ? 'All clips'
+      : 'Home'
   // A non-destructive way back to the import screen from anywhere a project is
   // open (the old only route was deleting the current project).
   const showNewVideo = project !== null && screen !== 'processing'
@@ -22,10 +28,11 @@ export default function TopBar(): React.JSX.Element {
       {showBack ? (
         <button
           onClick={() => (screen === 'editor' ? closeEditor() : goHome())}
+          data-testid="back-button"
           className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-zinc-400 transition hover:bg-surface-800 hover:text-zinc-100"
         >
           <ChevronLeft size={16} />
-          {screen === 'editor' ? 'All clips' : 'Home'}
+          {backLabel}
         </button>
       ) : (
         <div className="flex items-center gap-2.5">

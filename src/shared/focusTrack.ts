@@ -53,6 +53,31 @@ export function focusSnaps(track: FocusKeyframe[], index: number): boolean {
   )
 }
 
+/** Smallest move worth a keyframe of its own when compacting a long track. */
+export const FOCUS_COMPACT_MIN_SHIFT = 0.01
+
+/**
+ * Drop keyframes that neither move the crop nor mark a cut.
+ *
+ * Highlight tracks cover 90 seconds at most, but a whole-video track runs the
+ * length of the video and every keyframe becomes another branch of the ffmpeg
+ * crop expression (see focusExpression in render.ts), so near-duplicates are
+ * pure cost. Cuts are always kept: they are the real camera and speaker
+ * changes, and the crop must snap on them.
+ */
+export function compactFocusTrack(
+  track: FocusKeyframe[],
+  minShift = FOCUS_COMPACT_MIN_SHIFT
+): FocusKeyframe[] {
+  const out: FocusKeyframe[] = []
+  for (const kf of track) {
+    const previous = out[out.length - 1]
+    if (previous && kf.cut !== true && Math.abs(kf.x - previous.x) < minShift) continue
+    out.push(kf)
+  }
+  return out
+}
+
 /** Sample the focus track at a given source time. */
 export function focusAt(track: FocusKeyframe[], t: number): number {
   let index = -1

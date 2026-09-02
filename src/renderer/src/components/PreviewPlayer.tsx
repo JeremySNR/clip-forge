@@ -5,7 +5,7 @@ import { hexToRgba, resolveCaptionStyle } from '@shared/captionStyles'
 import { groupWords, wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
 import { clipAllowsAutoZoom } from '@shared/contentType'
-import { computeZoomEvents } from '@shared/zoom'
+import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
 import {
   smoothPlaybackTime,
@@ -51,6 +51,7 @@ export default function PreviewPlayer({
   const [time, setTimeState] = useState(clip.edit.start)
   const setBusTime = usePreviewBus((s) => s.setTime)
   const setSeekHandler = usePreviewBus((s) => s.setSeekHandler)
+  const setScrubHandler = usePreviewBus((s) => s.setScrubHandler)
 
   const setTime = useCallback(
     (t: number): void => {
@@ -117,13 +118,14 @@ export default function PreviewPlayer({
     }
   }, [clip.edit.aspect, project.video.width, project.video.height])
 
-  // Keep playback inside [start, end].
+  // Keep playback inside [start, end], snapping to whichever bound was
+  // crossed. Always seeking to `start` meant dragging the out point jumped the
+  // preview to the top of the clip instead of showing the frame being set.
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
-    if (video.currentTime < start - 0.05 || video.currentTime > end + 0.05) {
-      requestSeek(start)
-    }
+    if (video.currentTime < start - 0.05) requestSeek(start)
+    else if (video.currentTime > end + 0.05) requestSeek(end)
   }, [start, end, requestSeek])
 
   // Let the sidebar (timeline, transcript) seek the preview.
@@ -134,6 +136,21 @@ export default function PreviewPlayer({
     return () => setSeekHandler(null)
   }, [start, end, setSeekHandler, requestSeek])
 
+  // Trim handles scrub to the exact frame being dragged to. Deliberately not
+  // clamped to [start, end]: the drag is what moves those bounds, and this
+  // handler must not close over them or it would lag a render behind.
+  useEffect(() => {
+    setScrubHandler((t: number) => {
+      const video = videoRef.current
+      if (video && !video.paused) {
+        video.pause()
+        setPlaying(false)
+      }
+      requestSeek(t)
+    })
+    return () => setScrubHandler(null)
+  }, [setScrubHandler, requestSeek])
+
   // Mirrors the export's tighten-cuts behaviour by skipping removed spans.
   const keptSegments = useMemo(() => {
     if (!clip.edit.tightenCuts || !project.transcript) return null
@@ -141,10 +158,11 @@ export default function PreviewPlayer({
   }, [clip.edit.tightenCuts, project.transcript, start, end])
   const timeMap = useMemo(() => (keptSegments ? new TimeMap(keptSegments) : null), [keptSegments])
 
-  // Mirrors the export's auto-zoom plan (same shared generator).
+  // Mirrors the export's auto-zoom plan (same shared generator), including the
+  // trim the export has to make when a plan outgrows one ffmpeg expression.
   const zoomEvents = useMemo(() => {
     if (!clipAllowsAutoZoom(clip.edit)) return null
-    const events = computeZoomEvents(project.transcript, start, end, keptSegments)
+    const events = fitZoomEvents(computeZoomEvents(project.transcript, start, end, keptSegments))
     return events.length > 0 ? events : null
   }, [clip.edit, project.transcript, start, end, keptSegments])
 

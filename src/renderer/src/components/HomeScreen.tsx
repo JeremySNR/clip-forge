@@ -1,21 +1,32 @@
 import { useState } from 'react'
 import {
   Upload,
+  Captions,
+  Crop,
   Film,
   ImagePlus,
   Link2,
   Loader2,
+  ScanFace,
   Sparkles,
   Trash2,
   AlertTriangle,
   Wand2,
   Clock,
-  Zap
+  Zap,
+  ZoomIn
 } from 'lucide-react'
 import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
 import MissingSourceBanner from './MissingSourceBanner'
-import type { BrowserCookieSource, ClipLengthPreference, VideoType } from '@shared/types'
+import type {
+  AspectRatio,
+  BrowserCookieSource,
+  ClipLengthPreference,
+  ProjectMode,
+  VideoType
+} from '@shared/types'
+import { findWholeVideoClip, highlightClips } from '@shared/wholeVideo'
 import { VIDEO_TYPE_OPTIONS } from '@shared/videoType'
 import { isChromiumBrowser } from '@shared/cookies'
 import { isVideoFile } from '@shared/video'
@@ -265,11 +276,18 @@ function CookieBrowserPicker(): React.JSX.Element | null {
 function SetupPanel(): React.JSX.Element {
   const project = useStore((s) => s.project)!
   const analyze = useStore((s) => s.analyze)
+  const captionWholeVideo = useStore((s) => s.captionWholeVideo)
   const goHomeClear = useStore((s) => s.deleteProject)
   const openProject = useStore((s) => s.openProject)
   const settings = useStore((s) => s.settings)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const pipelineError = useStore((s) => s.pipelineError)
+  const [mode, setMode] = useState<ProjectMode>(project.mode ?? 'clips')
+  const [captionAspect, setCaptionAspect] = useState<AspectRatio>('9:16')
+  // Both off by default: speaker tracking costs minutes of local CPU, and auto
+  // zoom is a taste call rather than something to apply to a whole video unasked.
+  const [followSpeaker, setFollowSpeaker] = useState(false)
+  const [captionZoom, setCaptionZoom] = useState(false)
   const [prompt, setPrompt] = useState(project.prompt)
   const [clipLength, setClipLength] = useState<ClipLengthPreference>('auto')
   const [videoType, setVideoType] = useState<VideoType>(project.videoType ?? 'auto')
@@ -278,23 +296,33 @@ function SetupPanel(): React.JSX.Element {
   // Off by default: hook-first trimming rewrites clip starts with an extra LLM pass.
   const [hookFirst, setHookFirst] = useState(false)
 
-  const needsKey = settings !== null && !settings.hasApiKey
+  // Captioning an already-transcribed video makes no API calls, so it does not
+  // need a key; clip finding always does.
+  const needsKey =
+    settings !== null &&
+    !settings.hasApiKey &&
+    !(mode === 'whole-video' && project.transcript !== null)
+  const highlights = highlightClips(project)
 
   return (
     <div className="pb-6">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Set up your clips</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {mode === 'clips' ? 'Set up your clips' : 'Caption your video'}
+          </h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Tell the AI what to look for, then generate clips.
+            {mode === 'clips'
+              ? 'Tell the AI what to look for, then generate clips.'
+              : 'No clip finding — the whole video, cropped vertical and captioned.'}
           </p>
         </div>
-        {project.clips.length > 0 && (
+        {mode === 'clips' && highlights.length > 0 && (
           <button
             onClick={() => void openProject(project.id)}
             className="shrink-0 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
           >
-            View current {project.clips.length} clips →
+            View current {highlights.length} clips →
           </button>
         )}
       </div>
@@ -338,121 +366,137 @@ function SetupPanel(): React.JSX.Element {
         </div>
 
         <div className="col-span-3 flex flex-col gap-5">
-          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <Wand2 size={15} className="text-accent-400" />
-              AI instructions <span className="font-normal text-zinc-500">(optional)</span>
-            </label>
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={'e.g. "Focus on the moments about pricing strategy" or "Find the funniest exchanges between the hosts"'}
-              rows={3}
-              className="mt-3 w-full resize-none rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
+          <ModeSwitcher mode={mode} onChange={setMode} />
+
+          {mode === 'clips' ? (
+            <>
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <Wand2 size={15} className="text-accent-400" />
+                AI instructions <span className="font-normal text-zinc-500">(optional)</span>
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder={'e.g. "Focus on the moments about pricing strategy" or "Find the funniest exchanges between the hosts"'}
+                rows={3}
+                className="mt-3 w-full resize-none rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none"
+              />
+            </div>
+  
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <button
+                onClick={() => setBroll(!broll)}
+                className="flex w-full items-center justify-between gap-4 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <ImagePlus size={15} className="text-accent-400" />
+                    AI B-roll images
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                    When you mention a character, person or place ("Yoda"), a matching image pops
+                    over the video at that exact word. Every insert is editable per clip.
+                  </span>
+                </span>
+                <span
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition ${broll ? 'bg-zinc-100' : 'bg-surface-600'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${broll ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
+                  />
+                </span>
+              </button>
+            </div>
+  
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <button
+                onClick={() => setHookFirst(!hookFirst)}
+                className="flex w-full items-center justify-between gap-4 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="flex items-center gap-2 text-sm font-semibold">
+                    <Zap size={15} className="text-accent-400" />
+                    Open on the hook
+                  </span>
+                  <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
+                    Finds each clip&apos;s hook line and trims the start so the video opens on that
+                    moment instead of throat-clearing. You can still turn on the hook title card per
+                    clip in the editor.
+                  </span>
+                </span>
+                <span
+                  className={`relative h-5 w-9 shrink-0 rounded-full transition ${hookFirst ? 'bg-zinc-100' : 'bg-surface-600'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${hookFirst ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
+                  />
+                </span>
+              </button>
+            </div>
+  
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <Film size={15} className="text-accent-400" />
+                What kind of video is this?
+              </label>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                Helps ClipForge pick the right 9:16 layout — crop and zoom for talking heads,
+                letterbox for screen recordings.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {VIDEO_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setVideoType(opt.value)}
+                    className={`rounded-xl border px-3 py-2.5 text-left transition ${
+                      videoType === opt.value
+                        ? 'border-white/30 bg-white/[0.07] text-zinc-100'
+                        : 'border-surface-600 bg-surface-850 text-zinc-400 hover:border-surface-600 hover:bg-surface-800'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{opt.label}</div>
+                    <div className="mt-0.5 text-[11px] leading-snug text-zinc-500">{opt.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+  
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <Clock size={15} className="text-accent-400" />
+                Preferred clip length
+              </label>
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {LENGTH_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setClipLength(opt.value)}
+                    className={`rounded-xl border px-3 py-2.5 text-center transition ${
+                      clipLength === opt.value
+                        ? 'border-white/30 bg-white/[0.07] text-zinc-100'
+                        : 'border-surface-600 bg-surface-850 text-zinc-400 hover:border-surface-600 hover:bg-surface-800'
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{opt.label}</div>
+                    <div className="mt-0.5 text-[11px] text-zinc-500">{opt.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            </>
+          ) : (
+            <CaptionVideoOptions
+              aspect={captionAspect}
+              onAspect={setCaptionAspect}
+              followSpeaker={followSpeaker}
+              onFollowSpeaker={setFollowSpeaker}
+              autoZoom={captionZoom}
+              onAutoZoom={setCaptionZoom}
+              durationSec={project.video.durationSec}
             />
-          </div>
-
-          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
-            <button
-              onClick={() => setBroll(!broll)}
-              className="flex w-full items-center justify-between gap-4 text-left"
-            >
-              <span className="min-w-0">
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  <ImagePlus size={15} className="text-accent-400" />
-                  AI B-roll images
-                </span>
-                <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
-                  When you mention a character, person or place ("Yoda"), a matching image pops
-                  over the video at that exact word. Every insert is editable per clip.
-                </span>
-              </span>
-              <span
-                className={`relative h-5 w-9 shrink-0 rounded-full transition ${broll ? 'bg-zinc-100' : 'bg-surface-600'}`}
-              >
-                <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${broll ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
-                />
-              </span>
-            </button>
-          </div>
-
-          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
-            <button
-              onClick={() => setHookFirst(!hookFirst)}
-              className="flex w-full items-center justify-between gap-4 text-left"
-            >
-              <span className="min-w-0">
-                <span className="flex items-center gap-2 text-sm font-semibold">
-                  <Zap size={15} className="text-accent-400" />
-                  Open on the hook
-                </span>
-                <span className="mt-1 block text-xs leading-relaxed text-zinc-500">
-                  Finds each clip&apos;s hook line and trims the start so the video opens on that
-                  moment instead of throat-clearing. You can still turn on the hook title card per
-                  clip in the editor.
-                </span>
-              </span>
-              <span
-                className={`relative h-5 w-9 shrink-0 rounded-full transition ${hookFirst ? 'bg-zinc-100' : 'bg-surface-600'}`}
-              >
-                <span
-                  className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${hookFirst ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
-                />
-              </span>
-            </button>
-          </div>
-
-          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <Film size={15} className="text-accent-400" />
-              What kind of video is this?
-            </label>
-            <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-              Helps ClipForge pick the right 9:16 layout — crop and zoom for talking heads,
-              letterbox for screen recordings.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {VIDEO_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setVideoType(opt.value)}
-                  className={`rounded-xl border px-3 py-2.5 text-left transition ${
-                    videoType === opt.value
-                      ? 'border-white/30 bg-white/[0.07] text-zinc-100'
-                      : 'border-surface-600 bg-surface-850 text-zinc-400 hover:border-surface-600 hover:bg-surface-800'
-                  }`}
-                >
-                  <div className="text-sm font-medium">{opt.label}</div>
-                  <div className="mt-0.5 text-[11px] leading-snug text-zinc-500">{opt.hint}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <Clock size={15} className="text-accent-400" />
-              Preferred clip length
-            </label>
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              {LENGTH_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setClipLength(opt.value)}
-                  className={`rounded-xl border px-3 py-2.5 text-center transition ${
-                    clipLength === opt.value
-                      ? 'border-white/30 bg-white/[0.07] text-zinc-100'
-                      : 'border-surface-600 bg-surface-850 text-zinc-400 hover:border-surface-600 hover:bg-surface-800'
-                  }`}
-                >
-                  <div className="text-sm font-medium">{opt.label}</div>
-                  <div className="mt-0.5 text-[11px] text-zinc-500">{opt.hint}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+          )}
 
           {pipelineError && (
             <div className="flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -471,11 +515,31 @@ function SetupPanel(): React.JSX.Element {
           ) : (
             <div>
               <button
-                onClick={() => void analyze({ prompt, clipLength, broll, hookFirst, videoType })}
+                data-testid="start-button"
+                onClick={() =>
+                  mode === 'clips'
+                    ? void analyze({ prompt, clipLength, broll, hookFirst, videoType })
+                    : void captionWholeVideo({
+                        aspect: captionAspect,
+                        followSpeaker,
+                        autoZoom: captionZoom
+                      })
+                }
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-100 px-5 py-3.5 text-sm font-semibold text-zinc-900 shadow-lg shadow-black/40 transition hover:bg-white"
               >
-                <Sparkles size={17} />
-                {project.clips.length > 0 ? 'Regenerate clips' : 'Get clips'}
+                {mode === 'clips' ? (
+                  <>
+                    <Sparkles size={17} />
+                    {highlights.length > 0 ? 'Regenerate clips' : 'Get clips'}
+                  </>
+                ) : (
+                  <>
+                    <Captions size={17} />
+                    {findWholeVideoClip(project)
+                      ? 'Redo the captioned video'
+                      : 'Transcribe and caption'}
+                  </>
+                )}
               </button>
               {project.transcript && (
                 <p className="mt-2 text-center text-[11px] text-zinc-500">
@@ -487,6 +551,178 @@ function SetupPanel(): React.JSX.Element {
         </div>
       </div>
     </div>
+  )
+}
+
+/** Pick between AI clip finding and captioning the whole video. */
+function ModeSwitcher({
+  mode,
+  onChange
+}: {
+  mode: ProjectMode
+  onChange: (mode: ProjectMode) => void
+}): React.JSX.Element {
+  const options: Array<{ value: ProjectMode; label: string; hint: string; icon: React.ElementType }> = [
+    {
+      value: 'clips',
+      label: 'Find viral clips',
+      hint: 'AI cuts the best moments out',
+      icon: Sparkles
+    },
+    {
+      value: 'whole-video',
+      label: 'Caption whole video',
+      hint: 'Vertical crop and captions, end to end',
+      icon: Captions
+    }
+  ]
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-surface-700 bg-surface-900 p-2">
+      {options.map((opt) => {
+        const Icon = opt.icon
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            data-testid={`mode-${opt.value}`}
+            onClick={() => onChange(opt.value)}
+            className={`rounded-xl border px-3.5 py-3 text-left transition ${
+              mode === opt.value
+                ? 'border-white/30 bg-white/[0.07] text-zinc-100'
+                : 'border-transparent text-zinc-400 hover:bg-surface-850'
+            }`}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <Icon size={15} className="text-accent-400" />
+              {opt.label}
+            </span>
+            <span className="mt-1 block text-[11px] leading-snug text-zinc-500">{opt.hint}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/** One toggle in its own card, matching the AI option cards above. */
+function ToggleCard({
+  icon: Icon,
+  title,
+  children,
+  checked,
+  onChange
+}: {
+  icon: React.ElementType
+  title: string
+  children: React.ReactNode
+  checked: boolean
+  onChange: (checked: boolean) => void
+}): React.JSX.Element {
+  return (
+    <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+      <button
+        onClick={() => onChange(!checked)}
+        className="flex w-full items-center justify-between gap-4 text-left"
+      >
+        <span className="min-w-0">
+          <span className="flex items-center gap-2 text-sm font-semibold">
+            <Icon size={15} className="text-accent-400" />
+            {title}
+          </span>
+          <span className="mt-1 block text-xs leading-relaxed text-zinc-500">{children}</span>
+        </span>
+        <span
+          className={`relative h-5 w-9 shrink-0 rounded-full transition ${checked ? 'bg-zinc-100' : 'bg-surface-600'}`}
+        >
+          <span
+            className={`absolute top-0.5 h-4 w-4 rounded-full transition-all ${checked ? 'left-[18px] bg-zinc-900' : 'left-0.5 bg-white'}`}
+          />
+        </span>
+      </button>
+    </div>
+  )
+}
+
+const CAPTION_ASPECTS: Array<{ value: AspectRatio; label: string; hint: string }> = [
+  { value: '9:16', label: '9:16', hint: 'TikTok, Reels, Shorts' },
+  { value: '1:1', label: '1:1', hint: 'Square feed posts' },
+  { value: 'original', label: 'Original', hint: 'Keep the source shape' }
+]
+
+/**
+ * Options for "caption whole video". Deliberately short: everything else —
+ * caption style, font, trim, letterbox instead of crop — is a live change in
+ * the editor afterwards, so it does not need deciding up front.
+ */
+function CaptionVideoOptions({
+  aspect,
+  onAspect,
+  followSpeaker,
+  onFollowSpeaker,
+  autoZoom,
+  onAutoZoom,
+  durationSec
+}: {
+  aspect: AspectRatio
+  onAspect: (aspect: AspectRatio) => void
+  followSpeaker: boolean
+  onFollowSpeaker: (on: boolean) => void
+  autoZoom: boolean
+  onAutoZoom: (on: boolean) => void
+  durationSec: number
+}): React.JSX.Element {
+  // Tracking samples at 25 fps, so the wait scales with the video: a rough
+  // minute-per-two-minutes-of-footage is closer to honest than "a moment".
+  const trackingMinutes = Math.max(1, Math.round(durationSec / 120))
+
+  return (
+    <>
+      <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+        <label className="flex items-center gap-2 text-sm font-semibold">
+          <Crop size={15} className="text-accent-400" />
+          Output shape
+        </label>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+          A 16:9 source is cropped to fit. You can switch to letterbox fit, or nudge the crop, in
+          the editor.
+        </p>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {CAPTION_ASPECTS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onAspect(opt.value)}
+              className={`rounded-xl border px-3 py-2.5 text-center transition ${
+                aspect === opt.value
+                  ? 'border-white/30 bg-white/[0.07] text-zinc-100'
+                  : 'border-surface-600 bg-surface-850 text-zinc-400 hover:bg-surface-800'
+              }`}
+            >
+              <div className="text-sm font-medium">{opt.label}</div>
+              <div className="mt-0.5 text-[11px] leading-snug text-zinc-500">{opt.hint}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ToggleCard
+        icon={ScanFace}
+        title="Follow the speaker"
+        checked={followSpeaker}
+        onChange={onFollowSpeaker}
+      >
+        Tracks who is actually talking and keeps the crop on them, cutting between speakers like a
+        camera switch. Runs on your machine, and it is slow: roughly {trackingMinutes} minute
+        {trackingMinutes === 1 ? '' : 's'} for this video. Leave it off for a fixed crop you set
+        with the focus slider.
+      </ToggleCard>
+
+      <ToggleCard icon={ZoomIn} title="Auto zoom" checked={autoZoom} onChange={onAutoZoom}>
+        Punch-ins on the most energetic lines and a slow creep over static stretches, so the frame
+        never sits still. Off by default; you can toggle it in the editor and see it in the
+        preview.
+      </ToggleCard>
+    </>
   )
 }
 
@@ -527,7 +763,10 @@ function RecentProjects(): React.JSX.Element | null {
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{p.name}</div>
                 <div className="mt-0.5 text-xs text-zinc-500">
-                  {formatDuration(p.durationSec)} · {p.clipCount} clip{p.clipCount === 1 ? '' : 's'}
+                  {formatDuration(p.durationSec)} ·{' '}
+                  {p.mode === 'whole-video'
+                    ? 'captioned video'
+                    : `${p.clipCount} clip${p.clipCount === 1 ? '' : 's'}`}
                 </div>
               </div>
               <button
@@ -535,7 +774,9 @@ function RecentProjects(): React.JSX.Element | null {
                   e.stopPropagation()
                   if (
                     window.confirm(
-                      `Delete "${p.name}"? This permanently removes the project and its ${p.clipCount} clip${p.clipCount === 1 ? '' : 's'}, and can't be undone.`
+                      p.mode === 'whole-video'
+                        ? `Delete "${p.name}"? This permanently removes the project and its captioned video, and can't be undone.`
+                        : `Delete "${p.name}"? This permanently removes the project and its ${p.clipCount} clip${p.clipCount === 1 ? '' : 's'}, and can't be undone.`
                     )
                   ) {
                     void deleteProject(p.id)

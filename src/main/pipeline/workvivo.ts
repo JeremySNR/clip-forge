@@ -95,18 +95,30 @@ function authHeaders(config: WorkvivoRequestConfig): Record<string, string> {
   }
 }
 
-async function raiseForStatus(res: Response, context: string): Promise<never> {
-  let detail = ''
+/**
+ * Pull something human-readable out of an error response. Read as text first
+ * and parse JSON from that: a body-size rejection is usually produced by the
+ * proxy in front of the API, not the API, so it arrives as an HTML error page
+ * that `res.json()` would throw away entirely.
+ */
+async function errorDetail(res: Response): Promise<string> {
+  const raw = await res.text().catch(() => '')
+  if (!raw) return ''
   try {
-    const body = (await res.json()) as {
-      message?: string
-      error?: string
-      meta?: { errors?: unknown }
-    }
-    detail = body.message ?? body.error ?? (body.meta?.errors ? JSON.stringify(body.meta.errors) : '')
+    const body = JSON.parse(raw) as { message?: string; error?: string; meta?: { errors?: unknown } }
+    const parsed =
+      body.message ?? body.error ?? (body.meta?.errors ? JSON.stringify(body.meta.errors) : '')
+    if (parsed) return parsed
   } catch {
-    /* non-JSON error body */
+    /* not JSON: fall through to the raw text below */
   }
+  // Strip tags so an nginx HTML page reads as one line, and keep it short.
+  const text = raw.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+  return text.length > 300 ? `${text.slice(0, 300)}…` : text
+}
+
+async function raiseForStatus(res: Response, context: string): Promise<never> {
+  const detail = await errorDetail(res)
   if (res.status === 401) {
     throw new WorkvivoError('WorkVivo rejected the API key. Check the token in Settings.', 401)
   }
@@ -123,8 +135,10 @@ async function raiseForStatus(res: Response, context: string): Promise<never> {
     )
   }
   if (res.status === 413) {
+    // Keep whatever the server said: the cap is undocumented, so its own
+    // wording is the only place a real figure is ever likely to appear.
     throw new WorkvivoError(
-      `WorkVivo rejected the upload as too large (HTTP 413). The video exceeds the API's request size limit.`,
+      `WorkVivo rejected the upload as too large (HTTP 413)${detail ? `: ${detail}` : ''}.`,
       413
     )
   }

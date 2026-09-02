@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Project, ProjectSummary } from '@shared/types'
+import { highlightClips } from '@shared/wholeVideo'
 import { allowMediaPath } from './mediaAccess'
 
 export function projectsRoot(): string {
@@ -76,10 +77,13 @@ export async function updateProject(
 export async function loadProject(id: string): Promise<Project> {
   const raw = await readFile(join(projectDir(id), 'project.json'), 'utf8')
   const project = JSON.parse(raw) as Project
-  // Migrate projects saved before auto-reframing / B-roll / tighten existed.
+  // Migrate projects saved before auto-reframing / B-roll / tighten / the
+  // whole-video captioning mode existed.
   project.video.hasAudio ??= true
   project.videoType ??= 'auto'
+  project.mode ??= 'clips'
   for (const clip of project.clips) {
+    clip.origin ??= 'ai-highlight'
     clip.focusTrack ??= null
     clip.contentType ??= null
     clip.edit.framing ??= 'manual'
@@ -115,8 +119,9 @@ export async function listProjects(): Promise<ProjectSummary[]> {
         videoPath: p.video.path,
         videoFileName: p.video.fileName,
         durationSec: p.video.durationSec,
-        clipCount: p.clips.length,
-        thumbnailPath: p.clips.find((c) => c.thumbnailPath)?.thumbnailPath ?? null
+        clipCount: highlightClips(p).length,
+        thumbnailPath: p.clips.find((c) => c.thumbnailPath)?.thumbnailPath ?? null,
+        mode: p.mode ?? 'clips'
       })
     } catch {
       /* skip unreadable project folders */

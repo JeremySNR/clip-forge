@@ -1,6 +1,7 @@
 import { app, BrowserWindow, nativeTheme, protocol, screen, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { migrateLegacyCookiesDir } from './cookies'
 import { registerIpcHandlers } from './ipc'
 import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
 import { initialWindowSize, MIN_WINDOW } from './windowSize'
@@ -16,6 +17,12 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught exception:', err)
 })
 
+// Before Chromium touches the profile: older versions kept imported cookie
+// files in `userData/cookies`, which collides with Chromium's own `Cookies`
+// database on case-insensitive filesystems and breaks the network service (see
+// cookies.ts). Must run synchronously at startup, not after app ready.
+migrateLegacyCookiesDir()
+
 function appIconPath(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'icon.png')
@@ -28,20 +35,46 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
     const image = await win.webContents.capturePage()
     await writeFile(join(dir, `${name}.png`), image.toPNG())
   }
-  const click = (selector: string): Promise<unknown> =>
-    win.webContents.executeJavaScript(
-      `document.querySelector(${JSON.stringify(selector)})?.click()`
+  /**
+   * Wait for an element, then click it. Waiting beats a fixed sleep: the
+   * project list arrives over IPC and the editor mounts a video, so how long a
+   * screen takes depends on the machine — and a click that landed early left
+   * the walk on the previous screen, shooting it again under the next name.
+   */
+  const click = async (selector: string): Promise<void> => {
+    const query = `Boolean(document.querySelector(${JSON.stringify(selector)}))`
+    const deadline = Date.now() + 20000
+    while (!(await win.webContents.executeJavaScript(query))) {
+      if (Date.now() > deadline) throw new Error(`Smoke capture: no ${selector}`)
+      await sleep(250)
+    }
+    await win.webContents.executeJavaScript(
+      `document.querySelector(${JSON.stringify(selector)}).click()`
     )
+    // Let React paint whatever the click navigated to.
+    await sleep(900)
+  }
+
   await sleep(2500)
   await shot('home')
   await click('[data-testid="project-card"]')
-  await sleep(1200)
   await shot('clips')
   await click('[data-testid="clip-thumb"]')
-  await sleep(1500)
+  await sleep(800)
   await shot('editor')
-  await click('[data-testid="settings-button"]')
+  // Out to the setup screen, which is where the two modes are chosen.
+  await click('[data-testid="back-button"]')
+  await click('[data-testid="regenerate-button"]')
+  await shot('setup-clips')
+  await click('[data-testid="mode-whole-video"]')
+  await shot('setup-caption-video')
+  // Run the mode for real. The seeded demo already has a transcript, so this
+  // makes no API calls: it reframes, builds the full-video edit and opens it.
+  await click('[data-testid="start-button"]')
+  await click('[data-testid="whole-video-badge"]')
   await sleep(1200)
+  await shot('editor-caption-video')
+  await click('[data-testid="settings-button"]')
   await shot('settings')
   app.quit()
 }

@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import type { Transcript, BrandColors } from '@shared/types'
 import { resolveCaptionStyle, type CaptionStyle } from '@shared/captionStyles'
+import type { FontMetrics } from '../fonts'
 import { groupWords, wordsInRange, type WordGroup } from '@shared/captionLayout'
 
 /**
@@ -85,11 +86,40 @@ function assStyleColorWithAlpha(hex: string, alphaHex: string): string {
   return `&H${alphaHex}${b}${g}${r}`.toUpperCase()
 }
 
+/**
+ * Typical `winSpan / unitsPerEm` across the fonts we ship and the ones users
+ * upload. Only used when a font's metrics cannot be read; getting it roughly
+ * right beats reverting to the old em-size assumption, which rendered every
+ * caption at about 58% of its intended size.
+ */
+const DEFAULT_WIN_SPAN_RATIO = 1.75
+
+/**
+ * Convert a CSS-style em size into the ASS `Fontsize` that renders at the same
+ * visible size.
+ *
+ * They are not the same unit. CSS `font-size` sets the em square, whereas
+ * libass (following VSFilter) sizes text against the font's OS/2 window
+ * ascent + descent. That span is larger than the em on essentially every font,
+ * so feeding an em size straight into `Fontsize` renders text far too small —
+ * measured at 59% for Anton and 58% for Poppins, which is exactly the gap
+ * between the live preview and the burned-in captions.
+ */
+export function assFontSize(emPx: number, metrics: FontMetrics | null): number {
+  const ratio = metrics ? metrics.winSpan / metrics.unitsPerEm : DEFAULT_WIN_SPAN_RATIO
+  return Math.round(emPx * ratio)
+}
+
 export interface CaptionOptions {
   styleId: string
   /** Output video dimensions the subtitles will be rendered onto. */
   width: number
   height: number
+  /**
+   * Metrics of the resolved caption font, for the em-size conversion above.
+   * Null falls back to `DEFAULT_WIN_SPAN_RATIO`.
+   */
+  fontMetrics?: FontMetrics | null
   /** Clip boundaries in source-video seconds; events are re-based to 0. */
   clipStart: number
   clipEnd: number
@@ -103,7 +133,7 @@ export interface CaptionOptions {
 
 export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   const style = resolveCaptionStyle(opts.styleId, opts.brandColors, opts.fontFamily)
-  const fontSize = Math.round(style.fontScale * opts.height)
+  const fontSize = assFontSize(style.fontScale * opts.height, opts.fontMetrics ?? null)
   const marginV = Math.round((1 - style.positionY) * opts.height)
   const primary = assStyleColor(style.textColor)
   const outline = assStyleColor(style.outlineColor)
@@ -122,7 +152,7 @@ export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   // soft drop shadow (back colour), which reads as a modern hook overlay
   // instead of bare floating text. Sized independently of the caption style so
   // the hook stays prominent and legible whatever caption preset is chosen.
-  const titleFontSize = Math.round(opts.height * 0.044)
+  const titleFontSize = assFontSize(opts.height * 0.044, opts.fontMetrics ?? null)
   const titleMarginV = Math.round(opts.height * 0.07)
   const titleMarginH = Math.round(opts.width * 0.1)
   const titleBoxPad = Math.max(6, Math.round(opts.height * 0.009))

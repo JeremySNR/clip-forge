@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { basename, extname, join } from 'node:path'
 import type {
   AnalyzeOptions,
+  CaptionVideoOptions,
   Clip,
   ExportOptions,
   Project,
@@ -13,12 +14,19 @@ import type {
 } from '@shared/types'
 import { VIDEO_EXTENSIONS } from '@shared/video'
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
+import { captionWholeVideo } from './pipeline/wholeVideo'
 import { downloadGpuFfmpeg } from './pipeline/encoders'
-import { compressToTargetSize, probeVideo } from './pipeline/ffmpeg'
+import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { generateSocialCaption } from './pipeline/socialCaption'
 import { generateWorkvivoCaption } from './pipeline/workvivoCaption'
+import { postClipViaWeb } from './pipeline/workvivoWeb'
+import {
+  clearWorkvivoWebSession,
+  hasWorkvivoWebSession,
+  openWorkvivoLogin
+} from './workvivoSession'
 import {
   findUserByEmail,
   listSpaces,
@@ -40,6 +48,10 @@ import {
   getModelPreferences,
   getSettings,
   getWorkvivoConfig,
+  getWorkvivoUploadCap,
+  getWorkvivoWebUrl,
+  rememberWorkvivoUploadCap,
+  WORKVIVO_MIN_UPLOAD_CAP_BYTES,
   updateSettings
 } from './settings'
 
@@ -55,15 +67,16 @@ const MB = 1024 * 1024
 /**
  * WorkVivo's Customer API rejects large inline uploads with HTTP 413, well below
  * the size its web uploader accepts (that path uses chunked upload; the API does
- * not). The exact cap is undocumented, so we pre-shrink very large renders and,
- * on a 413, retry with progressively smaller targets until it fits or we give up.
+ * not). The cap is undocumented — WorkVivo's own OpenAPI spec states no size
+ * limit on the `video` field and defines no 413 response — so the app renders
+ * to a remembered budget and learns the real value from any 413 it gets.
+ *
+ * The clip is rendered *once*, straight to that budget, rather than rendered at
+ * quality and then transcoded down: a second encode costs a whole extra lossy
+ * generation and spends its bits reproducing the first one's artefacts. See
+ * `@shared/uploadBudget` and `RenderJob.sizeTargetBytes`.
  */
-const WORKVIVO_PRESHRINK_BYTES = 64 * MB
-const WORKVIVO_FIT_TARGETS: Array<{ bytes: number; maxHeight?: number }> = [
-  { bytes: 40 * MB },
-  { bytes: 20 * MB, maxHeight: 720 },
-  { bytes: 10 * MB, maxHeight: 720 }
-]
+const WORKVIVO_MAX_FIT_ATTEMPTS = 2
 
 /** How far apart durations may be for a relinked file to count as the same video. */
 const RELINK_DURATION_TOLERANCE_SEC = 2
@@ -136,6 +149,40 @@ export function registerIpcHandlers(): void {
       runningAnalyses.delete(projectId)
     }
   })
+
+  ipcMain.handle(
+    'project:captionWholeVideo',
+    async (event, projectId: string, options: CaptionVideoOptions) => {
+      // Shares the analysis lock and cancel path: both flows own the same
+      // project and neither may run while the other is transcribing it.
+      if (runningAnalyses.has(projectId)) {
+        throw new Error('This project is already being processed.')
+      }
+      const controller = new AbortController()
+      runningAnalyses.set(projectId, controller)
+      try {
+        const project = await loadProject(projectId)
+        if (project.sourceMissing) {
+          throw new Error(
+            `The source video is missing (${project.video.path}). Relink it before captioning.`
+          )
+        }
+        return await captionWholeVideo(
+          project,
+          options,
+          (p) => {
+            if (!event.sender.isDestroyed()) event.sender.send('pipeline:progress', p)
+          },
+          controller.signal
+        )
+      } catch (err) {
+        if (controller.signal.aborted) throw new Error(ANALYSIS_CANCELLED_MESSAGE, { cause: err })
+        throw err
+      } finally {
+        runningAnalyses.delete(projectId)
+      }
+    }
+  )
 
   ipcMain.handle('project:cancelAnalyze', async (_e, projectId: string) => {
     runningAnalyses.get(projectId)?.abort()
@@ -349,80 +396,114 @@ export function registerIpcHandlers(): void {
       runningWorkvivoPosts.set(clipId, controller)
       const dir = join(tmpdir(), 'clipforge', 'workvivo')
       await mkdir(dir, { recursive: true })
-      const outputPath = join(dir, `${clipId}-${randomUUID()}.mp4`)
-      // Temp files created while shrinking to fit WorkVivo's upload cap.
-      const fitPaths: string[] = []
+      const renderPaths: string[] = []
       const send = (progress: number, message: string): void => {
         if (!event.sender.isDestroyed()) {
           event.sender.send('workvivo:progress', { clipId, progress, message })
         }
       }
-      try {
-        send(0, 'Rendering clip…')
-        await renderClip({
-          clip,
-          source: project.video,
-          transcript: project.transcript,
-          outputPath,
-          encoder: prefs.encoder,
-          quality: prefs.quality,
-          branding:
-            branding.enabled && branding.imagePath && existsSync(branding.imagePath)
-              ? branding
-              : null,
-          fontsDirPath: await renderFontsDir(),
-          signal: controller.signal,
-          // Rendering is the first 80% of the job; upload is the rest.
-          onProgress: (fraction) => send(fraction * 0.8, 'Rendering clip…')
-        })
-        // Upload, shrinking to fit WorkVivo's request-size cap when needed.
-        let uploadPath = outputPath
-        const rendered = await stat(outputPath)
-        if (rendered.size > WORKVIVO_PRESHRINK_BYTES) {
-          send(0.82, 'Compressing for WorkVivo…')
-          const fit = join(dir, `${clipId}-fit-0.mp4`)
-          fitPaths.push(fit)
-          await compressToTargetSize(outputPath, fit, WORKVIVO_PRESHRINK_BYTES, {
+      const fontsDirPath = await renderFontsDir()
+      const brandingForRender =
+        branding.enabled && branding.imagePath && existsSync(branding.imagePath) ? branding : null
+
+      // Prefer the web upload path when the user has signed in. It presigns an
+      // S3 upload and sends the video straight to the bucket, so there is no
+      // request-size ceiling and the clip goes up at full export quality.
+      //
+      // The Customer API below is the fallback. It accepts a video only as an
+      // inline multipart body, which the infrastructure in front of it rejects
+      // somewhere around 10-17MB, so that path has to squeeze the clip into a
+      // size-targeted render and loses real quality doing it.
+      if (await hasWorkvivoWebSession(cfg.webUrl)) {
+        try {
+          const outputPath = join(dir, `${clipId}-${randomUUID()}.mp4`)
+          renderPaths.push(outputPath)
+          send(0, 'Rendering clip…')
+          await renderClip({
+            clip,
+            source: project.video,
+            transcript: project.transcript,
+            outputPath,
+            encoder: prefs.encoder,
+            quality: prefs.quality,
+            branding: brandingForRender,
+            fontsDirPath,
             signal: controller.signal,
-            onProgress: (f) => send(0.8 + f * 0.05, 'Compressing for WorkVivo…')
+            // Rendering is the first 60%; a full-quality upload is a real wait.
+            onProgress: (fraction) => send(fraction * 0.6, 'Rendering clip…')
           })
-          uploadPath = fit
+          const web = await postClipViaWeb({
+            url: cfg.webUrl,
+            videoPath: outputPath,
+            durationSec: clip.edit.end - clip.edit.start,
+            text,
+            spaceId,
+            signal: controller.signal,
+            onProgress: (f, message) => send(0.6 + f * 0.39, message)
+          })
+          send(1, 'Posted to WorkVivo')
+          return { ok: true, permalink: web.permalink }
+        } catch (err) {
+          if (controller.signal.aborted) {
+            throw new Error(WORKVIVO_POST_CANCELLED_MESSAGE, { cause: err })
+          }
+          throw err
+        } finally {
+          runningWorkvivoPosts.delete(clipId)
+          await Promise.all(renderPaths.map((p) => rm(p, { force: true }).catch(() => undefined)))
         }
+      }
+
+      let capBytes = getWorkvivoUploadCap()
+      try {
         for (let attempt = 0; ; attempt++) {
+          const outputPath = join(dir, `${clipId}-${randomUUID()}.mp4`)
+          renderPaths.push(outputPath)
+          send(0, 'Rendering clip for WorkVivo…')
+          await renderClip({
+            clip,
+            source: project.video,
+            transcript: project.transcript,
+            outputPath,
+            encoder: prefs.encoder,
+            quality: prefs.quality,
+            // Size-targeted only on the API path, where the ceiling is real.
+            sizeTargetBytes: capBytes,
+            branding: brandingForRender,
+            fontsDirPath,
+            signal: controller.signal,
+            // Rendering is the first 85% of the job; upload is the rest.
+            onProgress: (fraction) => send(fraction * 0.85, 'Rendering clip for WorkVivo…')
+          })
           try {
-            send(0.85, 'Uploading to WorkVivo…')
+            send(0.87, 'Uploading to WorkVivo…')
             const result = await postClipToSpace(cfg.request, {
-              videoPath: uploadPath,
+              videoPath: outputPath,
               text,
               spaceId,
               postAsUserId: cfg.postAsUserId || undefined,
               signal: controller.signal
             })
+            // Confirmed good: remember it so the next post skips the discovery.
+            const accepted = await stat(outputPath).then((f) => f.size).catch(() => 0)
+            if (accepted > 0) rememberWorkvivoUploadCap(Math.max(accepted, capBytes))
             send(1, 'Posted to WorkVivo')
             return result
           } catch (uploadErr) {
             const tooLarge = uploadErr instanceof WorkvivoError && uploadErr.status === 413
-            if (!tooLarge || attempt >= WORKVIVO_FIT_TARGETS.length) {
-              if (tooLarge) {
-                throw new Error(
-                  'This clip is too large for WorkVivo even after compression. Try a shorter clip or lower the export quality.',
-                  { cause: uploadErr }
-                )
-              }
-              throw uploadErr
+            if (!tooLarge) throw uploadErr
+            // The remembered cap was too generous. Halve it, persist so this is
+            // a one-off cost, and render once more at the smaller budget.
+            const next = Math.floor(capBytes / 2)
+            if (attempt >= WORKVIVO_MAX_FIT_ATTEMPTS || next < WORKVIVO_MIN_UPLOAD_CAP_BYTES) {
+              throw new Error(
+                `WorkVivo's API rejected this clip as too large even at ${Math.round(capBytes / MB)}MB. Sign in to WorkVivo in Settings to upload at full quality instead.`,
+                { cause: uploadErr }
+              )
             }
-            // Re-compress from the original render (not the previous attempt) to
-            // avoid stacking generation loss, aiming at the next smaller target.
-            const target = WORKVIVO_FIT_TARGETS[attempt]
-            const fit = join(dir, `${clipId}-fit-${attempt + 1}.mp4`)
-            fitPaths.push(fit)
-            send(0.82, 'Video too large — compressing for WorkVivo…')
-            await compressToTargetSize(outputPath, fit, target.bytes, {
-              maxHeight: target.maxHeight,
-              signal: controller.signal,
-              onProgress: (f) => send(0.8 + f * 0.05, 'Compressing for WorkVivo…')
-            })
-            uploadPath = fit
+            capBytes = next
+            rememberWorkvivoUploadCap(capBytes)
+            send(0.05, `Too large for WorkVivo — re-rendering under ${Math.round(capBytes / MB)}MB…`)
           }
         }
       } catch (err) {
@@ -432,15 +513,33 @@ export function registerIpcHandlers(): void {
         throw err
       } finally {
         runningWorkvivoPosts.delete(clipId)
-        await Promise.all(
-          [outputPath, ...fitPaths].map((p) => rm(p, { force: true }).catch(() => undefined))
-        )
+        await Promise.all(renderPaths.map((p) => rm(p, { force: true }).catch(() => undefined)))
       }
     }
   )
 
   ipcMain.handle('workvivo:cancelPost', async (_e, clipId: string) => {
     runningWorkvivoPosts.get(clipId)?.abort()
+  })
+
+  /**
+   * Browser sign-in for the web upload path. Unlike the API token, this
+   * authenticates as the person posting, so it needs a real login window
+   * (SSO included) and its cookies live in their own Electron partition.
+   */
+  ipcMain.handle('workvivo:webSignIn', async () => {
+    const url = getWorkvivoWebUrl()
+    const signedIn = await openWorkvivoLogin(url)
+    return { signedIn }
+  })
+
+  ipcMain.handle('workvivo:webSignOut', async () => {
+    await clearWorkvivoWebSession(getWorkvivoWebUrl())
+    return { signedIn: false }
+  })
+
+  ipcMain.handle('workvivo:webStatus', async () => {
+    return { signedIn: await hasWorkvivoWebSession(getWorkvivoWebUrl()) }
   })
 
   ipcMain.handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {

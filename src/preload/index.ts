@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   AnalyzeOptions,
+  CaptionVideoOptions,
   AppSettings,
   Clip,
   CustomFont,
@@ -31,6 +32,8 @@ const api = {
     ipcRenderer.invoke('project:createFromUrl', url),
   analyzeProject: (projectId: string, options: AnalyzeOptions): Promise<Project> =>
     ipcRenderer.invoke('project:analyze', projectId, options),
+  captionWholeVideo: (projectId: string, options: CaptionVideoOptions): Promise<Project> =>
+    ipcRenderer.invoke('project:captionWholeVideo', projectId, options),
   cancelAnalyze: (projectId: string): Promise<void> =>
     ipcRenderer.invoke('project:cancelAnalyze', projectId),
   listProjects: (): Promise<ProjectSummary[]> => ipcRenderer.invoke('project:list'),
@@ -70,6 +73,17 @@ const api = {
     ipcRenderer.invoke('workvivo:postClip', projectId, clipId, spaceId, workvivoCaption),
   cancelWorkvivoPost: (clipId: string): Promise<void> =>
     ipcRenderer.invoke('workvivo:cancelPost', clipId),
+  /**
+   * Browser sign-in for WorkVivo's web upload path, which has no request-size
+   * ceiling. Separate from the Customer API token: it authenticates as the
+   * person posting, so it needs a real login window.
+   */
+  workvivoWebSignIn: (): Promise<{ signedIn: boolean }> =>
+    ipcRenderer.invoke('workvivo:webSignIn'),
+  workvivoWebSignOut: (): Promise<{ signedIn: boolean }> =>
+    ipcRenderer.invoke('workvivo:webSignOut'),
+  workvivoWebStatus: (): Promise<{ signedIn: boolean }> =>
+    ipcRenderer.invoke('workvivo:webStatus'),
   onWorkvivoProgress: (cb: (p: WorkvivoPostProgress) => void): (() => void) => {
     const listener = (_e: Electron.IpcRendererEvent, p: WorkvivoPostProgress): void => cb(p)
     ipcRenderer.on('workvivo:progress', listener)

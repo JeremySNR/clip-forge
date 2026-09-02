@@ -42,6 +42,19 @@ export type ReframeMode = 'crop' | 'fit-blur' | 'fit-letterbox'
 export type ClipContentType = 'speaker' | 'screencast'
 
 /**
+ * How a clip came to exist: a moment the AI cut out of a longer video, or the
+ * whole source video captioned straight through ("caption whole video" mode).
+ * Absent on projects saved before that mode existed; loadProject fills it in.
+ */
+export type ClipOrigin = 'ai-highlight' | 'whole-video'
+
+/**
+ * Which flow last ran on a project. Decides where reopening it lands: the
+ * clip grid, or straight into the editor on its full-video edit.
+ */
+export type ProjectMode = 'clips' | 'whole-video'
+
+/**
  * What kind of source video this project is. Chosen at setup time and steers
  * highlight defaults, face tracking and 9:16 layout (crop vs letterbox).
  */
@@ -111,6 +124,12 @@ export interface BrollItem {
 
 export interface Clip {
   id: string
+  /**
+   * Whether the AI cut this clip out of the video or it is the whole video
+   * captioned straight through. Undefined on clips saved before the mode
+   * existed, which are all AI highlights.
+   */
+  origin?: ClipOrigin
   /** AI suggested boundaries (absolute seconds in the source video). */
   suggestedStart: number
   suggestedEnd: number
@@ -155,6 +174,8 @@ export interface Project {
   prompt: string
   /** Source format chosen at setup; steers layout and face-tracking behaviour. */
   videoType: VideoType
+  /** Flow that last ran on this project; absent on clip-finding projects. */
+  mode?: ProjectMode
   /**
    * True when the source video no longer exists on disk (moved/deleted).
    * Transient — recomputed on load, never persisted.
@@ -170,8 +191,10 @@ export interface ProjectSummary {
   videoPath: string
   videoFileName: string
   durationSec: number
+  /** AI-found clips only; the full-video edit is not one of them. */
   clipCount: number
   thumbnailPath: string | null
+  mode: ProjectMode
 }
 
 export type PipelineStage =
@@ -204,6 +227,23 @@ export interface AnalyzeOptions {
 }
 
 export type ClipLengthPreference = 'auto' | 'short' | 'medium' | 'long'
+
+/**
+ * Options for "caption whole video": no clip finding, no virality scoring —
+ * transcribe the video, reframe it and caption it end to end.
+ */
+export interface CaptionVideoOptions {
+  /** Output shape the whole video is reframed to (9:16 for vertical). */
+  aspect: AspectRatio
+  /**
+   * Run active-speaker face tracking across the whole video so the crop
+   * follows whoever is talking. Local, on-device and slow — it samples at
+   * 25 fps, so long videos take minutes.
+   */
+  followSpeaker: boolean
+  /** Scene-aware punch-ins and slow creep, same plan the clip editor uses. */
+  autoZoom: boolean
+}
 
 export interface ExportOptions {
   clipId: string
@@ -358,6 +398,11 @@ export interface WorkvivoPublicSettings {
   postAsUserId: string
   /** Preferred default space id for one-click posting ('' = none). */
   defaultSpaceId: string
+  /**
+   * Largest upload the API is believed to accept, in bytes. Clips are rendered
+   * to fit this in one pass; the app learns the real value from 413s.
+   */
+  maxUploadBytes: number
   hasToken: boolean
   tokenMasked: string
   /** True when url + companyId + token are all present. */
@@ -371,6 +416,7 @@ export interface WorkvivoSettingsUpdate {
   token?: string
   postAsUserId?: string
   defaultSpaceId?: string
+  maxUploadBytes?: number
 }
 
 /** Outcome of a WorkVivo "Test connection" call. */

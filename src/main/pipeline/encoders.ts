@@ -167,6 +167,39 @@ export function audioArgs(quality: QualityPreference): string[] {
   return ['-c:a', 'aac', '-b:a', quality === 'high' ? '192k' : '160k']
 }
 
+/**
+ * Video args for one pass of a size-targeted two-pass x264 encode.
+ *
+ * Two-pass is what makes a hard byte target land accurately: pass 1 measures
+ * where the bits are actually needed, pass 2 spends them there. Single-pass
+ * ABR has to guess as it goes and overshoots on high-motion content, which is
+ * how a "20MB" target ends up rejected by a 20MB cap.
+ *
+ * Always `slow`, and always CPU x264 even when NVENC is available. When the
+ * bitrate is fixed the preset *is* the quality, and NVENC's rate-distortion
+ * optimisation is well behind x264's at low bitrates. A one-off social post is
+ * worth the extra minute.
+ */
+export function sizeTargetedVideoArgs(
+  pass: 1 | 2,
+  videoKbps: number,
+  passLogPrefix: string
+): string[] {
+  return [
+    '-c:v', 'libx264',
+    '-preset', 'slow',
+    '-b:v', `${videoKbps}k`,
+    '-pass', String(pass),
+    '-passlogfile', passLogPrefix,
+    '-pix_fmt', 'yuv420p'
+  ]
+}
+
+/** Files ffmpeg leaves behind for a `-passlogfile` prefix. */
+export function passLogFiles(passLogPrefix: string): string[] {
+  return [`${passLogPrefix}-0.log`, `${passLogPrefix}-0.log.mbtree`]
+}
+
 const DOWNLOAD_URLS: Partial<Record<NodeJS.Platform, string>> = {
   linux:
     'https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-linux64-gpl.tar.xz',

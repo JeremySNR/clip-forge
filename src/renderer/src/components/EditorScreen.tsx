@@ -20,6 +20,7 @@ import {
   X
 } from 'lucide-react'
 import type { TimelineData } from '@shared/types'
+import { isWholeVideoClip } from '@shared/wholeVideo'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
@@ -29,6 +30,13 @@ import { ExportButton } from './ClipsScreen'
 import { CAPTION_STYLES, resolveCaptionStyle } from '@shared/captionStyles'
 import { formatTimecode } from '../lib/format'
 import type { AspectRatio, BrollItem, BrollMode, Clip, FramingMode, ReframeMode } from '@shared/types'
+
+/**
+ * Edits longer than this get a warning on the tighten-cuts toggle: over a
+ * whole video it splits the timeline into hundreds of segments, and the render
+ * cost is not obvious from a toggle labelled "remove pauses".
+ */
+const TIGHTEN_WARN_SEC = 240
 
 const ASPECTS: Array<{ value: AspectRatio; label: string }> = [
   { value: '9:16', label: '9:16' },
@@ -81,6 +89,10 @@ export default function EditorScreen(): React.JSX.Element {
 
   if (!project || !clip) return <div />
 
+  // A full-video edit has no virality score, hashtags or B-roll behind it —
+  // nothing found it, so those panels would only show empty AI furniture.
+  const wholeVideo = isWholeVideoClip(clip)
+
   const set = (edit: Partial<Clip['edit']>): void => {
     void updateClip({ ...clip, edit: { ...clip.edit, ...edit } })
   }
@@ -115,22 +127,35 @@ export default function EditorScreen(): React.JSX.Element {
               onBlur={() => void updateClip(clip)}
               className="w-full text-ellipsis rounded-lg border border-transparent bg-transparent px-1 py-0.5 text-[15px] font-semibold focus:border-surface-600 focus:bg-surface-850 focus:outline-none"
             />
-            <p className="mt-1 px-1 text-xs leading-relaxed text-zinc-500">{clip.summary}</p>
+            <p className="mt-1 px-1 text-xs leading-relaxed text-zinc-500">
+              {wholeVideo ? 'The whole video. The title names the exported file.' : clip.summary}
+            </p>
           </div>
-          <ScoreBadge score={clip.viralityScore} size="lg" />
-        </div>
-
-        <div className="rounded-xl border border-surface-700 bg-surface-850 px-3.5 py-3 text-xs leading-relaxed text-zinc-400">
-          <span className="font-semibold text-zinc-300">Why this score: </span>
-          {clip.viralityReason}
-          {clip.visualSummary && (
-            <>
-              {' '}
-              <span className="font-semibold text-zinc-300">Visuals: </span>
-              {clip.visualSummary}
-            </>
+          {wholeVideo ? (
+            <span
+              data-testid="whole-video-badge"
+              className="shrink-0 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-zinc-400"
+            >
+              Full video
+            </span>
+          ) : (
+            <ScoreBadge score={clip.viralityScore} size="lg" />
           )}
         </div>
+
+        {!wholeVideo && (
+          <div className="rounded-xl border border-surface-700 bg-surface-850 px-3.5 py-3 text-xs leading-relaxed text-zinc-400">
+            <span className="font-semibold text-zinc-300">Why this score: </span>
+            {clip.viralityReason}
+            {clip.visualSummary && (
+              <>
+                {' '}
+                <span className="font-semibold text-zinc-300">Visuals: </span>
+                {clip.visualSummary}
+              </>
+            )}
+          </div>
+        )}
 
         <Section icon={Scissors} title="Trim">
           <TrimBar
@@ -155,6 +180,12 @@ export default function EditorScreen(): React.JSX.Element {
               checked={clip.edit.tightenCuts}
               onChange={(v) => set({ tightenCuts: v })}
             />
+            {clip.edit.end - clip.edit.start > TIGHTEN_WARN_SEC && (
+              <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
+                Over an edit this long, tightening makes hundreds of cuts and a much slower
+                render.
+              </p>
+            )}
           </div>
           <div className="mt-2">
             <Toggle
@@ -364,6 +395,7 @@ export default function EditorScreen(): React.JSX.Element {
           )}
         </Section>
 
+        {!wholeVideo && (
         <Section icon={ImagePlus} title="B-roll">
           {clip.broll.length === 0 ? (
             <p className="text-xs leading-relaxed text-zinc-500">
@@ -440,6 +472,7 @@ export default function EditorScreen(): React.JSX.Element {
             </div>
           )}
         </Section>
+        )}
 
         <Section icon={Quote} title="Transcript">
           {project.transcript ? (
@@ -463,18 +496,20 @@ export default function EditorScreen(): React.JSX.Element {
           )}
         </Section>
 
-        <Section icon={GalleryVerticalEnd} title="Hashtags">
-          <div className="flex flex-wrap gap-1.5">
-            {clip.hashtags.map((h) => (
-              <span
-                key={h}
-                className="select-text rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-300"
-              >
-                #{h}
-              </span>
-            ))}
-          </div>
-        </Section>
+        {!wholeVideo && (
+          <Section icon={GalleryVerticalEnd} title="Hashtags">
+            <div className="flex flex-wrap gap-1.5">
+              {clip.hashtags.map((h) => (
+                <span
+                  key={h}
+                  className="select-text rounded-full border border-white/[0.06] bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-300"
+                >
+                  #{h}
+                </span>
+              ))}
+            </div>
+          </Section>
+        )}
 
         <ShareSection clip={clip} />
 

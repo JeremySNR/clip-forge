@@ -196,6 +196,48 @@ export function computeZoomEvents(
   return events
 }
 
+/**
+ * Most events a zoom plan may carry into a render. The export turns the plan
+ * into one ffmpeg expression, and that parser gives up at around 85 pieces
+ * however they are arranged (measured on ffmpeg 6.1 and 8.1) — while a plan
+ * across a whole video runs to hundreds. Unlike the crop, the perspective
+ * filter takes no runtime commands, so the plan itself has to fit.
+ */
+export const MAX_ZOOM_EVENTS = 64
+
+/**
+ * Bring a zoom plan within the budget above. Creeps go first: they are the
+ * decorative "never sit still" layer, and each is dropped along with the
+ * snap-back that releases it. Whatever is left is thinned evenly, and
+ * survivors are re-anchored so the plan stays continuous where events were
+ * dropped rather than stepping to a level the zoom never reached.
+ *
+ * Shared so the live preview shows the plan the export will actually use.
+ */
+export function fitZoomEvents(events: ZoomEvent[], max = MAX_ZOOM_EVENTS): ZoomEvent[] {
+  if (events.length <= max) return events
+  let kept = events.filter((e, i) => {
+    if (e.style === 'creep') return false
+    const previous = events[i - 1]
+    const releasesACreep =
+      previous?.style === 'creep' &&
+      e.style === 'cut' &&
+      Math.abs(e.from - previous.to) < 0.001 &&
+      e.to <= 1.001
+    return !releasesACreep
+  })
+  if (kept.length > max) {
+    const stride = Math.ceil(kept.length / max)
+    kept = kept.filter((_, i) => i % stride === 0)
+  }
+  let level = 1
+  return kept.map((e) => {
+    const anchored = { ...e, from: level }
+    level = e.to
+    return anchored
+  })
+}
+
 /** Zoom factor at a moment in source time (1 = no zoom). */
 export function zoomAt(events: ZoomEvent[], t: number): number {
   let z = 1

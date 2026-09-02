@@ -16,6 +16,14 @@ interface PreviewBus {
   setSeekHandler: (fn: ((t: number) => void) | null) => void
   /** Seek the preview to a source-video time (no-op when no player mounted). */
   seek: (t: number) => void
+  /**
+   * Like `seek`, but not clamped to the clip's in/out points, and it pauses
+   * playback. Dragging a trim handle moves those points, so a clamped seek
+   * would refuse to show the very frame being dragged to.
+   */
+  scrubHandler: ((t: number) => void) | null
+  setScrubHandler: (fn: ((t: number) => void) | null) => void
+  scrub: (t: number) => void
 }
 
 export const usePreviewBus = create<PreviewBus>((set, get) => ({
@@ -23,5 +31,8 @@ export const usePreviewBus = create<PreviewBus>((set, get) => ({
   setTime: (t) => set({ time: t }),
   seekHandler: null,
   setSeekHandler: (fn) => set({ seekHandler: fn }),
-  seek: (t) => get().seekHandler?.(t)
+  seek: (t) => get().seekHandler?.(t),
+  scrubHandler: null,
+  setScrubHandler: (fn) => set({ scrubHandler: fn }),
+  scrub: (t) => get().scrubHandler?.(t)
 }))

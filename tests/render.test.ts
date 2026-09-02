@@ -113,8 +113,33 @@ describe('buildFilterGraph', () => {
     // Eased (smoothstep) pan over the pan window starting at the keyframe.
     expect(graph.filterComplex).toContain('(t-5.000)/0.600')
     expect(graph.filterComplex).toContain('(3-2*')
-    // The cut-flagged keyframe stays a hard constant step.
-    expect(graph.filterComplex).toContain(',0.2000)')
+    // The cut-flagged keyframe stays a hard constant step, gated from its own
+    // time to the end of the clip.
+    expect(graph.filterComplex).toContain('gte(t,12.000)*(0.2000)')
+  })
+
+  /**
+   * A whole-video focus track runs to hundreds of keyframes, and ffmpeg's
+   * expression parser fails at around a hundred levels of nesting, so the
+   * crop expression must not nest per keyframe.
+   */
+  it('keeps the crop expression flat for long focus tracks', () => {
+    const clip = makeClip(0, 600)
+    clip.edit.framing = 'auto'
+    clip.focusTrack = Array.from({ length: 400 }, (_, i) => ({
+      t: i * 1.5,
+      x: i % 2 === 0 ? 0.35 : 0.7,
+      cut: i % 4 === 0
+    }))
+    const graph = buildFilterGraph(clip, source, null, 600, null)
+    let depth = 0
+    let max = 0
+    for (const ch of graph.filterComplex) {
+      if (ch === '(') max = Math.max(max, ++depth)
+      else if (ch === ')') depth--
+    }
+    expect(max).toBeLessThan(20)
+    expect(graph.filterComplex).toContain('gte(t,598.500)')
   })
 
   it('uses crop-slider math for manual framing', () => {

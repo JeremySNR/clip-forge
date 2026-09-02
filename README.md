@@ -43,6 +43,11 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 
 ## Features
 
+**Two ways to work**
+
+- **Find viral clips.** The AI reads the transcript, cuts the best moments out and scores them, and you pick from the results.
+- **Caption the whole video.** No clip finding: give it a 16:9 video and it comes back as one vertical, captioned edit you can trim, restyle and export. Optionally tracks the speaker across the whole video and adds auto zoom. Both modes work on the same project, and the transcript is shared between them.
+
 **Finding the clips**
 
 - **Import anything.** Local files (MP4/MOV/MKV/WEBM and more) or paste a URL from YouTube, Vimeo, TikTok, Twitch, or any site yt-dlp supports. Private or SSO-protected videos (like enterprise Vimeo) work by borrowing the login from your browser. No server integration needed.
@@ -136,7 +141,7 @@ npm run typecheck
 npm run lint
 ```
 
-Integration test scripts live in `scripts/` (`test-pipeline`, `test-e2e`, `test-quality`, `test-encoders`, `test-resilience`, `test-broll`, `test-youtube`, `test-asd`, `smoke-test.sh`). See each file's header for what it covers. The e2e ones need `OPENAI_API_KEY`.
+Integration test scripts live in `scripts/` (`test-pipeline`, `test-e2e`, `test-quality`, `test-wholevideo`, `test-encoders`, `test-resilience`, `test-broll`, `test-youtube`, `test-asd`, `smoke-test.sh`). See each file's header for what it covers. The e2e ones need `OPENAI_API_KEY`.
 
 The bundled active-speaker model (`resources/models/lr-asd-*.onnx`) is exported from the MIT-licensed [LR-ASD](https://github.com/Junhua-Liao/LR-ASD) weights with `scripts/export-asd-onnx.py` (requires Python with `torch`, `onnx`, `onnxruntime`, `python_speech_features`).
 

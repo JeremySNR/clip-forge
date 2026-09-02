@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the app, seeds a demo project, launches under Xvfb and captures
-# screenshots of the home, clips and editor screens.
+# screenshots of every main screen, including both setup modes and a real
+# "caption whole video" run (offline: the seeded project has a transcript).
 # Usage: scripts/smoke-test.sh [output-dir]
 set -euo pipefail
 cd "$(dirname "$0")/.."

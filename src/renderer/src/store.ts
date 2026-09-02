@@ -2,16 +2,19 @@ import { create } from 'zustand'
 import type {
   AnalyzeOptions,
   AppSettings,
+  CaptionVideoOptions,
   Clip,
   CustomFont,
   ImportProgress,
   PipelineProgress,
   Project,
+  ProjectMode,
   ProjectSummary,
   SettingsUpdate,
   UpdateCheckResult,
   WorkvivoSpace
 } from '@shared/types'
+import { findWholeVideoClip, highlightClips, isWholeVideoClip } from '@shared/wholeVideo'
 
 /** Font faces already registered with document.fonts (FontFace API). */
 const loadedFontFaces = new Map<string, FontFace>()
@@ -40,6 +43,18 @@ function unregisterFontFamily(family: string): void {
 
 export type Screen = 'home' | 'processing' | 'clips' | 'editor'
 
+/**
+ * Where the editor's back button lands. A full-video edit has no clip grid
+ * behind it unless the project also has AI-found clips.
+ */
+export function editorBackScreen(project: Project | null, clipId: string | null): Screen {
+  const clip = project?.clips.find((c) => c.id === clipId) ?? null
+  if (project && clip && isWholeVideoClip(clip) && highlightClips(project).length === 0) {
+    return 'home'
+  }
+  return 'clips'
+}
+
 export interface ExportEntry {
   status: 'exporting' | 'done' | 'error'
   progress: number
@@ -63,6 +78,10 @@ interface AppState {
   settingsOpen: boolean
   pipelineProgress: PipelineProgress | null
   pipelineError: string | null
+  /** Which flow the processing screen is showing, so it lists the right stages. */
+  pipelineMode: ProjectMode
+  /** Whether the running whole-video job was asked to track the speaker. */
+  pipelineFollowSpeaker: boolean
   importProgress: ImportProgress | null
   selectedClipId: string | null
   exports: Record<string, ExportEntry>
@@ -94,6 +113,7 @@ interface AppState {
   saveSettings: (update: SettingsUpdate) => Promise<void>
   refreshSettings: () => Promise<void>
   analyze: (options: AnalyzeOptions) => Promise<void>
+  captionWholeVideo: (options: CaptionVideoOptions) => Promise<void>
   cancelAnalyze: () => Promise<void>
   openEditor: (clipId: string) => void
   closeEditor: () => void
@@ -132,6 +152,8 @@ export const useStore = create<AppState>((set, get) => ({
   settingsOpen: false,
   pipelineProgress: null,
   pipelineError: null,
+  pipelineMode: 'clips',
+  pipelineFollowSpeaker: false,
   importProgress: null,
   selectedClipId: null,
   exports: {},
@@ -217,10 +239,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   openProject: async (id) => {
     const project = await window.clipforge.loadProject(id)
+    // A whole-video project reopens on its edit; a clip project on the grid.
+    const wholeVideo = project.mode === 'whole-video' ? findWholeVideoClip(project) : null
     set({
       project,
-      screen: project.clips.length > 0 ? 'clips' : 'home',
-      selectedClipId: null,
+      screen: wholeVideo ? 'editor' : project.clips.length > 0 ? 'clips' : 'home',
+      selectedClipId: wholeVideo?.id ?? null,
       pipelineError: null
     })
   },
@@ -266,11 +290,48 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       screen: 'processing',
       pipelineError: null,
+      pipelineMode: 'clips',
       pipelineProgress: { stage: 'audio', progress: 0, message: 'Starting…' }
     })
     try {
       const updated = await window.clipforge.analyzeProject(project.id, options)
       set({ project: updated, screen: 'clips', pipelineProgress: null })
+    } catch (err) {
+      const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
+      const cancelled = message.includes('Analysis cancelled')
+      // Pick up any checkpoint (e.g. saved transcript) the failed run left.
+      const reloaded = await window.clipforge.loadProject(project.id).catch(() => project)
+      set({
+        project: reloaded,
+        screen: 'home',
+        pipelineProgress: null,
+        pipelineError: cancelled ? null : message
+      })
+    }
+    await get().refreshProjects()
+  },
+
+  captionWholeVideo: async (options) => {
+    const project = get().project
+    if (!project) return
+    set({
+      screen: 'processing',
+      pipelineError: null,
+      pipelineMode: 'whole-video',
+      pipelineFollowSpeaker: options.followSpeaker,
+      pipelineProgress: { stage: 'audio', progress: 0, message: 'Starting…' }
+    })
+    try {
+      const updated = await window.clipforge.captionWholeVideo(project.id, options)
+      const clip = findWholeVideoClip(updated)
+      // Straight into the editor: captions and framing are what this mode is
+      // for, and there is no clip grid to choose from.
+      set({
+        project: updated,
+        screen: clip ? 'editor' : 'home',
+        selectedClipId: clip?.id ?? null,
+        pipelineProgress: null
+      })
     } catch (err) {
       const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
       const cancelled = message.includes('Analysis cancelled')
@@ -292,7 +353,11 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   openEditor: (clipId) => set({ selectedClipId: clipId, screen: 'editor' }),
-  closeEditor: () => set({ selectedClipId: null, screen: 'clips' }),
+  closeEditor: () =>
+    set({
+      selectedClipId: null,
+      screen: editorBackScreen(get().project, get().selectedClipId)
+    }),
 
   updateClipLocal: (clip) => {
     const project = get().project
@@ -417,7 +482,9 @@ export const useStore = create<AppState>((set, get) => ({
   exportAll: async () => {
     const project = get().project
     if (!project) return
-    for (const clip of project.clips) {
+    // The clip grid's "Export all" means the AI clips. A full-video edit is
+    // exported deliberately from its own editor, never swept up here.
+    for (const clip of highlightClips(project)) {
       const status = get().exports[clip.id]?.status
       if (status === 'exporting' || status === 'done') continue
       await get().exportClip(clip.id)
