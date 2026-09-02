@@ -259,9 +259,9 @@ h1 em { font-style: normal; color: var(--accent); }
    is dimmed, which is exactly what the crop is doing. */
 .crop {
   position: absolute;
-  top: 4%;
-  bottom: 4%;
-  left: 7%;
+  top: 7%;
+  bottom: 7%;
+  left: 10%;
   aspect-ratio: 9 / 16;
   border: 1.5px solid var(--accent);
   border-radius: 6px;
@@ -270,24 +270,46 @@ h1 em { font-style: normal; color: var(--accent); }
 }
 @keyframes switch {
   0%, 40%   { transform: translateX(0); }
-  50%, 90%  { transform: translateX(176%); }
+  50%, 90%  { transform: translateX(195%); }
   100%      { transform: translateX(0); }
 }
 
+/* Sits INSIDE the window: the stage clips anything outside it, and a
+   viewfinder label belongs in the frame anyway. */
 .crop-tag {
   position: absolute;
-  top: -1px;
-  left: -1px;
-  transform: translateY(-100%);
-  background: var(--accent);
-  color: var(--accent-deep);
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(6, 9, 8, .72);
+  color: var(--accent);
   font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: .1em;
+  font-size: 8px;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  padding: 3px 6px;
-  border-radius: 3px 3px 0 0;
+  padding: 3px 5px;
+  border-radius: 3px;
+  line-height: 1;
+  overflow: hidden;
   white-space: nowrap;
+  text-overflow: ellipsis;
+}
+/* Recording dot: the one thing that says "this is a live frame". */
+.crop-tag::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .25; }
 }
 
 /* Karaoke caption line, the way the burned-in captions read. */
@@ -615,8 +637,6 @@ code { font-family: var(--mono); font-size: .86em; background: var(--panel-2); p
   .cell--lead .lead-shot { margin: 0 20px; }
   .cell { padding: 22px; }
   .nav-links a:not(.nav-gh) { display: none; }
-  /* Stop the crop animation translating out of a narrow frame. */
-  .crop { left: 8%; }
 }
 </style>
 </head>
@@ -662,7 +682,7 @@ code { font-family: var(--mono); font-size: .86em; background: var(--panel-2); p
           <div class="figure one"></div>
           <div class="figure two"></div>
           <div class="crop">
-            <span class="crop-tag">9:16 &middot; tracking speaker</span>
+            <span class="crop-tag">Tracking</span>
             <p class="cap"><i>NOBODY</i> <i>TELLS</i> <i>YOU&hellip;</i></p>
           </div>
         </div>
