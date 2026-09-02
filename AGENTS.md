@@ -17,7 +17,8 @@ ClipForge is a single **Electron + Vite + React + TypeScript** desktop app (npm,
 - `scripts/smoke-test.sh [out-dir]` is the fastest end-to-end GUI check: it builds, seeds a demo project via `scripts/seed-demo.ts`, launches under Xvfb with `CLIPFORGE_SMOKE` set, and writes `home.png`, `clips.png`, `editor.png`, `setup-clips.png`, `setup-caption-video.png`, `editor-caption-video.png` and `settings.png` screenshots. The walk assumes a freshly seeded demo project (the script seeds one every run), and it runs "caption whole video" for real using the seeded transcript, so it makes no API calls. Set `CLIPFORGE_SMOKE` to an output dir to trigger this auto-screenshot-and-exit mode.
 
 ### Tests / lint
-- There is **no linter and no test framework**. `npm run typecheck` is the only static gate; the `scripts/test-*.ts` files are standalone `tsx` scripts (see `README.md` "Tests"). Run them via `npx tsx --tsconfig tsconfig.node.json scripts/<name>.ts`.
+- `npm test` (vitest), `npm run typecheck` and `npm run lint` (eslint) are the static gates, and CI enforces all three on every push. Run them before proposing a change.
+- On top of those, the `scripts/test-*.ts` files are standalone `tsx` integration scripts (see `README.md` "Tests"). Run them via `npx tsx --tsconfig tsconfig.node.json scripts/<name>.ts`.
 - Tests that hit OpenAI (`test-e2e.ts`, `test-broll.ts`) need `OPENAI_API_KEY`; `test-pipeline.ts`, `test-resilience.ts`, `test-encoders.ts`, `test-quality.ts` run fully offline.
 
 ### Persistence

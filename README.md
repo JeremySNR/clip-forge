@@ -145,6 +145,72 @@ Integration test scripts live in `scripts/` (`test-pipeline`, `test-e2e`, `test-
 
 The bundled active-speaker model (`resources/models/lr-asd-*.onnx`) is exported from the MIT-licensed [LR-ASD](https://github.com/Junhua-Liao/LR-ASD) weights with `scripts/export-asd-onnx.py` (requires Python with `torch`, `onnx`, `onnxruntime`, `python_speech_features`).
 
+## FAQ
+
+**Is it actually free?**
+The app is free and MIT licensed, forever. You pay OpenAI directly for
+transcription and analysis, which works out at roughly **$0.36 per hour of
+video**. There is no subscription, no account, no processing-minute cap and no
+paid tier holding features back.
+
+**Do I need an OpenAI API key?**
+For finding clips and captioning, yes, because that is what does the
+transcription and the analysis. Everything else runs locally without one: the
+editor, trimming, caption styling, auto zoom, speaker reframing, watermarks and
+export. If you already have a transcript from a previous run, you can keep
+editing and exporting offline.
+
+**Does my video get uploaded anywhere?**
+No. Only extracted audio, the transcript and a handful of sampled frames go to
+the OpenAI API. The full video never leaves your machine, and rendering, face
+tracking, zoom and export are entirely local.
+
+**How is this different from Opus Clip's free tier?**
+Free SaaS tiers cap your processing minutes and usually watermark the output.
+ClipForge has no cap because it runs on your hardware, and the only watermark is
+one you add yourself.
+
+**Do I need a GPU?**
+No. ClipForge uses NVIDIA NVENC if it finds it and falls back to CPU encoding
+automatically. A GPU makes exports faster, nothing more. Speaker detection runs
+on-device through ONNX Runtime and is fine on CPU.
+
+**How long can my video be?**
+There is no fixed limit. Audio is chunked and transcription is checkpointed to
+disk as it goes, so hour-plus recordings work and a failure part way through
+does not mean paying to transcribe it again.
+
+**Does it work in languages other than English?**
+Transcription does. Set the language in Settings (it defaults to English, which
+is more reliable than auto-detect, since auto occasionally mislabels English as
+something else). Captions burn in whatever Whisper returns. Translating captions
+into another language is on the roadmap, not built yet.
+
+**Can it post to TikTok or YouTube for me?**
+Not automatically. It writes the post caption and hands you the file, then you
+upload. Direct publishing needs an audited TikTok/YouTube app, which is on the
+roadmap and a good contribution if you fancy it.
+
+**Can I use the clips commercially?**
+Yes. MIT licence, and the output is yours. Do check the rights on any source
+footage you did not create, and note that AI B-roll pulls from Wikipedia and
+Openverse, whose images carry their own licences.
+
+**macOS says the app cannot be opened. Why?**
+The macOS builds are not code-signed yet, so Gatekeeper objects on first
+launch. Right-click the app and choose **Open**, which is a one-time step.
+Signing and notarisation are wanted; see
+[CONTRIBUTING.md](CONTRIBUTING.md) if you can help.
+
+**Which OpenAI models does it use?**
+`whisper-1` for transcription and `gpt-5.4-mini` for analysis by default. Both
+are configurable in Settings, including a cheaper legacy option.
+
+**Can I run it against a local or non-OpenAI model?**
+Not today. The client in `src/main/pipeline/openai.ts` targets the OpenAI REST
+API. A pluggable endpoint would be a welcome contribution, and local Whisper is
+the obvious first step.
+
 ## Roadmap
 
 - Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app; contributions welcome)

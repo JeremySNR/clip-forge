@@ -54,3 +54,24 @@ jobs:
           # The app is not code-signed yet: stop electron-builder from hunting
           # for a Developer ID certificate (and failing) on the macOS runner.
           CSC_IDENTITY_AUTO_DISCOVERY: false
+
+  # electron-builder creates the release but leaves the body empty, so fill it
+  # in from CHANGELOG.md once the builds have uploaded. Runs once, not per OS.
+  notes:
+    name: publish release notes
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set release notes from CHANGELOG
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          node scripts/changelog-section.mjs "$version" > notes.md
+          if [ -s notes.md ]; then
+            gh release edit "v$version" --notes-file notes.md
+            echo "Release notes set for v$version"
+          else
+            echo "No CHANGELOG.md section for $version; leaving notes as they are"
+          fi

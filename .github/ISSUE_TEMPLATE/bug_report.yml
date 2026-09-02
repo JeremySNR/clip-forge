@@ -1,0 +1,84 @@
+name: Bug report
+description: Something is broken or behaving unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The console output and your app version are what
+        make a bug actionable, so please fill those in if you can.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where did it happen?
+      options:
+        - Importing a video (local file or URL)
+        - Transcription
+        - Finding clips / virality scoring
+        - Caption whole video
+        - The editor or live preview
+        - Auto zoom or speaker reframing
+        - Export / rendering
+        - Posting or AI post captions
+        - Updating the app
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ClipForge version
+      description: Shown in Settings. Or the commit SHA if running from source.
+      placeholder: "0.7.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Downloaded installer from the releases page
+        - Built from source (npm run dev)
+        - Built from source (npm run package)
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output
+      description: >
+        View → Toggle Developer Tools, then the Console tab. Please redact your
+        API key if it appears anywhere.
+      render: shell
+
+  - type: textarea
+    id: video
+    attributes:
+      label: Source video details
+      description: >
+        If it is specific to one video, its length, resolution and where it came
+        from often explains it. No need to share the video itself.

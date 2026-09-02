@@ -17,6 +17,15 @@ export default tseslint.config(
     }
   },
   {
+    // Plain JS/MJS (build and release helpers) runs on Node, so give it the
+    // Node globals. TS files don't need this: typescript-eslint turns
+    // `no-undef` off and leaves undefined-name checking to tsc.
+    files: ['**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly' }
+    }
+  },
+  {
     files: ['src/renderer/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules

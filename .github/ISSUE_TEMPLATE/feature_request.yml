@@ -1,0 +1,32 @@
+name: Feature request
+description: Suggest something ClipForge should do
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: >
+        The problem rather than the solution, if you can. It often turns out
+        there is a better fix than the one that first comes to mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like it to do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How do you work around it today?
+
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Would you be up for building it?
+      options:
+        - label: I would be interested in opening a PR for this
