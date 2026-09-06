@@ -277,6 +277,22 @@ function looksLikeUnsupportedFormat(err: unknown): boolean {
   )
 }
 
+function looksLikeInvalidJson(err: unknown): boolean {
+  return err instanceof OpenAIError && err.status === undefined && err.message === 'Analysis returned invalid JSON'
+}
+
+function schemaInstruction(schemaName: string, schema: Record<string, unknown>): string {
+  return `Return only a JSON object matching the ${schemaName} schema:\n${JSON.stringify(schema, null, 2)}\nNo markdown, no commentary.`
+}
+
+function messagesWithSchemaInstruction(
+  messages: ChatMessage[],
+  schemaName: string,
+  schema: Record<string, unknown>
+): ChatMessage[] {
+  return [...messages, { role: 'user', content: schemaInstruction(schemaName, schema) }]
+}
+
 /**
  * Compatible endpoints (Ollama, LM Studio, some Groq/OpenRouter models) often
  * reject OpenAI's strict json_schema. Try that first, then json_object, then
@@ -306,7 +322,7 @@ async function completeChatContent(
       label: 'json_object',
       body: {
         model,
-        messages,
+        messages: messagesWithSchemaInstruction(messages, schemaName, schema),
         response_format: { type: 'json_object' }
       }
     },
@@ -314,20 +330,15 @@ async function completeChatContent(
       label: 'plain',
       body: {
         model,
-        messages: [
-          ...messages,
-          {
-            role: 'user',
-            content:
-              'Return only a JSON object matching the requested schema. No markdown, no commentary.'
-          }
-        ]
+        messages: messagesWithSchemaInstruction(messages, schemaName, schema)
       }
     }
   ]
 
   let lastError: unknown
-  for (const format of formats) {
+  for (let i = 0; i < formats.length; i++) {
+    const format = formats[i]
+    const isLast = i === formats.length - 1
     try {
       const res = await fetch(`${chatApiBase()}/chat/completions`, {
         method: 'POST',
@@ -344,11 +355,18 @@ async function completeChatContent(
       }
       const content = body.choices?.[0]?.message?.content
       if (!content) throw new OpenAIError('Analysis returned an empty response')
-      return extractJsonText(content)
+      const text = extractJsonText(content)
+      try {
+        JSON.parse(text)
+      } catch {
+        throw new OpenAIError('Analysis returned invalid JSON')
+      }
+      return text
     } catch (err) {
       lastError = err
       if (signal?.aborted) throw err
-      if (!looksLikeUnsupportedFormat(err)) throw err
+      const canTryNext = looksLikeUnsupportedFormat(err) || looksLikeInvalidJson(err)
+      if (!canTryNext || isLast) throw err
     }
   }
   throw lastError
