@@ -75,3 +75,17 @@ jobs:
           else
             echo "No CHANGELOG.md section for $version; leaving notes as they are"
           fi
+
+  # After the first listing exists on winget-pkgs (see docs/winget.md), later
+  # releases open an update PR automatically. Skip until the package id is set.
+  winget:
+    name: publish winget
+    needs: notes
+    if: ${{ vars.WINGET_PACKAGE_ID != '' }}
+    runs-on: windows-latest
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: ${{ vars.WINGET_PACKAGE_ID }}
+          installers-regex: '\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

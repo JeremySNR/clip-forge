@@ -99,9 +99,11 @@ npm version patch        # or minor / major — bumps package.json and creates t
 git push --follow-tags   # pushes the commit and the vX.Y.Z tag
 ```
 
+Windows packages can also be listed on [winget](docs/winget.md) after a one-off first submit.
+
 Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
 
-You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest).
+You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest). On Windows, `winget install JeremySNR.ClipForge` will work once the [winget package](docs/winget.md) is listed.
 
 Everything except transcription and analysis runs locally. Rendering, face tracking, editing, zoom and export never leave your machine. Only extracted audio, transcripts and a few sampled frames go to the OpenAI API. Never the full video.
 
@@ -222,9 +224,13 @@ Signing and notarisation are wanted; see
 are configurable in Settings, including a cheaper legacy option.
 
 **Can I run it against a local or non-OpenAI model?**
-Not today. The client in `src/main/pipeline/openai.ts` targets the OpenAI REST
-API. A pluggable endpoint would be a welcome contribution, and local Whisper is
-the obvious first step.
+Yes, if it speaks the OpenAI REST shape. Set the API base URL in Settings
+(or `OPENAI_BASE_URL`) to Azure OpenAI, OpenRouter, Groq, LM Studio, Ollama,
+or anything else with `/v1/chat/completions`. Transcription can point at a
+separate local Whisper server (faster-whisper, whisper.cpp’s compatible
+endpoint) — it must return **word-level timestamps**, because captions and
+tighten-cuts depend on them. Bundled in-process Whisper (no server at all)
+is still on the roadmap.
 
 ## Roadmap
 
@@ -232,7 +238,7 @@ Each of these is an open issue, so the discussion and the detail live there. Con
 
 - [Multi-language caption translation](https://github.com/JeremySNR/clip-forge/issues/49)
 - [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/clip-forge/issues/50)
-- [OpenAI-compatible endpoints and local Whisper](https://github.com/JeremySNR/clip-forge/issues/46), so transcription can run free and offline
+- Bundled on-device Whisper, so transcription needs no server at all
 - Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app)
 
 Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/clip-forge/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.

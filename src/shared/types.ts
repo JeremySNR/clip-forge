@@ -414,6 +414,23 @@ export interface AppSettings {
    */
   transcriptionLanguage: string
   analysisModel: string
+  /**
+   * OpenAI-compatible chat base URL (Azure, OpenRouter, Groq, LM Studio,
+   * Ollama). Empty string means the OpenAI default, unless OPENAI_BASE_URL
+   * is set in the environment.
+   */
+  openaiBaseUrl: string
+  /**
+   * Optional Whisper transcription base URL, for a local Whisper server
+   * next to a hosted LLM. Empty string means "same as the chat base".
+   */
+  transcriptionBaseUrl: string
+  /**
+   * True when OPENAI_BASE_URL is set, so the Settings fields are ignored
+   * for the chat (and, unless OPENAI_TRANSCRIPTION_BASE_URL is also set,
+   * transcription) endpoint.
+   */
+  openaiBaseUrlFromEnv: boolean
   encoder: EncoderPreference
   quality: QualityPreference
   /**
@@ -436,6 +453,8 @@ export interface SettingsUpdate {
   transcriptionModel?: string
   transcriptionLanguage?: string
   analysisModel?: string
+  openaiBaseUrl?: string
+  transcriptionBaseUrl?: string
   encoder?: EncoderPreference
   quality?: QualityPreference
   /** Megabyte cap for size-targeted export; null/0 clears it. */

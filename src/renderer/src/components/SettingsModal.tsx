@@ -17,6 +17,7 @@ import {
   Loader2,
   Palette,
   MessageSquareQuote,
+  Server,
 } from 'lucide-react'
 import { useStore } from '../store'
 import SizeTargetControls from './SizeTargetControls'
@@ -89,6 +90,10 @@ export default function SettingsModal(): React.JSX.Element {
   const refreshSettings = useStore((s) => s.refreshSettings)
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-5.4-mini')
+  const [openaiBaseUrl, setOpenaiBaseUrl] = useState(settings?.openaiBaseUrl ?? '')
+  const [transcriptionBaseUrl, setTranscriptionBaseUrl] = useState(
+    settings?.transcriptionBaseUrl ?? ''
+  )
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [gpuProgress, setGpuProgress] = useState<ImportProgress | null>(null)
@@ -102,7 +107,9 @@ export default function SettingsModal(): React.JSX.Element {
     try {
       await saveSettings({
         ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
-        analysisModel: model
+        analysisModel: model,
+        openaiBaseUrl,
+        transcriptionBaseUrl
       })
       setApiKey('')
       setSaved(true)
@@ -172,7 +179,7 @@ export default function SettingsModal(): React.JSX.Element {
                 </label>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500">
             Used for Whisper transcription and clip analysis. Stored encrypted on this machine
-            and never sent anywhere except the OpenAI API.
+            and never sent anywhere except the API base below (OpenAI by default).
           </p>
           {settings !== null && !settings.keyStorageSecure && (
             <p className="mt-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-400">
@@ -195,6 +202,50 @@ export default function SettingsModal(): React.JSX.Element {
           >
             Get an API key <ExternalLink size={11} />
           </a>
+        </div>
+
+        <div className="mt-5">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <Server size={15} className="text-accent-400" />
+            API base URL
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+            OpenAI-compatible endpoint for analysis (and transcription, unless you set a
+            separate one below). Azure OpenAI, OpenRouter, Groq, LM Studio, Ollama. Leave
+            blank for api.openai.com.
+          </p>
+          {settings?.openaiBaseUrlFromEnv && (
+            <p className="mt-1.5 rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-400">
+              OPENAI_BASE_URL is set in the environment, so it overrides these fields until
+              you unset it.
+            </p>
+          )}
+          <input
+            data-testid="openai-base-url"
+            type="url"
+            value={openaiBaseUrl}
+            onChange={(e) => setOpenaiBaseUrl(e.target.value)}
+            placeholder="https://api.openai.com/v1"
+            disabled={settings?.openaiBaseUrlFromEnv}
+            className="mt-2.5 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none disabled:opacity-50"
+          />
+          <label className="mt-3 block text-[11px] font-medium text-zinc-500">
+            Transcription base URL (optional)
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+            Point Whisper at a local server (faster-whisper, whisper.cpp’s OpenAI-compatible
+            endpoint) while clip finding stays on the chat base above. Needs word-level
+            timestamps. Leave blank to use the same URL.
+          </p>
+          <input
+            data-testid="transcription-base-url"
+            type="url"
+            value={transcriptionBaseUrl}
+            onChange={(e) => setTranscriptionBaseUrl(e.target.value)}
+            placeholder="Same as API base URL"
+            disabled={settings?.openaiBaseUrlFromEnv}
+            className="mt-2 w-full rounded-xl border border-surface-600 bg-surface-850 px-3.5 py-2.5 text-sm text-zinc-200 placeholder:text-zinc-600 focus:border-white/25 focus:outline-none disabled:opacity-50"
+          />
         </div>
 
         <div className="mt-5">

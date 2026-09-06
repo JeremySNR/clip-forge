@@ -48,7 +48,7 @@ export async function captionWholeVideo(
   // offline is allowed.
   const apiKey = getApiKey()
   if (!apiKey && !project.transcript) {
-    throw new Error('No OpenAI API key configured. Add one in Settings before transcribing.')
+    throw new Error('No API key configured. Add one in Settings before transcribing.')
   }
   const settings = getModelPreferences()
   const workDir = join(tmpdir(), 'clipforge', `caption-${project.id}`)
