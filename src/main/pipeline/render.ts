@@ -21,6 +21,7 @@ import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
 import { FFMPEG_PATH, runFfmpegWith } from './ffmpeg'
+import { loudnormFilter, measureLoudness, normalisationMode, type LoudnessStats } from './loudness'
 import { buildAss, fontsDir } from './captions'
 import { fontMetricsForFamily } from '../fonts'
 import {
@@ -30,9 +31,6 @@ import {
   resolveEncoder,
   sizeTargetedVideoArgs
 } from './encoders'
-
-/** Social platforms normalise to ~-14 LUFS; master exports to match. */
-const LOUDNORM = 'loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000'
 
 /**
  * Gentle audio fade at the clip tail so endings never cut off abruptly —
@@ -55,10 +53,16 @@ const FILTER_ARG_MAX_CHARS = 8000
  */
 const MAX_EXPRESSION_PIECES = 64
 
-function audioChain(clipDuration: number): string {
-  if (clipDuration <= END_FADE_SEC * 3) return LOUDNORM
+/**
+ * Loudness-normalised master chain: linear normalisation when the source was
+ * measured (see loudness.ts), the single-pass filter otherwise; loudnorm
+ * resamples internally, so the rate is pinned back to 48 kHz after it.
+ */
+function audioChain(clipDuration: number, loudness: LoudnessStats | null): string {
+  const master = `${loudnormFilter(loudness)},aresample=48000`
+  if (clipDuration <= END_FADE_SEC * 3) return master
   const st = (clipDuration - END_FADE_SEC).toFixed(3)
-  return `${LOUDNORM},afade=t=out:st=${st}:d=${END_FADE_SEC}`
+  return `${master},afade=t=out:st=${st}:d=${END_FADE_SEC}`
 }
 
 function targetDims(aspect: AspectRatio, source: VideoInfo): { w: number; h: number } {
@@ -400,6 +404,11 @@ export function buildFilterGraph(
      * long focus track is thinned into a plain expression instead.
      */
     focusCommandsPath?: string
+    /**
+     * Measured loudness of the source span, for linear normalisation. Null or
+     * absent falls back to single-pass dynamic normalisation.
+     */
+    loudness?: LoudnessStats | null
   }
 ): FilterGraph {
   const { w, h } = targetDims(clip.edit.aspect, source)
@@ -431,13 +440,13 @@ export function buildFilterGraph(
     parts.push(tightenGraph(tighten.segments, tighten.clipStart, source.hasAudio))
     parts.push(reframeGraph(clip, source, 'vcat', focus, focusCommandsPath))
     if (source.hasAudio) {
-      parts.push(`[acat]${audioChain(clipDuration)}[aout]`)
+      parts.push(`[acat]${audioChain(clipDuration, options?.loudness ?? null)}[aout]`)
       audioLabel = 'aout'
     }
   } else {
     parts.push(reframeGraph(clip, source, '0:v', focus, focusCommandsPath))
     if (source.hasAudio) {
-      parts.push(`[0:a]${audioChain(clipDuration)}[aout]`)
+      parts.push(`[0:a]${audioChain(clipDuration, options?.loudness ?? null)}[aout]`)
       audioLabel = 'aout'
     }
   }
@@ -626,6 +635,17 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
     if (zoomEvents.length === 0) zoomEvents = null
   }
 
+  // Measure the span's loudness so the master gain is one linear value rather
+  // than a gain rider (see loudness.ts). Measured on the untightened span:
+  // integrated loudness gates out silence anyway, so removing pauses changes
+  // the reading by a fraction of a dB — not worth a second trim+concat graph.
+  const loudness = source.hasAudio
+    ? await measureLoudness(source.path, start, duration, job.signal)
+    : null
+  if (process.env.CLIPFORGE_DEBUG) {
+    console.error(`[render] loudness normalisation: ${normalisationMode(loudness)}`, loudness)
+  }
+
   const tempDir = join(tmpdir(), 'clipforge')
   await mkdir(tempDir, { recursive: true })
   // Named up front because the graph has to reference the file; it is only
@@ -637,7 +657,13 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
     assPath,
     outputDuration,
     segments ? { segments, clipStart: start } : null,
-    { branding: job.branding, fontsDirPath: job.fontsDirPath, zoomEvents, focusCommandsPath }
+    {
+      branding: job.branding,
+      fontsDirPath: job.fontsDirPath,
+      zoomEvents,
+      focusCommandsPath,
+      loudness
+    }
   )
   if (graph.focusCommands) await writeFile(focusCommandsPath, graph.focusCommands, 'utf8')
 

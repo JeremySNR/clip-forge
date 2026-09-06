@@ -125,6 +125,7 @@ export async function captionWholeVideo(
       hashtags: [],
       thumbnailPath,
       focusTrack,
+      reframeStatus: 'done',
       contentType,
       broll: [],
       edit: wholeVideoEdit({

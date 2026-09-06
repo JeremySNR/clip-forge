@@ -179,6 +179,14 @@ export interface WhisperSegment {
   text: string
   start: number
   end: number
+  /**
+   * Decoder diagnostics Whisper reports per segment. Together they identify
+   * the hallucinations it produces on silence and music — see
+   * `isHallucinatedSegment` in transcribe.ts. Absent on some models.
+   */
+  no_speech_prob?: number
+  avg_logprob?: number
+  compression_ratio?: number
 }
 
 export interface WhisperResponse {

@@ -20,7 +20,13 @@ export interface RunOptions {
   signal?: AbortSignal
 }
 
-export function runBinary(bin: string, args: string[], opts: RunOptions = {}): Promise<string> {
+export interface BinaryOutput {
+  stdout: string
+  stderr: string
+}
+
+/** Like runBinary, but also returns stderr — where ffmpeg filters print their reports. */
+export function runBinaryFull(bin: string, args: string[], opts: RunOptions = {}): Promise<BinaryOutput> {
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, { windowsHide: true, signal: opts.signal })
     let stdout = ''
@@ -44,10 +50,14 @@ export function runBinary(bin: string, args: string[], opts: RunOptions = {}): P
     })
     child.on('error', reject)
     child.on('close', (code) => {
-      if (code === 0) resolve(stdout)
+      if (code === 0) resolve({ stdout, stderr })
       else reject(new Error(`${bin.split(/[\\/]/).pop()} exited with code ${code}:\n${stderr.slice(-2000)}`))
     })
   })
+}
+
+export async function runBinary(bin: string, args: string[], opts: RunOptions = {}): Promise<string> {
+  return (await runBinaryFull(bin, args, opts)).stdout
 }
 
 export function runFfmpeg(args: string[], opts: RunOptions = {}): Promise<string> {

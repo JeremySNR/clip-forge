@@ -6,9 +6,70 @@ the [releases page](https://github.com/JeremySNR/clip-forge/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
-## [Unreleased]
+## [0.8.0] - 2026-09-06
+
+### Changed
+
+- **Clip boundaries are chosen on sentences.** The model now reads the
+  transcript as one sentence per line (derived from word punctuation, with
+  unpunctuated rambles split at their longest pauses) instead of Whisper's
+  segments, which break mid-sentence, and is told to start and end every clip
+  on a line. The ending and opening reviews work on the same sentences. When
+  a start still lands inside a sentence, the clip opens that sentence rather
+  than skipping to the next; an end inside a sentence completes it.
+- **Tightened clips keep their tails.** Removing pauses used to trim the room
+  after the last word down to 0.3 s, so the export's 0.4 s fade ducked the
+  final syllable. Tightening now keeps 0.7 s after the last word and 0.3 s
+  before the first.
+- **Long videos come back in minutes, not an hour.** Speaker-framing analysis
+  (face tracking plus active speaker detection at 25 fps) is the slowest
+  per-clip stage by a wide margin. The pipeline now runs it only for the top
+  tier of clips (the eight highest-scoring, extended to twelve for scores of
+  80 or more) and leaves the rest pending. A pending clip is analysed the
+  moment it is opened in the editor, or before it is exported, and the
+  editor says so while it waits. The analysis uses the clip's current trim,
+  so a clip extended before opening is tracked end to end.
+- **Captions lay out by width, not word count.** Groups are broken into lines
+  from a per-style character budget derived from the font's measured glyph
+  widths and the output aspect ratio, capped at two lines. The same layout
+  feeds the preview and the ASS export (which now carries explicit line
+  breaks with libass wrapping off), so a caption can no longer wrap
+  differently in the file than it did in the editor.
+- **Captions hold briefly after a sentence.** A finished group stays up for
+  up to 1.5 s, cut short by the next group, instead of leaving an empty frame
+  on every pause.
+- **Loudness normalisation is two-pass.** Exports measure the clip first and
+  apply one linear gain instead of the single-pass gain rider, which pumped
+  audibly on speech: through loudnorm's linear mode when the peaks allow it
+  (with the range target raised to the measured range, which that mode
+  requires), otherwise a plain gain into a true-peak limiter. Falls back to
+  single-pass only when the source cannot be measured.
+
+### Fixed
+
+- **The "fit under N MB" field could not be cleared or retyped.** It was bound
+  straight to the saved setting, so an empty field snapped back and every
+  keystroke rewrote the settings file. It now edits a draft and commits on
+  blur or Enter.
+- **Exported captions sat higher than the preview.** The ASS style was
+  bottom-aligned on the anchor line while the preview centred its block
+  there, so two-line captions rendered about half a block too high. Events
+  are now positioned middle-centre on the anchor.
+- **Whisper hallucinations reached captions and the clip picker.** Segments
+  Whisper itself flags as silence (high no-speech probability with
+  low-confidence text) or as looped output (high compression ratio) are now
+  dropped at stitch time, along with their words, and never primed into the
+  next chunk.
+- **Words with zero or negative duration never lit up in karaoke captions.**
+  Word timings are now made monotonic and given a minimum on-screen duration
+  when the transcript is stitched.
 
 ### Added
+
+- **`scripts/eval-clips.ts`.** Measures clip boundaries on saved projects
+  (mid-sentence opens and closes, clipped or dead-air tails, length spread),
+  and with `--rerun` compares them against fresh detection on the same
+  transcript, so prompt changes can be checked instead of guessed.
 
 - **"Fit under N MB" export.** A size cap in Settings and the editor export
   panel, so clips land under Discord, email or WhatsApp limits. The encoder

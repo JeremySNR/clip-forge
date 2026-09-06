@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import type { TimelineData } from '@shared/types'
 import { isWholeVideoClip } from '@shared/wholeVideo'
+import { needsReframe } from '@shared/reframe'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
@@ -54,6 +55,8 @@ export default function EditorScreen(): React.JSX.Element {
   const exports = useStore((s) => s.exports)
   const customFonts = useStore((s) => s.customFonts)
   const brandColors = useStore((s) => s.settings?.branding.colors)
+  const ensureReframe = useStore((s) => s.ensureReframe)
+  const reframeError = useStore((s) => s.reframeError)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
@@ -85,6 +88,14 @@ export default function EditorScreen(): React.JSX.Element {
     }
   }, [videoPath, sourceMissing, windowStart, windowEnd, timelineKey])
   const timeline = loadedTimeline?.key === timelineKey ? loadedTimeline.data : null
+
+  // Clips outside the pipeline's top tier arrive without speaker framing;
+  // opening one is what triggers the analysis (see shared/reframe.ts).
+  const clipId = clip?.id ?? null
+  const reframePending = clip ? needsReframe(clip) : false
+  useEffect(() => {
+    if (clipId && reframePending && !sourceMissing) void ensureReframe(clipId)
+  }, [clipId, reframePending, sourceMissing, ensureReframe])
 
   if (!project || !clip) return <div />
 
@@ -244,6 +255,34 @@ export default function EditorScreen(): React.JSX.Element {
                 <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
                   Detected as a screen share or demo — using letterbox fit with no zoom so the
                   full frame stays visible.
+                </p>
+              )}
+              {reframePending && (
+                <p
+                  data-testid="reframe-pending"
+                  className="mt-2 flex items-center gap-1.5 text-[11px] leading-relaxed text-zinc-500"
+                >
+                  {reframeError[clip.id] ? (
+                    <>
+                      <ScanFace size={12} className="shrink-0" />
+                      <span>
+                        Speaker framing could not be analysed ({reframeError[clip.id]}).{' '}
+                        <button
+                          type="button"
+                          onClick={() => void ensureReframe(clip.id, true)}
+                          className="underline decoration-zinc-600 hover:text-zinc-300"
+                        >
+                          Retry
+                        </button>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 size={12} className="shrink-0 animate-spin" />
+                      Analysing speaker framing… the crop follows whoever is talking once this
+                      lands. Layout choices you make now are kept.
+                    </>
+                  )}
                 </p>
               )}
               {clip.edit.reframeMode === 'crop' && (
