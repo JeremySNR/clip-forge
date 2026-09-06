@@ -173,6 +173,22 @@ describe('snapClipStart / snapClipEnd', () => {
     expect(snapClipStart(gap, sentences, wordStarts)).toBe(sentences[1].start)
   })
 
+  it('stays inside a long sentence near its end instead of jumping to the next one', () => {
+    // 15 s sentence followed by another; a start 1.6 s before the next
+    // sentence begins is still this sentence's thought.
+    const words = Array.from({ length: 30 }, (_, i) => ({ text: 'w', start: i * 0.5, end: i * 0.5 + 0.4 }))
+    words[29].text = 'w.'
+    const more = Array.from({ length: 6 }, (_, i) => ({ text: 'n', start: 15.4 + i * 0.5, end: 15.8 + i * 0.5 }))
+    more[5].text = 'n.'
+    const all = [...words, ...more]
+    const t = { language: 'english', durationSec: 20, segments: [{ id: 0, text: 'x.', start: 0, end: 20, words: all }] }
+    const s = transcriptSentences(t)
+    expect(s.map((x) => x.start)).toEqual([0, 15.4])
+    const snapped = snapClipStart(13.8, s, all.map((w) => w.start))
+    expect(snapped).toBeLessThan(15.4)
+    expect(snapped).toBeCloseTo(14.0, 5)
+  })
+
   it('falls back to a word boundary deep inside a long sentence', () => {
     const words = Array.from({ length: 30 }, (_, i) => ({ text: 'w', start: i * 0.5, end: i * 0.5 + 0.4 }))
     const long = { language: 'english', durationSec: 15, segments: [{ id: 0, text: 'x.', start: 0, end: 15, words }] }

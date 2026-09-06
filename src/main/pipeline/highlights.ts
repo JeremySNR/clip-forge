@@ -239,6 +239,9 @@ export function snapClipStart(start: number, sentences: Sentence[], wordStarts: 
   const enclosing = sentenceAt(sentences, start)
   if (enclosing) {
     if (start - enclosing.start <= START_SNAP_SEC) return enclosing.start
+    // Deep inside a long sentence: stay on this thought at the nearest word
+    // rather than skipping ahead to the next sentence, which would drop the
+    // rest of the line the model pointed into.
     return snap(start, wordStarts, 1.5)
   }
   const next = sentences.find((s) => s.start >= start)
