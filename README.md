@@ -99,9 +99,11 @@ npm version patch        # or minor / major — bumps package.json and creates t
 git push --follow-tags   # pushes the commit and the vX.Y.Z tag
 ```
 
+Windows packages can also be listed on [winget](docs/winget.md) after a one-off first submit.
+
 Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
 
-You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest).
+You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest). On Windows, `winget install JeremySNR.ClipForge` will work once the [winget package](docs/winget.md) is listed.
 
 Everything except transcription and analysis runs locally. Rendering, face tracking, editing, zoom and export never leave your machine. Only extracted audio, transcripts and a few sampled frames go to the OpenAI API. Never the full video.
 

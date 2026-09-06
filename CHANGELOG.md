@@ -20,6 +20,10 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
   Structured-output calls fall back from `json_schema` to `json_object` (and
   then a plain JSON completion) when the provider does not support OpenAI's
   strict schema mode. `OPENAI_BASE_URL` still overrides Settings when set.
+- **winget publishing path.** A manifest generator (`scripts/print-winget-manifest.mjs`)
+  and a Release workflow job that updates
+  [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) once the
+  first listing exists. See [docs/winget.md](docs/winget.md).
 
 ### Removed
 
