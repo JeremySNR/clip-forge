@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import type { TimelineData } from '@shared/types'
 import { isWholeVideoClip } from '@shared/wholeVideo'
+import { needsReframe } from '@shared/reframe'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
@@ -54,6 +55,8 @@ export default function EditorScreen(): React.JSX.Element {
   const exports = useStore((s) => s.exports)
   const customFonts = useStore((s) => s.customFonts)
   const brandColors = useStore((s) => s.settings?.branding.colors)
+  const ensureReframe = useStore((s) => s.ensureReframe)
+  const reframeBusy = useStore((s) => s.reframeBusy)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
@@ -85,6 +88,14 @@ export default function EditorScreen(): React.JSX.Element {
     }
   }, [videoPath, sourceMissing, windowStart, windowEnd, timelineKey])
   const timeline = loadedTimeline?.key === timelineKey ? loadedTimeline.data : null
+
+  // Clips outside the pipeline's top tier arrive without speaker framing;
+  // opening one is what triggers the analysis (see shared/reframe.ts).
+  const clipId = clip?.id ?? null
+  const reframePending = clip ? needsReframe(clip) : false
+  useEffect(() => {
+    if (clipId && reframePending && !sourceMissing) void ensureReframe(clipId)
+  }, [clipId, reframePending, sourceMissing, ensureReframe])
 
   if (!project || !clip) return <div />
 
@@ -248,6 +259,20 @@ export default function EditorScreen(): React.JSX.Element {
               )}
               {clip.edit.reframeMode === 'crop' && (
                 <>
+                  {reframePending && (
+                    <p
+                      data-testid="reframe-pending"
+                      className="mt-2 flex items-center gap-1.5 text-[11px] leading-relaxed text-zinc-500"
+                    >
+                      {reframeBusy[clip.id] ? (
+                        <Loader2 size={12} className="shrink-0 animate-spin" />
+                      ) : (
+                        <ScanFace size={12} className="shrink-0" />
+                      )}
+                      Analysing speaker framing… the crop follows whoever is talking once this
+                      lands. You can keep editing meanwhile.
+                    </p>
+                  )}
                   {clip.focusTrack && (
                     <div className="mt-3 grid grid-cols-2 gap-1.5">
                       {(

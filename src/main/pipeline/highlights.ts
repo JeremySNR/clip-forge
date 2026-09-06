@@ -663,6 +663,9 @@ async function requestHighlights(
       hashtags: (raw.hashtags ?? []).map((h) => h.replace(/^#/, '').toLowerCase()),
       thumbnailPath: null,
       focusTrack: null,
+      // The pipeline analyses the top tier itself and leaves the rest for
+      // the editor/export to pick up (see shared/reframe.ts).
+      reframeStatus: 'pending',
       broll: [],
       edit: {
         aspect: '9:16',

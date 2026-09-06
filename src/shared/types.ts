@@ -63,6 +63,15 @@ export type VideoType = 'auto' | 'talking-head' | 'podcast' | 'webinar' | 'produ
 /** Auto = follow the AI face track; manual = fixed focusX slider. */
 export type FramingMode = 'auto' | 'manual'
 
+/**
+ * Whether the on-device reframe analysis (face tracking, active speaker
+ * detection, layout classification) has run for a clip. The pipeline runs it
+ * eagerly for the top-scoring clips only; the rest are 'pending' until the
+ * clip is opened in the editor or exported. Absent on projects saved before
+ * this existed, which loadProject treats as 'done'.
+ */
+export type ReframeStatus = 'pending' | 'done'
+
 /** One step of the focus track (t in source seconds). */
 export interface FocusKeyframe {
   t: number
@@ -146,6 +155,8 @@ export interface Clip {
   thumbnailPath: string | null
   /** AI face track for auto reframing; null when no usable faces were found. */
   focusTrack: FocusKeyframe[] | null
+  /** See ReframeStatus. Undefined means done (older projects). */
+  reframeStatus?: ReframeStatus
   /**
    * Whether the clip is mostly a talking head or a screencast/demo/slides.
    * Set during analysis; null on older projects until re-analysed.

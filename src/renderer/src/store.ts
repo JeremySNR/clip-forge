@@ -15,6 +15,7 @@ import type {
 } from '@shared/types'
 
 import { findWholeVideoClip, highlightClips, isWholeVideoClip } from '@shared/wholeVideo'
+import { mergeReframeResult, needsReframe } from '@shared/reframe'
 
 /** Font faces already registered with document.fonts (FontFace API). */
 const loadedFontFaces = new Map<string, FontFace>()
@@ -115,6 +116,9 @@ interface AppState {
   updateClipLocal: (clip: Clip) => void
   generateCaption: (clipId: string) => Promise<void>
   captionBusy: Record<string, boolean>
+  /** Run the deferred reframe analysis for a clip the pipeline left pending. */
+  ensureReframe: (clipId: string) => Promise<void>
+  reframeBusy: Record<string, boolean>
   updateTranscriptWord: (segmentId: number, wordIndex: number, text: string) => Promise<void>
   exportClip: (clipId: string) => Promise<void>
   cancelExport: (clipId: string) => Promise<void>
@@ -152,6 +156,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateDownload: { status: 'idle', progress: 0 },
   sourceUpdate: { status: 'idle', message: '' },
   captionBusy: {},
+  reframeBusy: {},
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -370,6 +375,36 @@ export const useStore = create<AppState>((set, get) => ({
       const busy = { ...get().captionBusy }
       delete busy[clipId]
       set({ captionBusy: busy })
+    }
+  },
+
+  ensureReframe: async (clipId) => {
+    const project = get().project
+    if (!project || get().reframeBusy[clipId]) return
+    const clip = project.clips.find((c) => c.id === clipId)
+    if (!clip || !needsReframe(clip)) return
+    set({ reframeBusy: { ...get().reframeBusy, [clipId]: true } })
+    try {
+      const updated = await window.clipforge.ensureReframe(project.id, clipId)
+      const fresh = updated.clips.find((c) => c.id === clipId)
+      const current = get().project
+      // Graft only what the analysis owns: edits made while it ran stay.
+      if (fresh && current?.id === updated.id) {
+        set({
+          project: {
+            ...current,
+            clips: current.clips.map((c) => (c.id === clipId ? mergeReframeResult(c, fresh) : c))
+          }
+        })
+      }
+    } catch (err) {
+      // The clip stays pending and is retried next time it is opened; the
+      // editor works meanwhile on the default centre crop.
+      console.error('Reframe analysis failed:', err)
+    } finally {
+      const busy = { ...get().reframeBusy }
+      delete busy[clipId]
+      set({ reframeBusy: busy })
     }
   },
 

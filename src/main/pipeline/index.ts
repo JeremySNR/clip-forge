@@ -9,6 +9,7 @@ import { ensureTranscript } from './projectTranscript'
 import { detectHighlights } from './highlights'
 import { analyzeClipFocus, applyFocusAnalysis } from './faces'
 import { shouldAnalyzeFaces } from '@shared/videoType'
+import { selectEagerReframeIds } from '@shared/reframe'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { attachBroll } from './broll'
 import {
@@ -209,10 +210,23 @@ export async function analyzeProject(
     })
 
     onProgress({ stage: 'reframe', progress: 0.72, message: 'Analysing layout (faces vs screen share)…' })
-    let reframed = 0
-    await mapLimit(clips, 2, async (clip) => {
-      signal?.throwIfAborted()
-      if (shouldAnalyzeFaces(options.videoType)) {
+    if (!shouldAnalyzeFaces(options.videoType)) {
+      // No face tracking for this video type: the layout is a cheap default,
+      // so every clip gets it now.
+      for (const clip of clips) {
+        applyFocusAnalysis(clip, { focusTrack: null, contentType: 'screencast' }, options.videoType)
+        clip.reframeStatus = 'done'
+      }
+    } else {
+      // Face tracking is the slow stage (tens of seconds of CPU per clip), so
+      // only the top tier is analysed here. The rest stay 'pending' and are
+      // analysed when opened or exported (see pipeline/reframe.ts).
+      const eager = selectEagerReframeIds(clips)
+      const eagerClips = clips.filter((c) => eager.has(c.id))
+      for (const clip of clips) clip.reframeStatus = 'pending'
+      let reframed = 0
+      await mapLimit(eagerClips, 2, async (clip) => {
+        signal?.throwIfAborted()
         const analysis = await analyzeClipFocus(
           project.video.path,
           clip.suggestedStart,
@@ -220,20 +234,18 @@ export async function analyzeProject(
           signal
         )
         applyFocusAnalysis(clip, analysis, options.videoType)
-      } else {
-        applyFocusAnalysis(
-          clip,
-          { focusTrack: null, contentType: 'screencast' },
-          options.videoType
-        )
-      }
-      reframed++
-      onProgress({
-        stage: 'reframe',
-        progress: 0.72 + (reframed / clips.length) * 0.1,
-        message: 'Analysing layout (faces vs screen share)…'
+        clip.reframeStatus = 'done'
+        reframed++
+        onProgress({
+          stage: 'reframe',
+          progress: 0.72 + (reframed / eagerClips.length) * 0.1,
+          message:
+            eagerClips.length < clips.length
+              ? `Analysing layout for the top ${eagerClips.length} clips (${reframed}/${eagerClips.length})…`
+              : 'Analysing layout (faces vs screen share)…'
+        })
       })
-    })
+    }
 
     if (options.broll) {
       onProgress({ stage: 'broll', progress: 0.82, message: 'Finding B-roll images…' })

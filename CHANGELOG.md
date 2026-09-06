@@ -10,6 +10,14 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Changed
 
+- **Long videos come back in minutes, not an hour.** Speaker-framing analysis
+  (face tracking plus active speaker detection at 25 fps) is the slowest
+  per-clip stage by a wide margin. The pipeline now runs it only for the top
+  tier of clips (the eight highest-scoring, extended to twelve for scores of
+  80 or more) and leaves the rest pending. A pending clip is analysed the
+  moment it is opened in the editor, or before it is exported, and the
+  editor says so while it waits. The analysis uses the clip's current trim,
+  so a clip extended before opening is tracked end to end.
 - **Captions lay out by width, not word count.** Groups are broken into lines
   from a per-style character budget derived from the font's measured glyph
   widths and the output aspect ratio, capped at two lines. The same layout

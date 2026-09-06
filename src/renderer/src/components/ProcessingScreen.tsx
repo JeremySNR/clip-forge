@@ -13,7 +13,7 @@ const CLIP_STAGES: StageRow[] = [
   { id: 'audio', label: 'Extract audio', icon: FileAudio },
   { id: 'transcribe', label: 'Transcribe speech', icon: AudioLines },
   { id: 'analyze', label: 'Find viral moments', icon: Brain },
-  { id: 'reframe', label: 'Detect layout (faces vs screen share)', icon: ScanFace },
+  { id: 'reframe', label: 'Detect layout for the top clips (faces vs screen share)', icon: ScanFace },
   { id: 'broll', label: 'Find B-roll images', icon: ImagePlus },
   { id: 'thumbnails', label: 'Create thumbnails', icon: Image }
 ]

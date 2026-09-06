@@ -86,6 +86,8 @@ export async function loadProject(id: string): Promise<Project> {
     clip.origin ??= 'ai-highlight'
     clip.focusTrack ??= null
     clip.contentType ??= null
+    // Every clip saved before lazy reframing existed had its analysis run eagerly.
+    clip.reframeStatus ??= 'done'
     clip.edit.framing ??= 'manual'
     clip.edit.tightenCuts ??= false
     clip.edit.autoZoom ??= false
