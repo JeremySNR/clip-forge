@@ -25,6 +25,8 @@ import { join } from 'node:path'
 import {
   analyzeClipBoundaries,
   summarizeBoundaries,
+  TAIL_MAX_SEC,
+  TAIL_MIN_SEC,
   type BoundarySummary,
   type ClipBoundaryReport
 } from '../src/shared/clipMetrics'
@@ -56,8 +58,8 @@ function printClip(clip: Clip, r: ClipBoundaryReport): void {
   const flags = [
     r.startsMidSentence ? 'OPENS MID-SENTENCE' : '',
     r.endsMidSentence ? 'ENDS MID-SENTENCE' : '',
-    r.tailSec !== null && r.tailSec < 0.4 ? 'TAIL CLIPPED' : '',
-    r.tailSec !== null && r.tailSec > 1.5 ? 'DEAD AIR' : ''
+    r.tailSec !== null && r.tailSec < TAIL_MIN_SEC ? 'TAIL CLIPPED' : '',
+    r.tailSec !== null && r.tailSec > TAIL_MAX_SEC ? 'DEAD AIR' : ''
   ].filter(Boolean)
   console.log(
     `    [${String(clip.viralityScore).padStart(2)}] ${r.durationSec.toFixed(1)}s  "${clip.title}"` +

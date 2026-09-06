@@ -56,7 +56,7 @@ export default function EditorScreen(): React.JSX.Element {
   const customFonts = useStore((s) => s.customFonts)
   const brandColors = useStore((s) => s.settings?.branding.colors)
   const ensureReframe = useStore((s) => s.ensureReframe)
-  const reframeBusy = useStore((s) => s.reframeBusy)
+  const reframeError = useStore((s) => s.reframeError)
 
   const clip = project?.clips.find((c) => c.id === selectedClipId) ?? null
 
@@ -257,22 +257,36 @@ export default function EditorScreen(): React.JSX.Element {
                   full frame stays visible.
                 </p>
               )}
+              {reframePending && (
+                <p
+                  data-testid="reframe-pending"
+                  className="mt-2 flex items-center gap-1.5 text-[11px] leading-relaxed text-zinc-500"
+                >
+                  {reframeError[clip.id] ? (
+                    <>
+                      <ScanFace size={12} className="shrink-0" />
+                      <span>
+                        Speaker framing could not be analysed ({reframeError[clip.id]}).{' '}
+                        <button
+                          type="button"
+                          onClick={() => void ensureReframe(clip.id, true)}
+                          className="underline decoration-zinc-600 hover:text-zinc-300"
+                        >
+                          Retry
+                        </button>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 size={12} className="shrink-0 animate-spin" />
+                      Analysing speaker framing… the crop follows whoever is talking once this
+                      lands. Layout choices you make now are kept.
+                    </>
+                  )}
+                </p>
+              )}
               {clip.edit.reframeMode === 'crop' && (
                 <>
-                  {reframePending && (
-                    <p
-                      data-testid="reframe-pending"
-                      className="mt-2 flex items-center gap-1.5 text-[11px] leading-relaxed text-zinc-500"
-                    >
-                      {reframeBusy[clip.id] ? (
-                        <Loader2 size={12} className="shrink-0 animate-spin" />
-                      ) : (
-                        <ScanFace size={12} className="shrink-0" />
-                      )}
-                      Analysing speaker framing… the crop follows whoever is talking once this
-                      lands. You can keep editing meanwhile.
-                    </p>
-                  )}
                   {clip.focusTrack && (
                     <div className="mt-3 grid grid-cols-2 gap-1.5">
                       {(

@@ -33,19 +33,55 @@ const TARGETS = `I=${TARGET_I}:TP=${TARGET_TP}:LRA=${TARGET_LRA}`
 export const MEASURE_FILTER = `loudnorm=${TARGETS}:print_format=json`
 
 /**
- * The normalising filter. With measurements it runs linear (one gain for the
- * whole clip); without, it falls back to the single-pass dynamic mode. Pure
- * and exported for tests.
+ * Most gain the limiter path will apply. A source this quiet is broken
+ * (a muted mic, a wrong track), and pushing it 40 dB only amplifies noise.
+ */
+export const MAX_GAIN_DB = 30
+/**
+ * Ceiling for the limiter path, a little under the true-peak target: the
+ * limiter measures sample peaks, and inter-sample peaks after encoding can
+ * sit a few tenths of a dB above them.
+ */
+const LIMITER_CEILING_DB = -2
+
+/**
+ * The normalising filter.
+ *
+ * With measurements, one linear gain brings the clip to the target. Two ways
+ * to apply it: loudnorm's own linear mode when it will accept the job, and a
+ * plain gain into a true-peak limiter when it will not. loudnorm's linear
+ * mode refuses (and silently reverts to the dynamic gain rider this exists to
+ * avoid) when the source's loudness range exceeds the target range or the
+ * gain would push the true peak over the ceiling — both routine for speech,
+ * so the range target is raised to the measured range (it is a ceiling, not a
+ * compressor setting) and peak-limited sources go through the limiter path.
+ *
+ * Without measurements it falls back to single-pass dynamic mode. Pure and
+ * exported for tests.
  */
 export function loudnormFilter(stats: LoudnessStats | null): string {
   if (!stats) return `loudnorm=${TARGETS}`
   const f = (v: number): string => v.toFixed(2)
-  return (
-    `loudnorm=${TARGETS}` +
-    `:measured_I=${f(stats.inputI)}:measured_TP=${f(stats.inputTp)}` +
-    `:measured_LRA=${f(stats.inputLra)}:measured_thresh=${f(stats.inputThresh)}` +
-    `:offset=${f(stats.targetOffset)}:linear=true`
-  )
+  const gainDb = TARGET_I - stats.inputI
+  const peakAfterGain = stats.inputTp + gainDb
+  if (peakAfterGain <= TARGET_TP) {
+    const lra = Math.max(TARGET_LRA, Math.ceil(stats.inputLra * 10) / 10)
+    return (
+      `loudnorm=I=${TARGET_I}:TP=${TARGET_TP}:LRA=${f(lra)}` +
+      `:measured_I=${f(stats.inputI)}:measured_TP=${f(stats.inputTp)}` +
+      `:measured_LRA=${f(stats.inputLra)}:measured_thresh=${f(stats.inputThresh)}` +
+      `:offset=${f(stats.targetOffset)}:linear=true`
+    )
+  }
+  const gain = Math.min(MAX_GAIN_DB, gainDb)
+  const ceiling = Math.pow(10, LIMITER_CEILING_DB / 20)
+  return `volume=${f(gain)}dB,alimiter=limit=${ceiling.toFixed(4)}:attack=5:release=50:level=false`
+}
+
+/** Which path loudnormFilter takes for a measurement; exported for tests and logs. */
+export function normalisationMode(stats: LoudnessStats | null): 'dynamic' | 'linear' | 'limited' {
+  if (!stats) return 'dynamic'
+  return stats.inputTp + (TARGET_I - stats.inputI) <= TARGET_TP ? 'linear' : 'limited'
 }
 
 /**

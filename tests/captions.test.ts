@@ -22,9 +22,10 @@ describe('buildAss', () => {
   it('centres every caption block on the style anchor line, matching the preview', () => {
     const ass = buildAss(transcript, base)
     // Beast anchors at 72% of the frame height; \\an5 centres the block there.
-    expect(ass).toContain('{\\an5\\pos(540,1382)}')
-    // Wrapping is ours, not libass's: no auto-wrap, middle-centre style.
-    expect(ass).toContain('WrapStyle: 2')
+    expect(ass).toContain('{\\an5\\q2\\pos(540,1382)}')
+    // Caption wrapping is ours (\\q2 per event); the script keeps smart
+    // wrapping so the hook title, which has no explicit breaks, still wraps.
+    expect(ass).toContain('WrapStyle: 0')
     expect(ass).toMatch(/Style: Caption,[^\n]*,1,3.2,1,5,54,54,0,1/)
   })
 
@@ -69,6 +70,13 @@ describe('buildAss', () => {
     const ass = buildAss(transcript, { ...base, title: 'The Hook' })
     expect(ass).toContain('Dialogue: 1,')
     expect(ass).toContain('The Hook')
+  })
+
+  it('leaves the hook title free to wrap inside its margins', () => {
+    const ass = buildAss(transcript, { ...base, title: 'A long hook that must wrap onto two lines' })
+    const title = ass.split('\n').find((l) => l.startsWith('Dialogue: 1,'))!
+    expect(title).not.toContain('\\q2')
+    expect(title).not.toContain('\\N')
   })
 
   it('escapes ASS control characters in words', () => {

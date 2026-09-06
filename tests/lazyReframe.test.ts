@@ -91,7 +91,12 @@ describe('ensureClipReframe', () => {
       name: 'Lazy reframe',
       video,
       transcript: null,
-      clips: [pendingClip('faces', video.durationSec), pendingClip('demo', video.durationSec)],
+      clips: [
+        pendingClip('faces', video.durationSec),
+        pendingClip('demo', video.durationSec),
+        pendingClip('shared', video.durationSec),
+        pendingClip('cancelled', video.durationSec)
+      ],
       prompt: '',
       videoType: 'podcast'
     }
@@ -146,8 +151,33 @@ describe('ensureClipReframe', () => {
     expect(clip.edit.captionStyleId).toBe('neon')
   }, 60_000)
 
+  it('lets one caller cancel without stranding another waiting on the same clip', async () => {
+    const exportSide = new AbortController()
+    const cancelled = ensureClipReframe(PROJECT_ID, 'shared', exportSide.signal)
+    const editorSide = ensureClipReframe(PROJECT_ID, 'shared')
+    exportSide.abort()
+    await expect(cancelled).rejects.toThrow()
+    const result = await editorSide
+    expect(result.clips.find((c) => c.id === 'shared')?.reframeStatus).toBe('done')
+  }, 60_000)
+
+  it('cancels the run when every caller has aborted, leaving the clip pending', async () => {
+    const a = new AbortController()
+    const b = new AbortController()
+    const first = ensureClipReframe(PROJECT_ID, 'cancelled', a.signal)
+    const second = ensureClipReframe(PROJECT_ID, 'cancelled', b.signal)
+    a.abort()
+    b.abort()
+    await expect(first).rejects.toThrow()
+    await expect(second).rejects.toThrow()
+    // Give the aborted ffmpeg a moment to exit, then check nothing landed.
+    await new Promise((r) => setTimeout(r, 300))
+    const onDisk = await loadProject(PROJECT_ID)
+    expect(onDisk.clips.find((c) => c.id === 'cancelled')?.reframeStatus).toBe('pending')
+  }, 60_000)
+
   it('returns the project unchanged for an unknown clip', async () => {
     const result = await ensureClipReframe(PROJECT_ID, 'nope')
-    expect(result.clips.map((c) => c.id)).toEqual(['faces', 'demo'])
+    expect(result.clips.map((c) => c.id)).toEqual(['faces', 'demo', 'shared', 'cancelled'])
   })
 })

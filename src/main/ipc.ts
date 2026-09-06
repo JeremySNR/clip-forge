@@ -167,7 +167,9 @@ export function registerIpcHandlers(): void {
       // landed on disk. The analysis result belongs to main: keep it rather
       // than letting the stale copy erase the focus track.
       project.clips[idx] =
-        needsReframe(clip) && !needsReframe(saved) ? mergeReframeResult(clip, saved) : clip
+        needsReframe(clip) && !needsReframe(saved)
+          ? mergeReframeResult(clip, saved, project.videoType)
+          : clip
     })
   })
 

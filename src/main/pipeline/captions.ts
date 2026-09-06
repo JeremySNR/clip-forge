@@ -87,7 +87,8 @@ function renderGroupText(group: WordGroup, activeIndex: number, style: CaptionSt
     }
     lines.push(parts.join(' '))
   }
-  // Hard line breaks: the layout decided the lines, libass must not re-wrap.
+  // Hard line breaks: the layout decided the lines (\\q2 on the event keeps
+  // libass from re-wrapping them).
   return lines.join('\\N')
 }
 
@@ -183,7 +184,7 @@ Title: ClipForge captions
 ScriptType: v4.00+
 PlayResX: ${opts.width}
 PlayResY: ${opts.height}
-WrapStyle: 2
+WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
@@ -207,7 +208,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
   const words = wordsInRange(transcript, opts.clipStart, opts.clipEnd)
   const groups = groupWords(words, captionLayoutBudget(style, opts.width / opts.height))
-  const anchor = `{\\an5\\pos(${captionX},${captionY})}`
+  // \q2 turns libass wrapping off for caption events only: the layout above
+  // decided their lines. The hook title keeps the script's smart wrapping
+  // (WrapStyle 0) because it carries no explicit breaks of its own.
+  const anchor = `{\\an5\\q2\\pos(${captionX},${captionY})}`
 
   groups.forEach((group, gi) => {
     // The finished group holds briefly after its last word (never into the

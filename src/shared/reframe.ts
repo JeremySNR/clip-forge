@@ -1,4 +1,5 @@
-import type { Clip } from './types'
+import type { Clip, ClipEditState, VideoType } from './types'
+import { initialClipEditForVideoType } from './videoType'
 
 /**
  * Which clips get their reframe analysis during the pipeline, and how a
@@ -41,23 +42,43 @@ export function needsReframe(clip: Clip): boolean {
   return clip.reframeStatus === 'pending'
 }
 
+/** The layout fields the reframe analysis sets defaults for. */
+const LAYOUT_FIELDS = ['reframeMode', 'framing', 'focusX', 'autoZoom'] as const
+
+/**
+ * Whether a pending clip's layout is still the default it was created with
+ * for this video type — i.e. the user has not chosen a layout of their own
+ * while the analysis was outstanding.
+ */
+export function layoutUntouched(edit: ClipEditState, videoType: VideoType): boolean {
+  const defaults = initialClipEditForVideoType(videoType)
+  return LAYOUT_FIELDS.every((field) => (edit[field] ?? false) === (defaults[field] ?? false))
+}
+
 /**
  * Graft the result of a reframe analysis onto the current copy of a clip.
  *
- * The analysis owns the focus track, the content classification and the
- * layout defaults it derives from them (crop vs letterbox, auto vs manual
- * framing, the starting focus and whether auto zoom makes sense). Everything
- * else — title, trim, caption style, B-roll, the social caption — belongs to
- * whoever has been editing the clip in the meantime and is kept from
- * `current`. Used on both sides of the IPC boundary so the renderer's local
- * state and the saved project converge on the same clip.
+ * The analysis owns the focus track and the content classification, which
+ * are always taken. It also proposes layout defaults (crop vs letterbox,
+ * auto vs manual framing, the starting focus, whether auto zoom makes sense)
+ * — those are applied only while the clip still has the layout it was
+ * created with; a user who picked letterbox or dragged the focus slider
+ * while waiting keeps their choice. Everything else — title, trim, caption
+ * style, B-roll, the social caption — belongs to whoever has been editing
+ * the clip and is kept from `current`. Used on both sides of the IPC
+ * boundary so the renderer's local state and the saved project converge on
+ * the same clip.
  */
-export function mergeReframeResult(current: Clip, analysed: Clip): Clip {
-  return {
+export function mergeReframeResult(current: Clip, analysed: Clip, videoType: VideoType): Clip {
+  const merged: Clip = {
     ...current,
     focusTrack: analysed.focusTrack,
     contentType: analysed.contentType,
-    reframeStatus: 'done',
+    reframeStatus: 'done'
+  }
+  if (!layoutUntouched(current.edit, videoType)) return merged
+  return {
+    ...merged,
     edit: {
       ...current.edit,
       reframeMode: analysed.edit.reframeMode,

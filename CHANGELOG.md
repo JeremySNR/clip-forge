@@ -6,7 +6,7 @@ the [releases page](https://github.com/JeremySNR/clip-forge/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
-## [Unreleased]
+## [0.8.0] - 2026-09-06
 
 ### Changed
 
@@ -39,12 +39,18 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
   up to 1.5 s, cut short by the next group, instead of leaving an empty frame
   on every pause.
 - **Loudness normalisation is two-pass.** Exports measure the clip first and
-  normalise with a single linear gain (true-peak limited only where needed)
-  instead of the single-pass gain rider, which pumped audibly on speech.
-  Falls back to single-pass when the source cannot be measured.
+  apply one linear gain instead of the single-pass gain rider, which pumped
+  audibly on speech: through loudnorm's linear mode when the peaks allow it
+  (with the range target raised to the measured range, which that mode
+  requires), otherwise a plain gain into a true-peak limiter. Falls back to
+  single-pass only when the source cannot be measured.
 
 ### Fixed
 
+- **The "fit under N MB" field could not be cleared or retyped.** It was bound
+  straight to the saved setting, so an empty field snapped back and every
+  keystroke rewrote the settings file. It now edits a draft and commits on
+  blur or Enter.
 - **Exported captions sat higher than the preview.** The ASS style was
   bottom-aligned on the anchor line while the preview centred its block
   there, so two-line captions rendered about half a block too high. Events

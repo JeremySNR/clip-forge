@@ -3,6 +3,7 @@ import {
   EAGER_REFRAME_MAX,
   EAGER_REFRAME_MIN,
   EAGER_REFRAME_SCORE,
+  layoutUntouched,
   mergeReframeResult,
   needsReframe,
   selectEagerReframeIds
@@ -116,7 +117,7 @@ describe('mergeReframeResult', () => {
   })
 
   it('takes the analysis-owned fields and layout from the analysed clip', () => {
-    const merged = mergeReframeResult(clip('a', 50), analysed)
+    const merged = mergeReframeResult(clip('a', 50), analysed, 'auto')
     expect(merged.reframeStatus).toBe('done')
     expect(merged.contentType).toBe('speaker')
     expect(merged.focusTrack).toEqual([{ t: 0, x: 0.3, cut: true }])
@@ -143,7 +144,10 @@ describe('mergeReframeResult', () => {
         end: 28
       }
     })
-    const merged = mergeReframeResult(edited, analysed)
+    const merged = mergeReframeResult(edited, analysed, 'auto')
+    // Layout was still the default, so the analysis layout is applied…
+    expect(merged.edit.framing).toBe('auto')
+    expect(merged.edit.focusX).toBe(0.3)
     expect(merged.title).toBe('Renamed while analysing')
     expect(merged.caption).toBe('A social caption')
     expect(merged.edit).toMatchObject({
@@ -164,9 +168,32 @@ describe('mergeReframeResult', () => {
       contentType: 'screencast',
       edit: { ...analysed.edit, reframeMode: 'fit-letterbox', framing: 'manual', focusX: 0.5, autoZoom: false }
     })
-    const merged = mergeReframeResult(clip('a', 50), screencast)
+    const merged = mergeReframeResult(clip('a', 50), screencast, 'auto')
     expect(merged.edit.reframeMode).toBe('fit-letterbox')
     expect(merged.edit.autoZoom).toBe(false)
     expect(merged.focusTrack).toBeNull()
+  })
+
+  it('leaves a layout the user chose while waiting alone, but still attaches the analysis', () => {
+    const chosen = clip('a', 50, {
+      edit: { ...clip('a', 50).edit, reframeMode: 'fit-letterbox', framing: 'manual', focusX: 0.5, autoZoom: false }
+    })
+    expect(layoutUntouched(chosen.edit, 'auto')).toBe(false)
+    const merged = mergeReframeResult(chosen, analysed, 'auto')
+    expect(merged.reframeStatus).toBe('done')
+    expect(merged.focusTrack).toEqual(analysed.focusTrack)
+    expect(merged.contentType).toBe('speaker')
+    expect(merged.edit.reframeMode).toBe('fit-letterbox')
+    expect(merged.edit.framing).toBe('manual')
+  })
+
+  it('judges "untouched" against the defaults of the project video type', () => {
+    // Webinar clips start with auto zoom off; that is untouched for a webinar
+    // but a deliberate change for a podcast.
+    const edit = { ...clip('a', 50).edit, autoZoom: false }
+    expect(layoutUntouched(edit, 'webinar')).toBe(true)
+    expect(layoutUntouched(edit, 'podcast')).toBe(false)
+    const slid = { ...clip('a', 50).edit, focusX: 0.8 }
+    expect(layoutUntouched(slid, 'auto')).toBe(false)
   })
 })

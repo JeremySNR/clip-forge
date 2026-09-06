@@ -116,9 +116,14 @@ interface AppState {
   updateClipLocal: (clip: Clip) => void
   generateCaption: (clipId: string) => Promise<void>
   captionBusy: Record<string, boolean>
-  /** Run the deferred reframe analysis for a clip the pipeline left pending. */
-  ensureReframe: (clipId: string) => Promise<void>
+  /**
+   * Run the deferred reframe analysis for a clip the pipeline left pending.
+   * A clip whose last attempt failed is skipped until `retry` is passed, so
+   * a broken clip does not loop; the editor offers the retry.
+   */
+  ensureReframe: (clipId: string, retry?: boolean) => Promise<void>
   reframeBusy: Record<string, boolean>
+  reframeError: Record<string, string>
   updateTranscriptWord: (segmentId: number, wordIndex: number, text: string) => Promise<void>
   exportClip: (clipId: string) => Promise<void>
   cancelExport: (clipId: string) => Promise<void>
@@ -157,6 +162,7 @@ export const useStore = create<AppState>((set, get) => ({
   sourceUpdate: { status: 'idle', message: '' },
   captionBusy: {},
   reframeBusy: {},
+  reframeError: {},
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -378,12 +384,15 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  ensureReframe: async (clipId) => {
+  ensureReframe: async (clipId, retry = false) => {
     const project = get().project
     if (!project || get().reframeBusy[clipId]) return
+    if (get().reframeError[clipId] && !retry) return
     const clip = project.clips.find((c) => c.id === clipId)
     if (!clip || !needsReframe(clip)) return
-    set({ reframeBusy: { ...get().reframeBusy, [clipId]: true } })
+    const errors = { ...get().reframeError }
+    delete errors[clipId]
+    set({ reframeBusy: { ...get().reframeBusy, [clipId]: true }, reframeError: errors })
     try {
       const updated = await window.clipforge.ensureReframe(project.id, clipId)
       const fresh = updated.clips.find((c) => c.id === clipId)
@@ -393,14 +402,17 @@ export const useStore = create<AppState>((set, get) => ({
         set({
           project: {
             ...current,
-            clips: current.clips.map((c) => (c.id === clipId ? mergeReframeResult(c, fresh) : c))
+            clips: current.clips.map((c) =>
+              c.id === clipId ? mergeReframeResult(c, fresh, updated.videoType) : c
+            )
           }
         })
       }
     } catch (err) {
-      // The clip stays pending and is retried next time it is opened; the
-      // editor works meanwhile on the default centre crop.
-      console.error('Reframe analysis failed:', err)
+      // The clip stays pending; the editor shows the failure with a retry and
+      // works meanwhile on the default centre crop.
+      const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
+      set({ reframeError: { ...get().reframeError, [clipId]: message } })
     } finally {
       const busy = { ...get().reframeBusy }
       delete busy[clipId]

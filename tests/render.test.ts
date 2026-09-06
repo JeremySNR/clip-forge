@@ -67,13 +67,21 @@ describe('buildFilterGraph', () => {
 
   it('normalises linearly from the measured loudness when available', () => {
     const graph = buildFilterGraph(makeClip(), source, null, 30, null, {
-      loudness: { inputI: -23.4, inputTp: -6.1, inputLra: 9.2, inputThresh: -33.7, targetOffset: 0.3 }
+      loudness: { inputI: -23.4, inputTp: -12.1, inputLra: 9.2, inputThresh: -33.7, targetOffset: 0.3 }
     })
     expect(graph.filterComplex).toContain(
-      'loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=-23.40:measured_TP=-6.10:measured_LRA=9.20:measured_thresh=-33.70:offset=0.30:linear=true,aresample=48000'
+      'loudnorm=I=-14:TP=-1.5:LRA=11.00:measured_I=-23.40:measured_TP=-12.10:measured_LRA=9.20:measured_thresh=-33.70:offset=0.30:linear=true,aresample=48000'
     )
     // The tail fade still follows the master chain.
     expect(graph.filterComplex).toContain('linear=true,aresample=48000,afade=t=out')
+  })
+
+  it('gains into a limiter when a linear gain would clip the true peak', () => {
+    const graph = buildFilterGraph(makeClip(), source, null, 30, null, {
+      loudness: { inputI: -23.4, inputTp: -6.1, inputLra: 9.2, inputThresh: -33.7, targetOffset: 0.3 }
+    })
+    expect(graph.filterComplex).toContain('volume=9.40dB,alimiter=limit=0.7943:attack=5:release=50:level=false,aresample=48000')
+    expect(graph.filterComplex).not.toContain('loudnorm')
   })
 
   it('skips the fade on very short clips', () => {

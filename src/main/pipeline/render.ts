@@ -21,7 +21,7 @@ import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
 import { FFMPEG_PATH, runFfmpegWith } from './ffmpeg'
-import { loudnormFilter, measureLoudness, type LoudnessStats } from './loudness'
+import { loudnormFilter, measureLoudness, normalisationMode, type LoudnessStats } from './loudness'
 import { buildAss, fontsDir } from './captions'
 import { fontMetricsForFamily } from '../fonts'
 import {
@@ -642,6 +642,9 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
   const loudness = source.hasAudio
     ? await measureLoudness(source.path, start, duration, job.signal)
     : null
+  if (process.env.CLIPFORGE_DEBUG) {
+    console.error(`[render] loudness normalisation: ${normalisationMode(loudness)}`, loudness)
+  }
 
   const tempDir = join(tmpdir(), 'clipforge')
   await mkdir(tempDir, { recursive: true })
