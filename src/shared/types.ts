@@ -254,6 +254,21 @@ export interface ExportProgress {
 export interface ExportResult {
   clipId: string
   outputPath: string
+  /** Size of the finished file, in bytes. */
+  bytes: number
+  /**
+   * Byte cap the encode was planned against, when size-targeted export is on.
+   * Absent for ordinary quality-targeted renders.
+   */
+  sizeTargetBytes?: number
+  /** True when the planner had to shrink the frame to hit the cap. */
+  downscaled?: boolean
+  /**
+   * True when even the minimum scale could not reach a healthy bits-per-pixel
+   * at this duration — the file should still fit, but the picture will look
+   * worse than a shorter clip would.
+   */
+  overBudget?: boolean
 }
 
 export type EncoderPreference = 'auto' | 'cpu' | 'gpu'
@@ -407,6 +422,11 @@ export interface AppSettings {
   openaiBaseUrlFromEnv: boolean
   encoder: EncoderPreference
   quality: QualityPreference
+  /**
+   * Hard file-size cap for exports, in megabytes. Null means ordinary
+   * quality-targeted encoding (the quality tier above applies).
+   */
+  sizeTargetMb: number | null
   gpu: GpuEncoderStatus
   branding: BrandingSettings
   brandVoice: BrandVoiceSettings
@@ -426,6 +446,8 @@ export interface SettingsUpdate {
   transcriptionBaseUrl?: string
   encoder?: EncoderPreference
   quality?: QualityPreference
+  /** Megabyte cap for size-targeted export; null/0 clears it. */
+  sizeTargetMb?: number | null
   branding?: Partial<BrandingSettings>
   brandVoice?: Partial<BrandVoiceSettings>
   importCookiesBrowser?: BrowserCookieSource

@@ -124,3 +124,28 @@ export function planUploadEncode(input: UploadEncodeInput): UploadEncodePlan {
     overBudget
   }
 }
+
+/** Smallest useful cap: below 1 MB even a short clip starves the encoder. */
+export const MIN_SIZE_TARGET_MB = 1
+/** Safety ceiling so a typo cannot ask for a multi-gigabyte "cap". */
+export const MAX_SIZE_TARGET_MB = 2048
+
+/**
+ * Normalise a user-entered megabyte cap. Null/blank/non-positive means the
+ * limit is off. Values are clamped and rounded to 0.1 MB so the Settings
+ * field and the editor panel agree on what gets stored.
+ */
+export function normalizeSizeTargetMb(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n) || n <= 0) return null
+  const clamped = Math.min(MAX_SIZE_TARGET_MB, Math.max(MIN_SIZE_TARGET_MB, n))
+  return Math.round(clamped * 10) / 10
+}
+
+/** Convert a stored megabyte cap to the byte ceiling the renderer expects. */
+export function sizeTargetBytesFromMb(mb: number | null | undefined): number | undefined {
+  const normalised = normalizeSizeTargetMb(mb)
+  if (normalised === null) return undefined
+  return Math.round(normalised * 1024 * 1024)
+}

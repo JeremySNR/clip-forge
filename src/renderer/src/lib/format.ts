@@ -16,7 +16,10 @@ export function formatTimecode(sec: number): string {
 
 export function formatBytes(bytes: number): string {
   if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`
-  if (bytes >= 1024 ** 2) return `${(bytes / 1024 ** 2).toFixed(0)} MB`
+  if (bytes >= 1024 ** 2) {
+    const mb = bytes / 1024 ** 2
+    return `${mb >= 10 ? mb.toFixed(0) : mb.toFixed(1)} MB`
+  }
   return `${(bytes / 1024).toFixed(0)} KB`
 }
 

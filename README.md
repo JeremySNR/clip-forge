@@ -76,7 +76,7 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 
 **Shipping them**
 
-- **Export** H.264/AAC MP4s with burned-in captions. Loudness-normalised to -14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback.
+- **Export** H.264/AAC MP4s with burned-in captions. Loudness-normalised to -14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback. Optionally encode once to fit under a megabyte cap (Discord, email, WhatsApp).
 - **AI post captions.** One click writes a scroll-stopping TikTok/Reels/Shorts caption (hook-first line, one engagement driver, niche hashtags). Copy it and jump straight to TikTok Studio upload.
 - **In-app updates.** Packaged builds download and install updates themselves. Source checkouts update with one click (pull, rebuild, relaunch).
 
@@ -231,7 +231,6 @@ Each of these is an open issue, so the discussion and the detail live there. Con
 - [Multi-language caption translation](https://github.com/JeremySNR/clip-forge/issues/49)
 - [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/clip-forge/issues/50)
 - Bundled on-device Whisper, so transcription needs no server at all
-- [Size-targeted export](https://github.com/JeremySNR/clip-forge/issues/48) ("fit under N MB"), where the encoder work is already done
 - Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app)
 
 Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/clip-forge/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.

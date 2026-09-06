@@ -13,7 +13,7 @@ import {
   X
 } from 'lucide-react'
 import { useStore } from '../store'
-import { formatDuration } from '../lib/format'
+import { formatBytes, formatDuration } from '../lib/format'
 import ScoreBadge from './ScoreBadge'
 import MissingSourceBanner from './MissingSourceBanner'
 import type { Clip } from '@shared/types'
@@ -185,6 +185,8 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
             progress={entry?.progress ?? 0}
             outputPath={entry?.outputPath}
             error={entry?.error}
+            bytes={entry?.bytes}
+            downscaled={entry?.downscaled}
             onExport={() => void exportClip(clip.id)}
             onCancel={() => void cancelExport(clip.id)}
           />
@@ -199,6 +201,8 @@ export function ExportButton({
   progress,
   outputPath,
   error,
+  bytes,
+  downscaled,
   onExport,
   onCancel
 }: {
@@ -206,6 +210,8 @@ export function ExportButton({
   progress: number
   outputPath?: string
   error?: string
+  bytes?: number
+  downscaled?: boolean
   onExport: () => void
   onCancel: () => void
 }): React.JSX.Element {
@@ -229,13 +235,18 @@ export function ExportButton({
     )
   }
   if (status === 'done' && outputPath) {
+    const sizeLabel = bytes !== undefined ? ` · ${formatBytes(bytes)}` : ''
     return (
       <button
         onClick={() => void window.clipforge.showItemInFolder(outputPath)}
         className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
-        title={outputPath}
+        title={
+          downscaled
+            ? `${outputPath} — scaled down to fit the size limit`
+            : outputPath
+        }
       >
-        <Check size={13} /> Saved
+        <Check size={13} /> Saved{sizeLabel}
         <FolderOpen size={13} />
       </button>
     )

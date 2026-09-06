@@ -13,6 +13,7 @@ import type {
 import { getGpuStatus } from './pipeline/encoders'
 import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
 import { DEFAULT_BRAND_COLORS } from '@shared/captionStyles'
+import { normalizeSizeTargetMb } from '@shared/uploadBudget'
 import { configureOpenAiEndpoints } from './pipeline/openai'
 
 
@@ -27,6 +28,8 @@ interface StoredSettings {
   transcriptionBaseUrl: string
   encoder: EncoderPreference
   quality: QualityPreference
+  /** Megabyte cap for size-targeted export; null = quality-targeted encode. */
+  sizeTargetMb: number | null
   branding: BrandingSettings
   brandVoice: BrandVoiceSettings
   importCookiesBrowser: BrowserCookieSource
@@ -61,6 +64,7 @@ const DEFAULTS: StoredSettings = {
   transcriptionBaseUrl: '',
   encoder: 'auto',
   quality: 'standard',
+  sizeTargetMb: null,
   branding: DEFAULT_BRANDING,
   brandVoice: DEFAULT_BRAND_VOICE,
   importCookiesBrowser: ''
@@ -95,6 +99,7 @@ function load(): StoredSettings {
         openaiBaseUrl: storedBaseUrl(parsed.openaiBaseUrl),
         transcriptionBaseUrl: storedBaseUrl(parsed.transcriptionBaseUrl),
         // Nested objects: merge so settings saved before new fields stay valid.
+        sizeTargetMb: normalizeSizeTargetMb(parsed.sizeTargetMb),
         branding: {
           ...DEFAULT_BRANDING,
           ...(parsed.branding ?? {}),
@@ -163,6 +168,7 @@ export async function getSettings(): Promise<AppSettings> {
     openaiBaseUrlFromEnv: Boolean(process.env.OPENAI_BASE_URL?.trim()),
     encoder: s.encoder,
     quality: s.quality,
+    sizeTargetMb: s.sizeTargetMb,
     gpu: await getGpuStatus(),
     branding: s.branding,
     brandVoice: s.brandVoice,
@@ -193,10 +199,14 @@ export function getBrandVoiceSettings(): BrandVoiceSettings {
   return load().brandVoice
 }
 
-/** Synchronous access to the stored encoder/quality preferences. */
-export function getExportPreferences(): { encoder: EncoderPreference; quality: QualityPreference } {
+/** Synchronous access to the stored encoder/quality/size-cap preferences. */
+export function getExportPreferences(): {
+  encoder: EncoderPreference
+  quality: QualityPreference
+  sizeTargetMb: number | null
+} {
   const s = load()
-  return { encoder: s.encoder, quality: s.quality }
+  return { encoder: s.encoder, quality: s.quality, sizeTargetMb: s.sizeTargetMb }
 }
 
 /** Synchronous access to the stored model preferences (no GPU probe). */
@@ -231,6 +241,7 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   }
   if (update.encoder !== undefined) s.encoder = update.encoder
   if (update.quality !== undefined) s.quality = update.quality
+  if (update.sizeTargetMb !== undefined) s.sizeTargetMb = normalizeSizeTargetMb(update.sizeTargetMb)
   if (update.branding !== undefined) {
     const b = update.branding
     s.branding = {
