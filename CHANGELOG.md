@@ -10,6 +10,17 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Changed
 
+- **Clip boundaries are chosen on sentences.** The model now reads the
+  transcript as one sentence per line (derived from word punctuation, with
+  unpunctuated rambles split at their longest pauses) instead of Whisper's
+  segments, which break mid-sentence, and is told to start and end every clip
+  on a line. The ending and opening reviews work on the same sentences. When
+  a start still lands inside a sentence, the clip opens that sentence rather
+  than skipping to the next; an end inside a sentence completes it.
+- **Tightened clips keep their tails.** Removing pauses used to trim the room
+  after the last word down to 0.3 s, so the export's 0.4 s fade ducked the
+  final syllable. Tightening now keeps 0.7 s after the last word and 0.3 s
+  before the first.
 - **Long videos come back in minutes, not an hour.** Speaker-framing analysis
   (face tracking plus active speaker detection at 25 fps) is the slowest
   per-clip stage by a wide margin. The pipeline now runs it only for the top
@@ -48,6 +59,11 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
   when the transcript is stitched.
 
 ### Added
+
+- **`scripts/eval-clips.ts`.** Measures clip boundaries on saved projects
+  (mid-sentence opens and closes, clipped or dead-air tails, length spread),
+  and with `--rerun` compares them against fresh detection on the same
+  transcript, so prompt changes can be checked instead of guessed.
 
 - **"Fit under N MB" export.** A size cap in Settings and the editor export
   panel, so clips land under Discord, email or WhatsApp limits. The encoder

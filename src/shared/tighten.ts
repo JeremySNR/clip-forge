@@ -19,6 +19,15 @@ const MAX_PAUSE_SEC = 0.7
 /** Breathing room kept around speech when a pause is trimmed. */
 const PRE_ROLL_SEC = 0.18
 const POST_ROLL_SEC = 0.3
+/**
+ * Room kept before the first word and after the last one. The clip's own
+ * boundaries already sit a little outside the speech (0.25 s pre-roll, 0.6 s
+ * post-roll from the highlight pass); tightening must not trim that away:
+ * the export's 0.4 s audio fade lives in the tail, and eating into it ducks
+ * the last syllable of every tightened clip.
+ */
+const HEAD_ROLL_SEC = 0.3
+const TAIL_ROLL_SEC = 0.7
 /** Ignore removals shorter than this — not worth a visible jump cut. */
 const MIN_REMOVAL_SEC = 0.35
 const MIN_SEGMENT_SEC = 0.25
@@ -86,6 +95,12 @@ export function computeKeptSegments(
 
   const kept = spaced.filter((s) => s.end - s.start >= MIN_SEGMENT_SEC)
   if (kept.length === 0) return null
+
+  // Breathing room at both ends of the clip (see HEAD_ROLL_SEC).
+  kept[0].start = Math.max(clipStart, Math.min(kept[0].start, words[0].start - HEAD_ROLL_SEC))
+  const lastWord = words[words.length - 1]
+  const tail = kept[kept.length - 1]
+  tail.end = Math.min(clipEnd, Math.max(tail.end, lastWord.end + TAIL_ROLL_SEC))
 
   const keptDuration = kept.reduce((sum, s) => sum + (s.end - s.start), 0)
   const removed = clipEnd - clipStart - keptDuration

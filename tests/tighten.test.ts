@@ -36,6 +36,33 @@ describe('computeKeptSegments', () => {
     expect(segments!.some((s) => mid >= s.start && mid <= s.end)).toBe(false)
   })
 
+  it('keeps room for the audio fade after the last word and a beat before the first', () => {
+    // A long pause to cut, then the clip runs a full second past the last word.
+    const transcript = makeTranscript(['first thought ends here', 'second thought lands'], {
+      sentenceGapSec: 3
+    })
+    const words = transcript.segments.flatMap((s) => s.words)
+    const first = words[0]
+    const last = words[words.length - 1]
+    const clipStart = Math.max(0, first.start - 1)
+    const clipEnd = last.end + 1
+    const segments = computeKeptSegments(transcript, clipStart, clipEnd)!
+    expect(segments[0].start).toBeCloseTo(Math.max(clipStart, first.start - 0.3), 5)
+    // 0.7 s of tail: the export's 0.4 s fade sits entirely after the speech.
+    expect(segments[segments.length - 1].end).toBeCloseTo(last.end + 0.7, 5)
+  })
+
+  it('never extends head or tail room beyond the clip itself', () => {
+    const transcript = makeTranscript(['first thought ends here', 'second thought lands'], {
+      sentenceGapSec: 3
+    })
+    const words = transcript.segments.flatMap((s) => s.words)
+    const last = words[words.length - 1]
+    const segments = computeKeptSegments(transcript, words[0].start + 0.1, last.end + 0.2)!
+    expect(segments[0].start).toBeCloseTo(words[0].start + 0.1, 5)
+    expect(segments[segments.length - 1].end).toBeCloseTo(last.end + 0.2, 5)
+  })
+
   it('returns null for clips with fewer than three words', () => {
     const transcript = makeTranscript(['hi there'])
     expect(computeKeptSegments(transcript, 0, transcript.durationSec)).toBeNull()

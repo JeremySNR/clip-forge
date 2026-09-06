@@ -3,8 +3,13 @@ import {
   applyRefinedEnding,
   applyRefinedStart,
   dedupeClips,
+  formatTranscriptForModel,
+  snapClipEnd,
+  snapClipStart,
   targetClipCount
 } from '../src/main/pipeline/highlights'
+import { transcriptSentences } from '@shared/sentences'
+import { makeTranscript } from './helpers'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import type { Clip } from '@shared/types'
 
@@ -143,5 +148,65 @@ describe('applyRefinedStart', () => {
     )
     // Nonsense values.
     expect(applyRefinedStart(original, Number.NaN, sentenceStarts)).toBe(original)
+  })
+})
+
+describe('snapClipStart / snapClipEnd', () => {
+  // Three sentences of five words at 0.4 s per word: [0,1.9] [2.3,4.2] [4.6,6.5] …
+  const transcript = makeTranscript(
+    ['one two three four five.', 'six seven eight nine ten.', 'eleven twelve thirteen fourteen fifteen.', 'sixteen seventeen eighteen nineteen twenty.'],
+    { wordSec: 0.3, gapSec: 0.1, sentenceGapSec: 0.4 }
+  )
+  const sentences = transcriptSentences(transcript)
+  const words = sentences.flatMap((s) => s.words)
+  const wordStarts = words.map((w) => w.start)
+  const wordEnds = words.map((w) => w.end)
+
+  it('opens the sentence the moment falls inside rather than skipping it', () => {
+    // 1.0 s into sentence 1 (which starts at 2.3): nearest-boundary logic
+    // would have jumped forward to sentence 2; we open sentence 1.
+    expect(snapClipStart(sentences[1].start + 1.0, sentences, wordStarts)).toBe(sentences[1].start)
+  })
+
+  it('moves a start that lands in a pause onto the next sentence', () => {
+    const gap = (sentences[0].end + sentences[1].start) / 2
+    expect(snapClipStart(gap, sentences, wordStarts)).toBe(sentences[1].start)
+  })
+
+  it('falls back to a word boundary deep inside a long sentence', () => {
+    const words = Array.from({ length: 30 }, (_, i) => ({ text: 'w', start: i * 0.5, end: i * 0.5 + 0.4 }))
+    const long = { language: 'english', durationSec: 15, segments: [{ id: 0, text: 'x.', start: 0, end: 15, words }] }
+    long.segments[0].words[29].text = 'w.'
+    const s = transcriptSentences(long)
+    expect(s).toHaveLength(1)
+    // 6 s in: too far from the start to rewind, so the nearest word start.
+    expect(snapClipStart(6.1, s, words.map((w) => w.start))).toBe(6)
+  })
+
+  it('completes the sentence a moment ends inside', () => {
+    expect(snapClipEnd(sentences[1].start + 0.5, sentences, wordEnds)).toBe(sentences[1].end)
+  })
+
+  it('closes on the sentence just finished when the moment lands in the pause after it', () => {
+    const gap = sentences[1].end + 0.2
+    expect(snapClipEnd(gap, sentences, wordEnds)).toBe(sentences[1].end)
+  })
+
+  it('leaves the model exactly on a sentence end alone', () => {
+    expect(snapClipEnd(sentences[2].end, sentences, wordEnds)).toBe(sentences[2].end)
+  })
+})
+
+describe('formatTranscriptForModel', () => {
+  it('writes one sentence per line with start/end and delivery tags', () => {
+    const t = makeTranscript(['Loud one.', 'Middle one.', 'Quiet one.'])
+    t.segments[0].energy = 0.95
+    t.segments[1].energy = 0.5
+    t.segments[2].energy = 0.1
+    const lines = formatTranscriptForModel(transcriptSentences(t)).split('\n')
+    expect(lines).toHaveLength(3)
+    expect(lines[0]).toMatch(/^\[0\.0s - 0\.7s\] Loud one\. \[delivery: energetic\]$/)
+    expect(lines[1]).not.toContain('[delivery')
+    expect(lines[2]).toContain('[delivery: subdued]')
   })
 })

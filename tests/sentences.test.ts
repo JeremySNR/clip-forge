@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import type { Transcript } from '@shared/types'
+import type { Transcript, TranscriptWord } from '@shared/types'
 import {
   endsSentence,
   lastWordInClip,
+  MAX_SENTENCE_SEC,
   normalizeClipEnd,
+  sentenceAt,
   sentenceEndTimes,
-  sentenceStartTimes
+  sentenceStartTimes,
+  sentencesInRange,
+  transcriptSentences
 } from '../src/shared/sentences'
+import { makeTranscript } from './helpers'
 
 /** Two full sentences in one segment. */
 function twoSentences(): Transcript {
@@ -113,5 +118,90 @@ describe('normalizeClipEnd', () => {
   it('does not extend beyond the cap', () => {
     const end = normalizeClipEnd(0, 3.3, transcript, 20, { postRollSec, maxExtendSec: 0.5 })
     expect(end).toBe(3.3)
+  })
+})
+
+describe('transcriptSentences', () => {
+  it('splits on word punctuation, not Whisper segments', () => {
+    const sentences = transcriptSentences(transcriptEndingOnSo())
+    // The segment break after "so" is not a sentence break; the full stop is.
+    expect(sentences.map((s) => s.text)).toEqual(['and that is why it matters so much for everyone today.'])
+    expect(sentences[0].start).toBe(0)
+    expect(sentences[0].end).toBe(4.5)
+  })
+
+  it('numbers sentences in order and carries their words', () => {
+    const sentences = transcriptSentences(twoSentences())
+    expect(sentences.map((s) => s.index)).toEqual([0, 1])
+    expect(sentences[1].words.map((w) => w.text)).toEqual(['This', 'is', 'next.'])
+  })
+
+  it('trusts segment punctuation when the last word lost it', () => {
+    const t = makeTranscript(['no stop here', 'Second one.'])
+    t.segments[0].text = 'no stop here.'
+    expect(transcriptSentences(t).map((s) => s.text)).toEqual(['no stop here', 'Second one.'])
+  })
+
+  it('skips words cleared in the transcript editor', () => {
+    const t = makeTranscript(['keep this one.'])
+    t.segments[0].words[1].text = ''
+    expect(transcriptSentences(t)[0].text).toBe('keep one.')
+  })
+
+  it('splits an unpunctuated ramble at its longest pause', () => {
+    // 60 words, 0.5 s apart, no punctuation: one 30 s run. A 1.2 s pause sits
+    // two thirds of the way through and is the natural split.
+    const words: TranscriptWord[] = []
+    let t = 0
+    for (let i = 0; i < 60; i++) {
+      words.push({ text: 'word', start: t, end: t + 0.3 })
+      t += i === 39 ? 1.5 : 0.5
+    }
+    const transcript = {
+      language: 'english',
+      durationSec: t,
+      segments: [{ id: 0, text: 'x', start: 0, end: t, words }]
+    }
+    const sentences = transcriptSentences(transcript)
+    expect(sentences.length).toBeGreaterThanOrEqual(2)
+    expect(sentences.every((s) => s.end - s.start <= MAX_SENTENCE_SEC)).toBe(true)
+    // The split lands on the big pause.
+    expect(sentences.some((s) => Math.abs(s.start - words[40].start) < 1e-6)).toBe(true)
+    // Every word survives, in order.
+    expect(sentences.flatMap((s) => s.words)).toEqual(words)
+  })
+
+  it('leaves a ramble whole when it has no pause worth splitting at', () => {
+    const words = Array.from({ length: 60 }, (_, i) => ({ text: 'w', start: i * 0.5, end: i * 0.5 + 0.4 }))
+    const transcript = { language: 'english', durationSec: 30, segments: [{ id: 0, text: 'x', start: 0, end: 30, words }] }
+    expect(transcriptSentences(transcript)).toHaveLength(1)
+  })
+
+  it('averages segment energy into each sentence by word duration', () => {
+    const t = makeTranscript(['Loud line here.', 'quiet line here.'])
+    t.segments[0].energy = 0.9
+    t.segments[1].energy = 0.1
+    const [loud, quiet] = transcriptSentences(t)
+    expect(loud.energy).toBe(0.9)
+    expect(quiet.energy).toBe(0.1)
+    const none = transcriptSentences(makeTranscript(['no energy.']))
+    expect(none[0].energy).toBeUndefined()
+  })
+})
+
+describe('sentenceAt / sentencesInRange', () => {
+  const sentences = transcriptSentences(twoSentences())
+
+  it('finds the sentence a moment falls inside and null in gaps', () => {
+    expect(sentenceAt(sentences, 0.2)?.index).toBe(0)
+    expect(sentenceAt(sentences, 1.6)?.index).toBe(1)
+    // Between "there." (ends 0.9) and "This" (starts 1.2).
+    expect(sentenceAt(sentences, 1.0)).toBeNull()
+    expect(sentenceAt(sentences, 99)).toBeNull()
+  })
+
+  it('returns the sentences overlapping a range', () => {
+    expect(sentencesInRange(sentences, 0.8, 1.3).map((s) => s.index)).toEqual([0, 1])
+    expect(sentencesInRange(sentences, 1.3, 5).map((s) => s.index)).toEqual([1])
   })
 })

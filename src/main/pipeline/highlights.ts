@@ -7,7 +7,13 @@ import type {
 } from '@shared/types'
 import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import { initialClipEditForVideoType } from '@shared/videoType'
-import { normalizeClipEnd, sentenceEndTimes, sentenceStartTimes } from '@shared/sentences'
+import {
+  normalizeClipEnd,
+  sentenceAt,
+  sentencesInRange,
+  transcriptSentences,
+  type Sentence
+} from '@shared/sentences'
 import { chatJSON } from './openai'
 
 interface RawHighlight {
@@ -133,6 +139,27 @@ function formatTimestamp(sec: number): string {
   return `${sec.toFixed(1)}s`
 }
 
+/**
+ * The transcript as the model sees it: one sentence per line with its start
+ * and end, plus a delivery tag on the most and least energetic lines.
+ * Exported for tests.
+ */
+export function formatTranscriptForModel(sentences: Sentence[]): string {
+  return sentences
+    .map((s) => {
+      const delivery =
+        s.energy === undefined
+          ? ''
+          : s.energy >= 0.8
+            ? ' [delivery: energetic]'
+            : s.energy <= 0.2
+              ? ' [delivery: subdued]'
+              : ''
+      return `[${formatTimestamp(s.start)} - ${formatTimestamp(s.end)}] ${s.text}${delivery}`
+    })
+    .join('\n')
+}
+
 const MIN_CLIP_SEC = 8
 
 /** Breathing room added before the first word of a clip. */
@@ -158,17 +185,17 @@ const SENTENCE_SNAP_SEC = 2.5
  * anger was the single strongest predictor in their model. Berger (2011,
  * Psychological Science) shows induced arousal alone increases sharing.
  */
-const SYSTEM_PROMPT = `You are an expert short-form video editor who selects moments most likely to go viral as standalone vertical clips. You receive the timestamped transcript of a long video. Some lines carry a [delivery: ...] tag measured from the actual audio — "energetic" marks the speaker's most aroused, animated delivery, "subdued" the flattest.
+const SYSTEM_PROMPT = `You are an expert short-form video editor who selects moments most likely to go viral as standalone vertical clips. You receive the transcript of a long video as one sentence per line, each prefixed with the second it starts and the second it ends. Some lines carry a [delivery: ...] tag measured from the actual audio — "energetic" marks the speaker's most aroused, animated delivery, "subdued" the flattest.
 
 Selection rules:
 - Every clip MUST have the shape of a complete micro-video: a HOOK that grabs in the first sentence, a BUILD that develops or escalates it, and an ENDING THAT LANDS. A statement or observation on its own — however interesting — is not a clip.
 - What "lands" depends on the material. A story lands on its resolution or emotional beat. Comedy lands on the punchline. An argument lands on its sharpest, most quotable formulation. A reveal lands on the answer. Practical content lands on the takeaway. A deliberately provocative clip can even land on a pointed question that throws back to the hook. All of these are valid endings.
 - What never lands: trailing setup or scene-setting, context that introduces an idea and stops, the middle of a list, or an aside (ending right after "People were experimenting with ChatGPT for the first time" leaves the thought hanging — the sentence exists to set up whatever comes next). If the beat that completes the thought arrives one or two sentences after the moment you picked, extend the clip to include it.
-- Every clip MUST start at the beginning of a sentence or thought and end at a natural conclusion. Never cut mid-sentence.
+- Every clip MUST start at the beginning of a sentence or thought and end at a natural conclusion. Never cut mid-sentence: a clip's "start" is the start time of the line it opens on and its "end" is the end time of the line it closes on.
 - Prefer moments with a strong hook in the first 3 seconds: bold claims, surprising facts, emotional peaks, controversy, humour, actionable value, or compelling storytelling.
 - Clips must be self-contained: a viewer with zero context must understand them.
 - Do not overlap clips. Order them by virality score, highest first.
-- Use the transcript timestamps precisely; do not invent times outside the video.
+- Use the line timestamps exactly as given; do not invent times outside the video.
 
 Virality scoring rubric (0-99), grounded in sharing research (Berger & Milkman 2012: physiological arousal drives transmission; anger, awe and anxiety are the strongest predictors; sadness suppresses sharing; surprise and practical value independently boost it):
 - Hook strength in the first sentence — curiosity gap, bold claim, or open question (0-30)
@@ -198,6 +225,44 @@ function snap(time: number, boundaries: number[], toleranceSec: number): number 
     }
   }
   return best
+}
+
+/**
+ * Where a clip should open given the moment the model pointed at. The model
+ * works from sentence lines, so its start is normally a sentence start
+ * already; when it is not, prefer opening the sentence the moment falls
+ * inside (the model wanted that thought) over skipping to the next one, and
+ * only fall back to the nearest word boundary deep inside a long sentence.
+ * Exported for tests.
+ */
+export function snapClipStart(start: number, sentences: Sentence[], wordStarts: number[]): number {
+  const enclosing = sentenceAt(sentences, start)
+  if (enclosing && start - enclosing.start <= START_SNAP_SEC) return enclosing.start
+  const next = sentences.find((s) => s.start >= start)
+  if (next && next.start - start <= START_SNAP_SEC) return next.start
+  return snap(start, wordStarts, 1.5)
+}
+
+/**
+ * Where a clip should close given the moment the model pointed at: the end
+ * of the sentence it falls inside when that is near, the end of the sentence
+ * just finished when the moment lands in the pause after it, otherwise the
+ * nearest word end (normalizeClipEnd then completes the sentence). Exported
+ * for tests.
+ */
+export function snapClipEnd(end: number, sentences: Sentence[], wordEnds: number[]): number {
+  const enclosing = sentenceAt(sentences, end)
+  if (enclosing) {
+    if (enclosing.end - end <= SENTENCE_SNAP_SEC) return enclosing.end
+    return snap(end, wordEnds, 1.5)
+  }
+  let previous: Sentence | null = null
+  for (const s of sentences) {
+    if (s.end <= end) previous = s
+    else break
+  }
+  if (previous && end - previous.end <= SENTENCE_SNAP_SEC) return previous.end
+  return snap(end, wordEnds, 1.5)
 }
 
 /** How far the ending review may move a clip's end. */
@@ -305,19 +370,18 @@ async function refineClipEndings(
   signal?: AbortSignal
 ): Promise<Clip[]> {
   if (clips.length === 0) return clips
-  const sentenceEnds = sentenceEndTimes(transcript)
+  const sentences = transcriptSentences(transcript)
+  const sentenceEnds = sentences.map((s) => s.end)
 
   const blocks = clips.map((clip, i) => {
-    const inClip = transcript.segments.filter(
-      (s) => s.end > clip.suggestedStart + 0.2 && s.start < clip.suggestedEnd - 0.2
-    )
+    const inClip = sentencesInRange(sentences, clip.suggestedStart + 0.2, clip.suggestedEnd - 0.2)
     // Tag the closing sentences with end times; earlier text is context only.
     const tail = inClip.slice(-3)
     const head = inClip
       .slice(0, -3)
       .map((s) => s.text)
       .join(' ')
-    const continuation = transcript.segments.filter(
+    const continuation = sentences.filter(
       (s) => s.start >= clip.suggestedEnd - 0.5 && s.start < clip.suggestedEnd + CONTINUATION_SEC
     )
     return [
@@ -446,15 +510,14 @@ async function refineClipStarts(
   signal?: AbortSignal
 ): Promise<Clip[]> {
   if (clips.length === 0) return clips
-  const sentenceStarts = sentenceStartTimes(transcript)
+  const sentences = transcriptSentences(transcript)
+  const sentenceStarts = sentences.map((s) => s.start)
 
   const blocks = clips.map((clip, i) => {
     // Only the first stretch of the clip is eligible to be trimmed, so we show
     // just the opening sentences (plus a little slack) as candidates.
     const openWindowEnd = clip.suggestedStart + MAX_START_ADVANCE_SEC + 5
-    const head = transcript.segments
-      .filter((s) => s.end > clip.suggestedStart + 0.2 && s.start < openWindowEnd)
-      .slice(0, 6)
+    const head = sentencesInRange(sentences, clip.suggestedStart + 0.2, openWindowEnd).slice(0, 6)
     return [
       `Clip ${i} — intended hook: "${clip.hook || clip.title}" (currently starts at ${clip.suggestedStart.toFixed(1)}s):`,
       ...head.map((s) => `  [starts ${s.start.toFixed(1)}s] ${s.text}`)
@@ -551,19 +614,11 @@ async function requestHighlights(
   insist: boolean,
   signal?: AbortSignal
 ): Promise<Clip[]> {
-  const transcriptText = transcript.segments
-    .map((s) => {
-      const delivery =
-        s.energy === undefined
-          ? ''
-          : s.energy >= 0.8
-            ? ' [delivery: energetic]'
-            : s.energy <= 0.2
-              ? ' [delivery: subdued]'
-              : ''
-      return `[${formatTimestamp(s.start)} - ${formatTimestamp(s.end)}] ${s.text}${delivery}`
-    })
-    .join('\n')
+  // One sentence per line. Whisper segments break mid-sentence, and a model
+  // that only sees segment boundaries can only propose segment boundaries;
+  // sentence lines let it cut where a thought actually starts and stops.
+  const sentences = transcriptSentences(transcript)
+  const transcriptText = formatTranscriptForModel(sentences)
 
   const targetCount = targetClipCount(videoDurationSec)
 
@@ -576,7 +631,7 @@ async function requestHighlights(
     options.prompt.trim()
       ? `The creator gave these special instructions, which take priority when choosing moments: "${options.prompt.trim()}"`
       : '',
-    'Transcript (each line prefixed with [start - end] in seconds from the start of the video):',
+    'Transcript, one sentence per line, each prefixed with [start - end] in seconds from the start of the video. Start every clip on the start time of a line and end it on the end time of a line:',
     transcriptText
   ]
     .filter(Boolean)
@@ -602,8 +657,7 @@ async function requestHighlights(
       wordEnds.push(w.end)
     }
   }
-  const sentenceStarts = sentenceStartTimes(transcript)
-  const sentenceEnds = sentenceEndTimes(transcript)
+  const sentenceEnds = sentences.map((s) => s.end)
   const maxDur = maxDurationFor(options.clipLength)
   const normalizeEnd = (start: number, end: number): number =>
     normalizeClipEnd(start, end, transcript, videoDurationSec, {
@@ -619,15 +673,12 @@ async function requestHighlights(
   for (const raw of res.clips ?? []) {
     let start = Math.max(0, Math.min(raw.start, videoDurationSec - 1))
     let end = Math.max(start + 1, Math.min(raw.end, videoDurationSec))
-    // Snap the start onto a sentence beginning so the clip opens on a clean
-    // thought, not mid-sentence, then add a little pre-roll. Falls back to the
-    // nearest word boundary when no sentence start is close enough.
-    const sentenceStart = snap(start, sentenceStarts, START_SNAP_SEC)
-    const snappedStart = sentenceStart !== start ? sentenceStart : snap(start, wordStarts, 1.5)
-    start = Math.max(0, snappedStart - START_PRE_ROLL_SEC)
-    // Rough word snap, then extend to the next punctuated sentence end when the
-    // model (or Whisper segment boundary) stopped mid-thought.
-    end = Math.min(videoDurationSec, snap(end, wordEnds, 1.5) + END_POST_ROLL_SEC)
+    // Open on the sentence the model pointed into (plus a little pre-roll)
+    // so the clip never starts mid-thought.
+    start = Math.max(0, snapClipStart(start, sentences, wordStarts) - START_PRE_ROLL_SEC)
+    // Close on a sentence end, then let normalizeClipEnd complete the thought
+    // when the model stopped deep inside a long sentence.
+    end = Math.min(videoDurationSec, snapClipEnd(end, sentences, wordEnds) + END_POST_ROLL_SEC)
     end = normalizeEnd(start, end)
     // Length is a preference, not a floor: we never pad a complete moment to
     // reach a target length (padding tanks completion rate). We only enforce
