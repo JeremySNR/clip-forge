@@ -14,6 +14,12 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
   panel, so clips land under Discord, email or WhatsApp limits. The encoder
   already knew how; this is the missing control, plus the achieved file size
   (and a note when the planner had to downscale) after export.
+- **OpenAI-compatible API endpoints.** Settings now takes a chat base URL
+  (Azure, OpenRouter, Groq, LM Studio, Ollama) and an optional separate
+  transcription URL, so a local Whisper server can sit next to a hosted LLM.
+  Structured-output calls fall back from `json_schema` to `json_object` (and
+  then a plain JSON completion) when the provider does not support OpenAI's
+  strict schema mode. `OPENAI_BASE_URL` still overrides Settings when set.
 
 ### Removed
 
