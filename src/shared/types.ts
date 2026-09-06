@@ -265,8 +265,8 @@ export interface ExportResult {
   downscaled?: boolean
   /**
    * True when even the minimum scale could not reach a healthy bits-per-pixel
-   * at this duration — the file should still fit, but the picture will look
-   * worse than a shorter clip would.
+   * at this duration — the picture will look soft. Does not guarantee the
+   * file stays under the cap; compare `bytes` to `sizeTargetBytes`.
    */
   overBudget?: boolean
 }

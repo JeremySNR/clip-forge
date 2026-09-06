@@ -109,6 +109,11 @@ export default function EditorScreen(): React.JSX.Element {
   }
 
   const entry = exports[clip.id]
+  const capExceeded =
+    entry?.status === 'done' &&
+    entry.sizeTargetBytes != null &&
+    entry.bytes != null &&
+    entry.bytes > entry.sizeTargetBytes
   const cropDisabled = clip.edit.aspect === 'original'
 
   return (
@@ -526,16 +531,23 @@ export default function EditorScreen(): React.JSX.Element {
               onCancel={() => void cancelExport(clip.id)}
             />
           </div>
-          {entry?.status === 'done' && entry.downscaled && (
+          {entry?.status === 'done' && entry.downscaled && !capExceeded && (
             <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
               Scaled the frame down so the file would fit
               {entry.sizeTargetBytes ? ` under ${formatBytes(entry.sizeTargetBytes)}` : ''}.
             </p>
           )}
-          {entry?.status === 'done' && entry.overBudget && (
+          {entry?.status === 'done' && entry.overBudget && !capExceeded && (
             <p className="mt-2 text-[11px] leading-relaxed text-amber-400">
               This edit is long for the size cap — the picture may look soft. A shorter trim would
               hold up better.
+            </p>
+          )}
+          {capExceeded && (
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-400">
+              This export is over your size limit
+              {entry.sizeTargetBytes ? ` (${formatBytes(entry.sizeTargetBytes)})` : ''}. Shorten the
+              clip or raise the cap.
             </p>
           )}
           {entry?.status === 'error' && entry.error && (
