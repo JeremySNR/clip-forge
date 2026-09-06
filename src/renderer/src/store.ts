@@ -60,6 +60,10 @@ export interface ExportEntry {
   progress: number
   outputPath?: string
   error?: string
+  bytes?: number
+  sizeTargetBytes?: number
+  downscaled?: boolean
+  overBudget?: boolean
 }
 
 
@@ -400,7 +404,15 @@ export const useStore = create<AppState>((set, get) => ({
       set({
         exports: {
           ...get().exports,
-          [clipId]: { status: 'done', progress: 1, outputPath: result.outputPath }
+          [clipId]: {
+            status: 'done',
+            progress: 1,
+            outputPath: result.outputPath,
+            bytes: result.bytes,
+            sizeTargetBytes: result.sizeTargetBytes,
+            downscaled: result.downscaled,
+            overBudget: result.overBudget
+          }
         }
       })
     } catch (err) {

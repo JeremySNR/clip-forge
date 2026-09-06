@@ -254,6 +254,21 @@ export interface ExportProgress {
 export interface ExportResult {
   clipId: string
   outputPath: string
+  /** Size of the finished file, in bytes. */
+  bytes: number
+  /**
+   * Byte cap the encode was planned against, when size-targeted export is on.
+   * Absent for ordinary quality-targeted renders.
+   */
+  sizeTargetBytes?: number
+  /** True when the planner had to shrink the frame to hit the cap. */
+  downscaled?: boolean
+  /**
+   * True when even the minimum scale could not reach a healthy bits-per-pixel
+   * at this duration — the file should still fit, but the picture will look
+   * worse than a shorter clip would.
+   */
+  overBudget?: boolean
 }
 
 export type EncoderPreference = 'auto' | 'cpu' | 'gpu'
@@ -388,8 +403,30 @@ export interface AppSettings {
    */
   transcriptionLanguage: string
   analysisModel: string
+  /**
+   * OpenAI-compatible chat base URL (Azure, OpenRouter, Groq, LM Studio,
+   * Ollama). Empty string means the OpenAI default, unless OPENAI_BASE_URL
+   * is set in the environment.
+   */
+  openaiBaseUrl: string
+  /**
+   * Optional Whisper transcription base URL, for a local Whisper server
+   * next to a hosted LLM. Empty string means "same as the chat base".
+   */
+  transcriptionBaseUrl: string
+  /**
+   * True when OPENAI_BASE_URL is set, so the Settings fields are ignored
+   * for the chat (and, unless OPENAI_TRANSCRIPTION_BASE_URL is also set,
+   * transcription) endpoint.
+   */
+  openaiBaseUrlFromEnv: boolean
   encoder: EncoderPreference
   quality: QualityPreference
+  /**
+   * Hard file-size cap for exports, in megabytes. Null means ordinary
+   * quality-targeted encoding (the quality tier above applies).
+   */
+  sizeTargetMb: number | null
   gpu: GpuEncoderStatus
   branding: BrandingSettings
   brandVoice: BrandVoiceSettings
@@ -405,8 +442,12 @@ export interface SettingsUpdate {
   transcriptionModel?: string
   transcriptionLanguage?: string
   analysisModel?: string
+  openaiBaseUrl?: string
+  transcriptionBaseUrl?: string
   encoder?: EncoderPreference
   quality?: QualityPreference
+  /** Megabyte cap for size-targeted export; null/0 clears it. */
+  sizeTargetMb?: number | null
   branding?: Partial<BrandingSettings>
   brandVoice?: Partial<BrandVoiceSettings>
   importCookiesBrowser?: BrowserCookieSource

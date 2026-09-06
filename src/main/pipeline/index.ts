@@ -138,7 +138,7 @@ export async function analyzeProject(
 ): Promise<Project> {
   const apiKey = getApiKey()
   if (!apiKey) {
-    throw new Error('No OpenAI API key configured. Add one in Settings before generating clips.')
+    throw new Error('No API key configured. Add one in Settings before generating clips.')
   }
   const settings = getModelPreferences()
   const workDir = join(tmpdir(), 'clipforge', `job-${project.id}`)

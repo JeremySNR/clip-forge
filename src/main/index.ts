@@ -76,6 +76,9 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   await shot('editor-caption-video')
   await click('[data-testid="settings-button"]')
   await shot('settings')
+  await click('[data-testid="settings-nav-export"]')
+  await sleep(400)
+  await shot('settings-export')
   app.quit()
 }
 

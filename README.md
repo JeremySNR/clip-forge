@@ -76,7 +76,7 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 
 **Shipping them**
 
-- **Export** H.264/AAC MP4s with burned-in captions. Loudness-normalised to -14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback.
+- **Export** H.264/AAC MP4s with burned-in captions. Loudness-normalised to -14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback. Optionally encode once to fit under a megabyte cap (Discord, email, WhatsApp).
 - **AI post captions.** One click writes a scroll-stopping TikTok/Reels/Shorts caption (hook-first line, one engagement driver, niche hashtags). Copy it and jump straight to TikTok Studio upload.
 - **In-app updates.** Packaged builds download and install updates themselves. Source checkouts update with one click (pull, rebuild, relaunch).
 
@@ -218,9 +218,13 @@ Signing and notarisation are wanted; see
 are configurable in Settings, including a cheaper legacy option.
 
 **Can I run it against a local or non-OpenAI model?**
-Not today. The client in `src/main/pipeline/openai.ts` targets the OpenAI REST
-API. A pluggable endpoint would be a welcome contribution, and local Whisper is
-the obvious first step.
+Yes, if it speaks the OpenAI REST shape. Set the API base URL in Settings
+(or `OPENAI_BASE_URL`) to Azure OpenAI, OpenRouter, Groq, LM Studio, Ollama,
+or anything else with `/v1/chat/completions`. Transcription can point at a
+separate local Whisper server (faster-whisper, whisper.cpp’s compatible
+endpoint) — it must return **word-level timestamps**, because captions and
+tighten-cuts depend on them. Bundled in-process Whisper (no server at all)
+is still on the roadmap.
 
 ## Roadmap
 
@@ -228,8 +232,7 @@ Each of these is an open issue, so the discussion and the detail live there. Con
 
 - [Multi-language caption translation](https://github.com/JeremySNR/clip-forge/issues/49)
 - [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/clip-forge/issues/50)
-- [OpenAI-compatible endpoints and local Whisper](https://github.com/JeremySNR/clip-forge/issues/46), so transcription can run free and offline
-- [Size-targeted export](https://github.com/JeremySNR/clip-forge/issues/48) ("fit under N MB"), where the encoder work is already done
+- Bundled on-device Whisper, so transcription needs no server at all
 - Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app)
 
 Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/clip-forge/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.
