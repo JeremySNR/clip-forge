@@ -84,8 +84,13 @@ jobs:
     if: ${{ vars.WINGET_PACKAGE_ID != '' }}
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@v4
+      - id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
       - uses: vedantmgoyal9/winget-releaser@v2
         with:
           identifier: ${{ vars.WINGET_PACKAGE_ID }}
           installers-regex: '\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
+          release-tag: v${{ steps.version.outputs.version }}
