@@ -8,6 +8,13 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ## [Unreleased]
 
+### Added
+
+- **winget publishing path.** A manifest generator (`scripts/print-winget-manifest.mjs`)
+  and a Release workflow job that updates
+  [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs) once the
+  first listing exists. See [docs/winget.md](docs/winget.md).
+
 ### Removed
 
 - **The WorkVivo posting integration.** It was specific to one organisation's
