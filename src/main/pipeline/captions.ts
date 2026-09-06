@@ -3,7 +3,14 @@ import { app } from 'electron'
 import type { Transcript, BrandColors } from '@shared/types'
 import { resolveCaptionStyle, type CaptionStyle } from '@shared/captionStyles'
 import type { FontMetrics } from '../fonts'
-import { groupWords, wordsInRange, type WordGroup } from '@shared/captionLayout'
+import {
+  CAPTION_SAFE_WIDTH,
+  captionLayoutBudget,
+  groupDisplayEnd,
+  groupWords,
+  wordsInRange,
+  type WordGroup
+} from '@shared/captionLayout'
 
 /**
  * Bundled caption fonts (Anton, Poppins — OFL licensed) so exports render
@@ -57,24 +64,31 @@ function escapeAss(text: string): string {
 function renderGroupText(group: WordGroup, activeIndex: number, style: CaptionStyle): string {
   const highlight = assColor(style.highlightColor)
   const base = assColor(style.textColor)
-  const parts: string[] = []
-  for (let i = 0; i < group.words.length; i++) {
-    const raw = escapeAss(group.words[i].text)
-    const text = style.uppercase ? raw.toUpperCase() : raw
-    if (i === activeIndex) {
-      const pop = '\\t(0,70,\\fscx109\\fscy109)'
-      if (style.highlightBoxColor) {
-        // Fat outline in the pill colour approximates a rounded label.
-        const pill = assColor(style.highlightBoxColor)
-        parts.push(`{\\c${highlight}\\bord10\\3c${pill}\\fscx100\\fscy100${pop}}${text}{\\r}`)
+  const lines: string[] = []
+  let index = 0
+  for (const line of group.lines) {
+    const parts: string[] = []
+    for (const word of line) {
+      const raw = escapeAss(word.text)
+      const text = style.uppercase ? raw.toUpperCase() : raw
+      if (index === activeIndex) {
+        const pop = '\\t(0,70,\\fscx109\\fscy109)'
+        if (style.highlightBoxColor) {
+          // Fat outline in the pill colour approximates a rounded label.
+          const pill = assColor(style.highlightBoxColor)
+          parts.push(`{\\c${highlight}\\bord10\\3c${pill}\\fscx100\\fscy100${pop}}${text}{\\r}`)
+        } else {
+          parts.push(`{\\c${highlight}\\fscx100\\fscy100${pop}}${text}{\\r}`)
+        }
       } else {
-        parts.push(`{\\c${highlight}\\fscx100\\fscy100${pop}}${text}{\\r}`)
+        parts.push(`{\\c${base}}${text}{\\r}`)
       }
-    } else {
-      parts.push(`{\\c${base}}${text}{\\r}`)
+      index++
     }
+    lines.push(parts.join(' '))
   }
-  return parts.join(' ')
+  // Hard line breaks: the layout decided the lines, libass must not re-wrap.
+  return lines.join('\\N')
 }
 
 /** "#RRGGBB" -> ASS style colour with explicit alpha "&HAA BB GGRR". */
@@ -134,7 +148,13 @@ export interface CaptionOptions {
 export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   const style = resolveCaptionStyle(opts.styleId, opts.brandColors, opts.fontFamily)
   const fontSize = assFontSize(style.fontScale * opts.height, opts.fontMetrics ?? null)
-  const marginV = Math.round((1 - style.positionY) * opts.height)
+  // Captions are positioned per event with \an5\pos so the block is centred on
+  // the style's anchor line exactly as the preview centres it (translateY -50%).
+  // A bottom-aligned style with MarginV would grow upwards from that line and
+  // sit half a block higher than the preview on every two-line caption.
+  const captionX = Math.round(opts.width / 2)
+  const captionY = Math.round(style.positionY * opts.height)
+  const marginH = Math.round(opts.width * (1 - CAPTION_SAFE_WIDTH) / 2)
   const primary = assStyleColor(style.textColor)
   const outline = assStyleColor(style.outlineColor)
   const brandColors = opts.brandColors
@@ -163,12 +183,12 @@ Title: ClipForge captions
 ScriptType: v4.00+
 PlayResX: ${opts.width}
 PlayResY: ${opts.height}
-WrapStyle: 0
+WrapStyle: 2
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Caption,${style.fontFamily},${fontSize},${primary},${primary},${outline},&H80000000,${style.bold ? -1 : 0},0,0,0,100,100,0,0,1,${style.outlineWidth},${style.shadow},2,60,60,${marginV},1
+Style: Caption,${style.fontFamily},${fontSize},${primary},${primary},${outline},&H80000000,${style.bold ? -1 : 0},0,0,0,100,100,0,0,1,${style.outlineWidth},${style.shadow},5,${marginH},${marginH},0,1
 Style: Title,${style.fontFamily},${titleFontSize},${hookText},${hookText},${titleBox},${titleShadowColor},-1,0,0,0,100,100,0,0,3,${titleBoxPad},${titleShadow},8,${titleMarginH},${titleMarginH},${titleMarginV},1
 
 [Events]
@@ -186,22 +206,25 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   }
 
   const words = wordsInRange(transcript, opts.clipStart, opts.clipEnd)
-  const groups = groupWords(words, style.wordsPerGroup)
+  const groups = groupWords(words, captionLayoutBudget(style, opts.width / opts.height))
+  const anchor = `{\\an5\\pos(${captionX},${captionY})}`
 
-  for (const group of groups) {
+  groups.forEach((group, gi) => {
+    // The finished group holds briefly after its last word (never into the
+    // next group) so pauses do not leave an empty frame.
+    const groupEnd = groupDisplayEnd(groups, gi, opts.clipEnd)
     for (let i = 0; i < group.words.length; i++) {
       const w = group.words[i]
       const start = Math.max(0, w.start - opts.clipStart)
-      // Hold the last word of a group on screen until the group ends to avoid flicker.
       const isLast = i === group.words.length - 1
       const next = group.words[i + 1]
-      const end = Math.min(clipDur, (isLast ? Math.max(w.end, group.end) : next.start) - opts.clipStart)
+      const end = Math.min(clipDur, (isLast ? groupEnd : next.start) - opts.clipStart)
       if (end <= start) continue
       lines.push(
-        `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${renderGroupText(group, i, style)}`
+        `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${anchor}${renderGroupText(group, i, style)}`
       )
     }
-  }
+  })
 
   return header + lines.join('\n') + '\n'
 }

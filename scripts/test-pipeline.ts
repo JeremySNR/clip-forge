@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { probeVideo, extractAudioChunks, extractThumbnail, runFfmpeg, runBinary, FFPROBE_PATH } from '../src/main/pipeline/ffmpeg'
 import { buildAss } from '../src/main/pipeline/captions'
 import { renderClip } from '../src/main/pipeline/render'
-import { groupWords, wordsInRange } from '../src/shared/captionLayout'
+import { captionLayoutBudget, groupWords, wordsInRange } from '../src/shared/captionLayout'
 import { CAPTION_STYLES } from '../src/shared/captionStyles'
 import type { Clip, Transcript } from '../src/shared/types'
 
@@ -102,8 +102,11 @@ async function main(): Promise<void> {
   const transcript = makeTranscript()
   const words = wordsInRange(transcript, 1, 16)
   assert.ok(words.length > 20, `expected words in range, got ${words.length}`)
-  const groups = groupWords(words, 3)
-  assert.ok(groups.every((g) => g.words.length <= 3))
+  const budget = captionLayoutBudget(CAPTION_STYLES[0], 9 / 16)
+  const groups = groupWords(words, budget)
+  assert.ok(groups.every((g) => g.words.length <= budget.maxWords))
+  assert.ok(groups.every((g) => g.lines.length <= budget.maxLines))
+  assert.ok(groups.every((g) => g.lines.flat().length === g.words.length))
   assert.ok(groups.every((g) => g.end >= g.start))
   console.log(`✓ caption layout: ${words.length} words -> ${groups.length} groups`)
 

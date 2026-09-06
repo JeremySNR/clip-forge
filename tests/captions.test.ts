@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildAss } from '../src/main/pipeline/captions'
 import { makeTranscript } from './helpers'
+import { CAPTION_HOLD_SEC } from '@shared/captionLayout'
 
 describe('buildAss', () => {
   const transcript = makeTranscript(['hello brave new world'], { wordSec: 0.5, gapSec: 0.1 })
@@ -16,6 +17,44 @@ describe('buildAss', () => {
     const ass = buildAss(transcript, base)
     const events = ass.split('\n').filter((l) => l.startsWith('Dialogue: 0,'))
     expect(events.length).toBe(4)
+  })
+
+  it('centres every caption block on the style anchor line, matching the preview', () => {
+    const ass = buildAss(transcript, base)
+    // Beast anchors at 72% of the frame height; \\an5 centres the block there.
+    expect(ass).toContain('{\\an5\\pos(540,1382)}')
+    // Wrapping is ours, not libass's: no auto-wrap, middle-centre style.
+    expect(ass).toContain('WrapStyle: 2')
+    expect(ass).toMatch(/Style: Caption,[^\n]*,1,3.2,1,5,54,54,0,1/)
+  })
+
+  it('breaks lines itself with \\N when a group needs two lines', () => {
+    // Seven short words in the small "whisper" style on a 9:16 frame lay out
+    // as two lines; the export must carry that break explicitly.
+    const t = makeTranscript(['captions that run long enough to wrap around'], {
+      wordSec: 0.3,
+      gapSec: 0.05
+    })
+    const ass = buildAss(t, { ...base, styleId: 'whisper', clipEnd: t.durationSec })
+    expect(ass).toContain('\\N')
+  })
+
+  it('holds the last word of a group on screen briefly, but never into the next group', () => {
+    const t = makeTranscript(['first line.', 'second line.'], {
+      wordSec: 0.5,
+      gapSec: 0.1,
+      sentenceGapSec: 4
+    })
+    const ass = buildAss(t, { ...base, clipEnd: t.durationSec })
+    const events = ass
+      .split('\n')
+      .filter((l) => l.startsWith('Dialogue: 0,'))
+      .map((l) => l.split(',').slice(1, 3))
+    // Group one's last word is spoken 0.6-1.1s; its event runs on by the hold.
+    expect(events[1]).toEqual(['0:00:00.60', '0:00:02.60'])
+    expect(CAPTION_HOLD_SEC).toBe(1.5)
+    // The next group's first word starts at 5.2s, well after the hold ended.
+    expect(events[2][0]).toBe('0:00:05.20')
   })
 
   it('re-bases event times to the clip start', () => {

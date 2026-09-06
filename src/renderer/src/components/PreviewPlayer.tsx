@@ -2,7 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Play, Pause, RotateCcw } from 'lucide-react'
 import type { Clip, Project, WatermarkPosition } from '@shared/types'
 import { hexToRgba, resolveCaptionStyle } from '@shared/captionStyles'
-import { groupWords, wordsInRange } from '@shared/captionLayout'
+import {
+  captionLayoutBudget,
+  groupDisplayEnd,
+  groupWords,
+  wordsInRange
+} from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
 import { clipAllowsAutoZoom } from '@shared/contentType'
 import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
@@ -272,6 +277,7 @@ export default function PreviewPlayer({
             transcript={project.transcript}
             clip={clip}
             time={time}
+            aspectRatio={aspectStyle}
           />
         )}
         {clip.edit.showTitle && (clip.hook || clip.title) && time - start < Math.min(4, duration) && (
@@ -419,69 +425,84 @@ function BrollOverlay({ clip, time }: { clip: Clip; time: number }): React.JSX.E
 function CaptionOverlay({
   transcript,
   clip,
-  time
+  time,
+  aspectRatio
 }: {
   transcript: NonNullable<Project['transcript']>
   clip: Clip
   time: number
+  /** Output frame width / height; decides how much text fits on a line. */
+  aspectRatio: number
 }): React.JSX.Element | null {
   const brandColors = useStore((s) => s.settings?.branding.colors)
-  const style = resolveCaptionStyle(
-    clip.edit.captionStyleId,
-    brandColors,
-    clip.edit.captionFontFamily
+  const style = useMemo(
+    () => resolveCaptionStyle(clip.edit.captionStyleId, brandColors, clip.edit.captionFontFamily),
+    [clip.edit.captionStyleId, brandColors, clip.edit.captionFontFamily]
   )
 
+  // Same grouping and line layout the ASS export uses, so what wraps here
+  // wraps identically in the file.
   const groups = useMemo(() => {
     const words = wordsInRange(transcript, clip.edit.start, clip.edit.end)
-    return groupWords(words, style.wordsPerGroup)
-  }, [transcript, clip.edit.start, clip.edit.end, style.wordsPerGroup])
+    return groupWords(words, captionLayoutBudget(style, aspectRatio))
+  }, [transcript, clip.edit.start, clip.edit.end, style, aspectRatio])
 
-  const group = groups.find((g) => time >= g.start && time <= g.end + 0.05)
-  if (!group) return null
+  const groupIndex = groups.findIndex(
+    (g, i) => time >= g.start && time < groupDisplayEnd(groups, i, clip.edit.end)
+  )
+  if (groupIndex === -1) return null
+  const group = groups[groupIndex]
 
   let activeIdx = -1
   for (let i = 0; i < group.words.length; i++) {
     if (time >= group.words[i].start) activeIdx = i
   }
 
+  let index = 0
   return (
     <div
-      className="pointer-events-none absolute inset-x-0 flex justify-center px-[5cqw] text-center"
+      className="pointer-events-none absolute inset-x-0 flex flex-col items-center text-center"
       style={{ top: `${style.positionY * 100}cqh`, transform: 'translateY(-50%)' }}
     >
-      <div
-        style={{
-          fontFamily: `'${style.fontFamily}', sans-serif`,
-          fontSize: `${style.fontScale * 100}cqh`,
-          fontWeight: style.bold ? 700 : 400,
-          lineHeight: 1.25,
-          textShadow:
-            style.outlineWidth > 0
-              ? `0 0 ${style.outlineWidth * 2}px ${style.outlineColor}, 2px 2px ${style.outlineWidth}px ${style.outlineColor}, -2px 2px ${style.outlineWidth}px ${style.outlineColor}, 2px -2px ${style.outlineWidth}px ${style.outlineColor}, -2px -2px ${style.outlineWidth}px ${style.outlineColor}`
-              : 'none'
-        }}
-      >
-        {group.words.map((w, i) => {
-          const active = i === activeIdx
-          const text = style.uppercase ? w.text.toUpperCase() : w.text
-          return (
-            <span
-              key={`${w.start}-${i}`}
-              className={active ? 'caption-pop inline-block' : 'inline-block'}
-              style={{
-                color: active ? style.highlightColor : style.textColor,
-                backgroundColor: active && style.highlightBoxColor ? style.highlightBoxColor : 'transparent',
-                borderRadius: style.highlightBoxColor ? '0.35em' : undefined,
-                padding: style.highlightBoxColor ? '0 0.18em' : undefined,
-                marginRight: '0.28em'
-              }}
-            >
-              {text}
-            </span>
-          )
-        })}
-      </div>
+      {group.lines.map((line, li) => (
+        <div
+          key={li}
+          className="whitespace-nowrap"
+          style={{
+            fontFamily: `'${style.fontFamily}', sans-serif`,
+            fontSize: `${style.fontScale * 100}cqh`,
+            fontWeight: style.bold ? 700 : 400,
+            lineHeight: 1.25,
+            textShadow:
+              style.outlineWidth > 0
+                ? `0 0 ${style.outlineWidth * 2}px ${style.outlineColor}, 2px 2px ${style.outlineWidth}px ${style.outlineColor}, -2px 2px ${style.outlineWidth}px ${style.outlineColor}, 2px -2px ${style.outlineWidth}px ${style.outlineColor}, -2px -2px ${style.outlineWidth}px ${style.outlineColor}`
+                : 'none'
+          }}
+        >
+          {line.map((w, wi) => {
+            const wordIndex = index++
+            const active = wordIndex === activeIdx
+            const text = style.uppercase ? w.text.toUpperCase() : w.text
+            return (
+              <span
+                key={`${w.start}-${wordIndex}`}
+                className={active ? 'caption-pop inline-block' : 'inline-block'}
+                style={{
+                  color: active ? style.highlightColor : style.textColor,
+                  backgroundColor:
+                    active && style.highlightBoxColor ? style.highlightBoxColor : 'transparent',
+                  borderRadius: style.highlightBoxColor ? '0.35em' : undefined,
+                  padding: style.highlightBoxColor ? '0 0.18em' : undefined,
+                  // Word gap mirrors the ASS space; none after the line's last word.
+                  marginRight: wi === line.length - 1 ? undefined : '0.28em'
+                }}
+              >
+                {text}
+              </span>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

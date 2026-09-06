@@ -8,6 +8,37 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Captions lay out by width, not word count.** Groups are broken into lines
+  from a per-style character budget derived from the font's measured glyph
+  widths and the output aspect ratio, capped at two lines. The same layout
+  feeds the preview and the ASS export (which now carries explicit line
+  breaks with libass wrapping off), so a caption can no longer wrap
+  differently in the file than it did in the editor.
+- **Captions hold briefly after a sentence.** A finished group stays up for
+  up to 1.5 s, cut short by the next group, instead of leaving an empty frame
+  on every pause.
+- **Loudness normalisation is two-pass.** Exports measure the clip first and
+  normalise with a single linear gain (true-peak limited only where needed)
+  instead of the single-pass gain rider, which pumped audibly on speech.
+  Falls back to single-pass when the source cannot be measured.
+
+### Fixed
+
+- **Exported captions sat higher than the preview.** The ASS style was
+  bottom-aligned on the anchor line while the preview centred its block
+  there, so two-line captions rendered about half a block too high. Events
+  are now positioned middle-centre on the anchor.
+- **Whisper hallucinations reached captions and the clip picker.** Segments
+  Whisper itself flags as silence (high no-speech probability with
+  low-confidence text) or as looped output (high compression ratio) are now
+  dropped at stitch time, along with their words, and never primed into the
+  next chunk.
+- **Words with zero or negative duration never lit up in karaoke captions.**
+  Word timings are now made monotonic and given a minimum on-screen duration
+  when the transcript is stitched.
+
 ### Added
 
 - **"Fit under N MB" export.** A size cap in Settings and the editor export
