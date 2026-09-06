@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planUploadEncode, type UploadEncodeInput } from '@shared/uploadBudget'
+import { planUploadEncode, normalizeSizeTargetMb, sizeTargetBytesFromMb, type UploadEncodeInput } from '@shared/uploadBudget'
 
 const MB = 1024 * 1024
 
@@ -100,5 +100,32 @@ describe('planUploadEncode', () => {
     expect(Number.isFinite(plan.width)).toBe(true)
     expect(Number.isFinite(plan.height)).toBe(true)
     expect(plan.videoKbps).toBeGreaterThanOrEqual(150)
+  })
+})
+
+describe('normalizeSizeTargetMb', () => {
+  it('treats blank and non-positive values as off', () => {
+    expect(normalizeSizeTargetMb(null)).toBeNull()
+    expect(normalizeSizeTargetMb(undefined)).toBeNull()
+    expect(normalizeSizeTargetMb('')).toBeNull()
+    expect(normalizeSizeTargetMb(0)).toBeNull()
+    expect(normalizeSizeTargetMb(-5)).toBeNull()
+    expect(normalizeSizeTargetMb('nope')).toBeNull()
+  })
+
+  it('clamps to the 1–2048 MB window and rounds to a tenth', () => {
+    expect(normalizeSizeTargetMb(0.4)).toBe(1)
+    expect(normalizeSizeTargetMb(25)).toBe(25)
+    expect(normalizeSizeTargetMb(25.16)).toBe(25.2)
+    expect(normalizeSizeTargetMb(9999)).toBe(2048)
+    expect(normalizeSizeTargetMb('10')).toBe(10)
+  })
+})
+
+describe('sizeTargetBytesFromMb', () => {
+  it('converts a stored cap to the byte ceiling the renderer uses', () => {
+    expect(sizeTargetBytesFromMb(null)).toBeUndefined()
+    expect(sizeTargetBytesFromMb(10)).toBe(10 * 1024 * 1024)
+    expect(sizeTargetBytesFromMb(0)).toBeUndefined()
   })
 })

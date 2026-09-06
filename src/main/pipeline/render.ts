@@ -1,4 +1,4 @@
-import { writeFile, mkdir, rm } from 'node:fs/promises'
+import { writeFile, mkdir, rm, stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -19,7 +19,7 @@ import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
 import { clipAllowsAutoZoom } from '@shared/contentType'
 import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
-import { planUploadEncode } from '@shared/uploadBudget'
+import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
 import { FFMPEG_PATH, runFfmpegWith } from './ffmpeg'
 import { buildAss, fontsDir } from './captions'
 import { fontMetricsForFamily } from '../fonts'
@@ -541,7 +541,13 @@ export interface RenderJob {
   signal?: AbortSignal
 }
 
-export async function renderClip(job: RenderJob): Promise<string> {
+export interface RenderResult {
+  outputPath: string
+  bytes: number
+  sizePlan: UploadEncodePlan | null
+}
+
+export async function renderClip(job: RenderJob): Promise<RenderResult> {
   const { clip, source, transcript } = job
   const quality = job.quality ?? 'standard'
   const start = clip.edit.start
@@ -781,5 +787,6 @@ export async function renderClip(job: RenderJob): Promise<string> {
       temps.filter((p): p is string => p !== null).map((p) => rm(p, { force: true }).catch(() => undefined))
     )
   }
-  return job.outputPath
+  const bytes = (await stat(job.outputPath)).size
+  return { outputPath: job.outputPath, bytes, sizePlan: plan }
 }

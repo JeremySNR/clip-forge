@@ -25,8 +25,9 @@ import TrimBar from './TrimBar'
 import ScoreBadge from './ScoreBadge'
 import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
+import SizeTargetControls from './SizeTargetControls'
 import { CAPTION_STYLES, resolveCaptionStyle } from '@shared/captionStyles'
-import { formatTimecode } from '../lib/format'
+import { formatBytes, formatTimecode } from '../lib/format'
 import type { AspectRatio, BrollItem, BrollMode, Clip, FramingMode, ReframeMode } from '@shared/types'
 
 /**
@@ -512,16 +513,31 @@ export default function EditorScreen(): React.JSX.Element {
         <ShareSection clip={clip} />
 
         <div className="sticky bottom-0 -mx-5 -mb-5 border-t border-white/[0.06] bg-surface-900/80 p-4 backdrop-blur-xl">
+          <SizeTargetControls compact />
           <div className="flex">
             <ExportButton
               status={entry?.status}
               progress={entry?.progress ?? 0}
               outputPath={entry?.outputPath}
               error={entry?.error}
+              bytes={entry?.bytes}
+              downscaled={entry?.downscaled}
               onExport={() => void exportClip(clip.id)}
               onCancel={() => void cancelExport(clip.id)}
             />
           </div>
+          {entry?.status === 'done' && entry.downscaled && (
+            <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+              Scaled the frame down so the file would fit
+              {entry.sizeTargetBytes ? ` under ${formatBytes(entry.sizeTargetBytes)}` : ''}.
+            </p>
+          )}
+          {entry?.status === 'done' && entry.overBudget && (
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-400">
+              This edit is long for the size cap — the picture may look soft. A shorter trim would
+              hold up better.
+            </p>
+          )}
           {entry?.status === 'error' && entry.error && (
             <p className="mt-2 text-[11px] leading-relaxed text-red-400">{entry.error}</p>
           )}

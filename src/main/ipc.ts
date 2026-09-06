@@ -11,6 +11,7 @@ import type {
   SettingsUpdate
 } from '@shared/types'
 import { VIDEO_EXTENSIONS } from '@shared/video'
+import { sizeTargetBytesFromMb } from '@shared/uploadBudget'
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
 import { captionWholeVideo } from './pipeline/wholeVideo'
 import { downloadGpuFfmpeg } from './pipeline/encoders'
@@ -216,17 +217,19 @@ export function registerIpcHandlers(): void {
     const suffix = clip.edit.aspect === 'original' ? '' : ` (${clip.edit.aspect.replace(':', 'x')})`
     const outputPath = uniqueOutputPath(opts.outputDir, `${sanitizeFileName(clip.title)}${suffix}`)
     const prefs = getExportPreferences()
+    const sizeTargetBytes = sizeTargetBytesFromMb(prefs.sizeTargetMb)
     const branding = getBrandingSettings()
     const controller = new AbortController()
     runningExports.set(clip.id, controller)
     try {
-      await renderClip({
+      const rendered = await renderClip({
         clip,
         source: project.video,
         transcript: project.transcript,
         outputPath,
         encoder: prefs.encoder,
         quality: prefs.quality,
+        sizeTargetBytes,
         branding:
           branding.enabled && branding.imagePath && existsSync(branding.imagePath)
             ? branding
@@ -239,6 +242,18 @@ export function registerIpcHandlers(): void {
           }
         }
       })
+      return {
+        clipId: clip.id,
+        outputPath: rendered.outputPath,
+        bytes: rendered.bytes,
+        ...(sizeTargetBytes !== undefined
+          ? {
+              sizeTargetBytes,
+              downscaled: rendered.sizePlan?.downscaled ?? false,
+              overBudget: rendered.sizePlan?.overBudget ?? false
+            }
+          : {})
+      }
     } catch (err) {
       if (controller.signal.aborted) {
         await rm(outputPath, { force: true }).catch(() => undefined)
@@ -248,7 +263,6 @@ export function registerIpcHandlers(): void {
     } finally {
       runningExports.delete(clip.id)
     }
-    return { clipId: clip.id, outputPath }
   })
 
   ipcMain.handle('clip:cancelExport', async (_e, clipId: string) => {

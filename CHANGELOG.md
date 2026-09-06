@@ -8,6 +8,13 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ## [Unreleased]
 
+### Added
+
+- **"Fit under N MB" export.** A size cap in Settings and the editor export
+  panel, so clips land under Discord, email or WhatsApp limits. The encoder
+  already knew how; this is the missing control, plus the achieved file size
+  (and a note when the planner had to downscale) after export.
+
 ### Removed
 
 - **The WorkVivo posting integration.** It was specific to one organisation's

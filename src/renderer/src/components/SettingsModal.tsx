@@ -19,6 +19,7 @@ import {
   MessageSquareQuote,
 } from 'lucide-react'
 import { useStore } from '../store'
+import SizeTargetControls from './SizeTargetControls'
 import { DEFAULT_BRAND_COLORS, resolveCaptionStyle } from '@shared/captionStyles'
 import type {
   BrandColors,
@@ -139,6 +140,7 @@ export default function SettingsModal(): React.JSX.Element {
             {SECTIONS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
+                data-testid={`settings-nav-${id}`}
                 onClick={() => setSection(id)}
                 className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition ${
                   section === id
@@ -336,6 +338,8 @@ export default function SettingsModal(): React.JSX.Element {
             ))}
           </div>
         </div>
+
+        <SizeTargetControls />
             </div>
           )}
 
