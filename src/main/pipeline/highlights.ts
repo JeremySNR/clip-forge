@@ -237,7 +237,10 @@ function snap(time: number, boundaries: number[], toleranceSec: number): number 
  */
 export function snapClipStart(start: number, sentences: Sentence[], wordStarts: number[]): number {
   const enclosing = sentenceAt(sentences, start)
-  if (enclosing && start - enclosing.start <= START_SNAP_SEC) return enclosing.start
+  if (enclosing) {
+    if (start - enclosing.start <= START_SNAP_SEC) return enclosing.start
+    return snap(start, wordStarts, 1.5)
+  }
   const next = sentences.find((s) => s.start >= start)
   if (next && next.start - start <= START_SNAP_SEC) return next.start
   return snap(start, wordStarts, 1.5)
