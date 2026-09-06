@@ -12,10 +12,13 @@ import { setTimeout as sleep } from 'node:timers/promises'
 export const DEFAULT_OPENAI_API_BASE = 'https://api.openai.com/v1'
 
 /**
- * Resolve the OpenAI REST base URL from OPENAI_BASE_URL. Empty, whitespace,
- * relative values like "/v1", and other non-absolute URLs fall back to the
- * default — otherwise fetch() posts to "/v1/audio/transcriptions" and Whisper
- * fails with HTTP 404 "Invalid URL".
+ * Resolve an OpenAI-compatible REST base URL. Empty, whitespace, relative
+ * values like "/v1", and other non-absolute URLs fall back to the default —
+ * otherwise fetch() posts to "/v1/audio/transcriptions" and Whisper fails
+ * with HTTP 404 "Invalid URL".
+ *
+ * `OPENAI_BASE_URL` still wins when set (cloud agents, CI). Settings values
+ * are applied through `configureOpenAiEndpoints`.
  */
 export function resolveOpenAiApiBase(
   envBase: string | undefined = process.env.OPENAI_BASE_URL
@@ -26,7 +29,7 @@ export function resolveOpenAiApiBase(
   const trimmed = raw.replace(/\/$/, '')
   if (!/^https?:\/\//i.test(trimmed)) {
     console.warn(
-      `[clipforge] OPENAI_BASE_URL must be an absolute https URL (got ${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
+      `[clipforge] API base URL must be an absolute http(s) URL (got ${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
     )
     return DEFAULT_OPENAI_API_BASE
   }
@@ -41,13 +44,45 @@ export function resolveOpenAiApiBase(
     return trimmed
   } catch {
     console.warn(
-      `[clipforge] OPENAI_BASE_URL is invalid (${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
+      `[clipforge] API base URL is invalid (${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
     )
     return DEFAULT_OPENAI_API_BASE
   }
 }
 
-const API_BASE = resolveOpenAiApiBase()
+/**
+ * Settings-sourced bases. Env vars still take precedence so a cloud/CI
+ * `OPENAI_BASE_URL` cannot be silently overridden by a leftover Settings field.
+ */
+let settingsChatBase: string | undefined
+let settingsTranscriptionBase: string | undefined
+
+export function configureOpenAiEndpoints(opts: {
+  chatBase?: string
+  transcriptionBase?: string
+}): void {
+  settingsChatBase = opts.chatBase?.trim() || undefined
+  settingsTranscriptionBase = opts.transcriptionBase?.trim() || undefined
+}
+
+/** Chat completions base (analysis, captions, B-roll, visual scoring). */
+export function chatApiBase(): string {
+  return resolveOpenAiApiBase(process.env.OPENAI_BASE_URL || settingsChatBase)
+}
+
+/**
+ * Whisper transcription base. A dedicated transcription URL (env or Settings)
+ * wins, then the shared chat base, then the OpenAI default — so a local
+ * Whisper server can sit next to a hosted LLM.
+ */
+export function transcriptionApiBase(): string {
+  return resolveOpenAiApiBase(
+    process.env.OPENAI_TRANSCRIPTION_BASE_URL ||
+      process.env.OPENAI_BASE_URL ||
+      settingsTranscriptionBase ||
+      settingsChatBase
+  )
+}
 
 export class OpenAIError extends Error {
   constructor(
@@ -128,7 +163,7 @@ async function raiseForStatus(res: Response, context: string): Promise<void> {
     /* non-JSON error body */
   }
   if (res.status === 401) {
-    throw new OpenAIError('OpenAI rejected the API key. Check it in Settings.', 401)
+    throw new OpenAIError('The API rejected the API key. Check it in Settings.', 401)
   }
   throw new OpenAIError(`${context} failed (HTTP ${res.status})${detail ? `: ${detail}` : ''}`, res.status)
 }
@@ -184,7 +219,7 @@ export async function transcribeAudioFile(
       if (opts.contextPrompt) form.append('prompt', opts.contextPrompt)
       if (opts.language && opts.language !== 'auto') form.append('language', opts.language)
 
-      const res = await fetch(`${API_BASE}/audio/transcriptions`, {
+      const res = await fetch(`${transcriptionApiBase()}/audio/transcriptions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}` },
         body: form,
@@ -216,28 +251,14 @@ export async function chatJSON<T>(
 ): Promise<T> {
   return withRetries(
     async () => {
-      const res = await fetch(`${API_BASE}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model,
-          messages,
-          response_format: {
-            type: 'json_schema',
-            json_schema: { name: schemaName, strict: true, schema }
-          }
-        }),
-        signal: withTimeout(CHAT_TIMEOUT_MS, signal)
-      })
-      await raiseForStatus(res, 'Analysis')
-      const body = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>
-      }
-      const content = body.choices?.[0]?.message?.content
-      if (!content) throw new OpenAIError('Analysis returned an empty response')
+      const content = await completeChatContent(
+        apiKey,
+        model,
+        messages,
+        schemaName,
+        schema,
+        signal
+      )
       try {
         return JSON.parse(content) as T
       } catch {
@@ -246,4 +267,96 @@ export async function chatJSON<T>(
     },
     { signal }
   )
+}
+
+function looksLikeUnsupportedFormat(err: unknown): boolean {
+  if (!(err instanceof OpenAIError) || (err.status !== 400 && err.status !== 422)) return false
+  const m = err.message.toLowerCase()
+  return /response_format|json_schema|json_object|strict|not supported|unknown parameter|unrecognized|invalid parameter/.test(
+    m
+  )
+}
+
+/**
+ * Compatible endpoints (Ollama, LM Studio, some Groq/OpenRouter models) often
+ * reject OpenAI's strict json_schema. Try that first, then json_object, then
+ * a bare completion with an instruction to return JSON.
+ */
+async function completeChatContent(
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  schemaName: string,
+  schema: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<string> {
+  const formats: Array<{ label: string; body: Record<string, unknown> }> = [
+    {
+      label: 'json_schema',
+      body: {
+        model,
+        messages,
+        response_format: {
+          type: 'json_schema',
+          json_schema: { name: schemaName, strict: true, schema }
+        }
+      }
+    },
+    {
+      label: 'json_object',
+      body: {
+        model,
+        messages,
+        response_format: { type: 'json_object' }
+      }
+    },
+    {
+      label: 'plain',
+      body: {
+        model,
+        messages: [
+          ...messages,
+          {
+            role: 'user',
+            content:
+              'Return only a JSON object matching the requested schema. No markdown, no commentary.'
+          }
+        ]
+      }
+    }
+  ]
+
+  let lastError: unknown
+  for (const format of formats) {
+    try {
+      const res = await fetch(`${chatApiBase()}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(format.body),
+        signal: withTimeout(CHAT_TIMEOUT_MS, signal)
+      })
+      await raiseForStatus(res, 'Analysis')
+      const body = (await res.json()) as {
+        choices?: Array<{ message?: { content?: string } }>
+      }
+      const content = body.choices?.[0]?.message?.content
+      if (!content) throw new OpenAIError('Analysis returned an empty response')
+      return extractJsonText(content)
+    } catch (err) {
+      lastError = err
+      if (signal?.aborted) throw err
+      if (!looksLikeUnsupportedFormat(err)) throw err
+    }
+  }
+  throw lastError
+}
+
+/** Strip optional markdown fences some local models wrap JSON in. */
+export function extractJsonText(content: string): string {
+  const trimmed = content.trim()
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i)
+  return fenced ? fenced[1].trim() : trimmed
 }

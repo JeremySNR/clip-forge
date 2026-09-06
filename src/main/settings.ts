@@ -13,6 +13,7 @@ import type {
 import { getGpuStatus } from './pipeline/encoders'
 import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
 import { DEFAULT_BRAND_COLORS } from '@shared/captionStyles'
+import { configureOpenAiEndpoints } from './pipeline/openai'
 
 
 interface StoredSettings {
@@ -22,6 +23,8 @@ interface StoredSettings {
   /** ISO-639-1 language code forced on Whisper, or 'auto' to auto-detect. */
   transcriptionLanguage: string
   analysisModel: string
+  openaiBaseUrl: string
+  transcriptionBaseUrl: string
   encoder: EncoderPreference
   quality: QualityPreference
   branding: BrandingSettings
@@ -54,6 +57,8 @@ const DEFAULTS: StoredSettings = {
   // theirs — or 'auto' — in Settings.
   transcriptionLanguage: 'en',
   analysisModel: 'gpt-5.4-mini',
+  openaiBaseUrl: '',
+  transcriptionBaseUrl: '',
   encoder: 'auto',
   quality: 'standard',
   branding: DEFAULT_BRANDING,
@@ -67,6 +72,18 @@ function settingsPath(): string {
 
 let cache: StoredSettings | null = null
 
+function applyEndpoints(s: StoredSettings): void {
+  configureOpenAiEndpoints({
+    chatBase: s.openaiBaseUrl,
+    transcriptionBase: s.transcriptionBaseUrl
+  })
+}
+
+function storedBaseUrl(raw: unknown): string {
+  if (typeof raw !== 'string') return ''
+  return raw.trim().replace(/\/$/, '')
+}
+
 function load(): StoredSettings {
   if (cache) return cache
   try {
@@ -75,6 +92,8 @@ function load(): StoredSettings {
       cache = {
         ...DEFAULTS,
         ...parsed,
+        openaiBaseUrl: storedBaseUrl(parsed.openaiBaseUrl),
+        transcriptionBaseUrl: storedBaseUrl(parsed.transcriptionBaseUrl),
         // Nested objects: merge so settings saved before new fields stay valid.
         branding: {
           ...DEFAULT_BRANDING,
@@ -83,17 +102,20 @@ function load(): StoredSettings {
         },
         brandVoice: { ...DEFAULT_BRAND_VOICE, ...(parsed.brandVoice ?? {}) }
       }
+      applyEndpoints(cache)
       return cache
     }
   } catch {
     /* corrupted settings fall back to defaults */
   }
   cache = { ...DEFAULTS }
+  applyEndpoints(cache)
   return cache
 }
 
 function persist(s: StoredSettings): void {
   cache = s
+  applyEndpoints(s)
   mkdirSync(app.getPath('userData'), { recursive: true })
   writeFileSync(settingsPath(), JSON.stringify(s, null, 2), 'utf8')
 }
@@ -127,6 +149,7 @@ export function getApiKey(): string {
 
 export async function getSettings(): Promise<AppSettings> {
   const s = load()
+  applyEndpoints(s)
   const key = getApiKey()
   return {
     hasApiKey: key.length > 0,
@@ -135,6 +158,9 @@ export async function getSettings(): Promise<AppSettings> {
     transcriptionModel: s.transcriptionModel,
     transcriptionLanguage: s.transcriptionLanguage,
     analysisModel: s.analysisModel,
+    openaiBaseUrl: s.openaiBaseUrl,
+    transcriptionBaseUrl: s.transcriptionBaseUrl,
+    openaiBaseUrlFromEnv: Boolean(process.env.OPENAI_BASE_URL?.trim()),
     encoder: s.encoder,
     quality: s.quality,
     gpu: await getGpuStatus(),
@@ -198,6 +224,10 @@ export async function updateSettings(update: SettingsUpdate): Promise<AppSetting
   }
   if (update.analysisModel !== undefined && update.analysisModel.trim()) {
     s.analysisModel = update.analysisModel.trim()
+  }
+  if (update.openaiBaseUrl !== undefined) s.openaiBaseUrl = storedBaseUrl(update.openaiBaseUrl)
+  if (update.transcriptionBaseUrl !== undefined) {
+    s.transcriptionBaseUrl = storedBaseUrl(update.transcriptionBaseUrl)
   }
   if (update.encoder !== undefined) s.encoder = update.encoder
   if (update.quality !== undefined) s.quality = update.quality
