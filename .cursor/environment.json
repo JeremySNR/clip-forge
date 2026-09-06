@@ -1,0 +1,4 @@
+{
+  "name": "ClipForge",
+  "install": "npm ci"
+}
