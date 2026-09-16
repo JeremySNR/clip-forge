@@ -1,0 +1,1557 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>ClipForge — brag</title>
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/audio-data.js"></script>
+    <style>
+      @font-face {
+        font-family: "Bricolage Grotesque";
+        src: url("assets/fonts/BricolageGrotesque.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Instrument Sans";
+        src: url("assets/fonts/InstrumentSans.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "JetBrains Mono";
+        src: url("assets/fonts/JetBrainsMono.woff2") format("woff2");
+        font-weight: 100 900;
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Poppins";
+        src: url("assets/fonts/Poppins-Bold.ttf") format("truetype");
+        font-weight: 700;
+        font-display: block;
+      }
+
+      /* Palette lifted verbatim from docs/index.html :root in the ClipForge repo. */
+      :root {
+        --black: #0a0a0a;
+        --raise: #101211;
+        --panel: #151817;
+        --panel-2: #1b1f1e;
+        --white: #f4f6f5;
+        --grey: #a9b2ae;
+        --dim: #8d9591;
+        --accent: #8b5cf6;
+        --accent-lift: #a78bfa;
+        --score: #34d399;
+        --hl: #ffd400;
+        --line: rgba(244, 246, 245, 0.1);
+        --line-strong: rgba(244, 246, 245, 0.2);
+        --display: "Bricolage Grotesque", sans-serif;
+        --body: "Instrument Sans", sans-serif;
+        --mono: "JetBrains Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--black);
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--black);
+        color: var(--white);
+        font-family: var(--body);
+      }
+
+      /* ---------- persistent background layer (untimed) ---------- */
+      #bg {
+        position: absolute;
+        inset: 0;
+      }
+      #bg-glow {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        width: 2400px;
+        height: 1700px;
+        margin-left: -1200px;
+        margin-top: -850px;
+        background: radial-gradient(
+          closest-side,
+          rgba(139, 92, 246, 0.5) 0%,
+          rgba(139, 92, 246, 0.14) 45%,
+          rgba(139, 92, 246, 0) 72%
+        );
+        opacity: 0.18;
+      }
+      /* Aspect-ratio ghosts: a 16:9 source with a 9:16 crop standing inside it. */
+      #bg-wide {
+        position: absolute;
+        right: 64px;
+        bottom: 44px;
+        width: 620px;
+        height: 349px;
+        border: 3px solid rgba(139, 92, 246, 0.16);
+        border-radius: 14px;
+      }
+      #bg-tall {
+        position: absolute;
+        right: 268px;
+        bottom: 26px;
+        width: 216px;
+        height: 384px;
+        border: 3px solid rgba(244, 246, 245, 0.12);
+        border-radius: 12px;
+      }
+      #bg-rule-t,
+      #bg-rule-b {
+        position: absolute;
+        left: 96px;
+        right: 96px;
+        height: 2px;
+        background: var(--line);
+      }
+      #bg-rule-t {
+        top: 74px;
+      }
+      #bg-rule-b {
+        bottom: 74px;
+      }
+      /* Film grain — the same fractalNoise treatment the ClipForge site uses. */
+      #bg-grain {
+        position: absolute;
+        inset: 0;
+        opacity: 0.5;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+
+      /* ---------- shared type ---------- */
+      .eyebrow {
+        font-family: var(--mono);
+        font-weight: 500;
+        font-size: 21px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--dim);
+      }
+      .eyebrow.on {
+        color: var(--accent-lift);
+      }
+      .dsp {
+        font-family: var(--display);
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 0.98;
+      }
+
+      /* ---------- the recording stage (1080x608 design unit) ---------- */
+      .stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1080px;
+        height: 608px;
+        overflow: hidden;
+        background: #0d100f;
+      }
+      .st-wall {
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(closest-side at 14% 32%, rgba(139, 92, 246, 0.34), rgba(139, 92, 246, 0) 72%),
+          radial-gradient(closest-side at 86% 36%, rgba(167, 139, 250, 0.2), rgba(167, 139, 250, 0) 72%),
+          radial-gradient(118% 92% at 50% 22%, #262d29 0%, #171b19 46%, #0c0e0d 100%);
+      }
+      .st-table {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 122px;
+        background: #121614;
+        border-top: 2px solid rgba(244, 246, 245, 0.07);
+      }
+      .st-person {
+        position: absolute;
+        bottom: 96px;
+      }
+      .st-person .hd {
+        display: block;
+        width: 96px;
+        height: 96px;
+        border-radius: 50%;
+        margin: 0 auto 14px;
+      }
+      .st-person .bd {
+        display: block;
+        width: 196px;
+        height: 170px;
+        border-radius: 92px 92px 26px 26px;
+      }
+      .st-person.a {
+        left: 290px;
+      }
+      .st-person.a .hd {
+        background: #4a5564;
+      }
+      .st-person.a .bd {
+        background: #333c46;
+      }
+      .st-person.b {
+        left: 602px;
+      }
+      .st-person.b .hd {
+        background: #594b66;
+      }
+      .st-person.b .bd {
+        background: #40374d;
+      }
+      .st-mic {
+        position: absolute;
+        bottom: 104px;
+        width: 26px;
+        height: 62px;
+        border-radius: 13px;
+        background: #232830;
+        border: 2px solid rgba(244, 246, 245, 0.08);
+      }
+      .st-mic.a {
+        left: 452px;
+      }
+      .st-mic.b {
+        left: 616px;
+      }
+      .st-focus {
+        position: absolute;
+        border: 3px solid var(--accent);
+        border-radius: 10px;
+        box-shadow: 0 0 34px rgba(139, 92, 246, 0.4);
+      }
+      .st-focus.on-a {
+        left: 228px;
+        top: 208px;
+        width: 320px;
+        height: 262px;
+      }
+      .st-focus.on-b {
+        left: 540px;
+        top: 208px;
+        width: 320px;
+        height: 262px;
+      }
+
+      /* ---------- scene 1 ---------- */
+      #s1-copy {
+        position: absolute;
+        left: 120px;
+        top: 372px;
+        width: 600px;
+      }
+      #s1-copy .l {
+        font-size: 82px;
+      }
+      #s1-lineB {
+        color: var(--accent-lift);
+      }
+      #s1-note {
+        position: absolute;
+        left: 122px;
+        top: 620px;
+        width: 560px;
+        font-size: 26px;
+        line-height: 1.45;
+        color: var(--grey);
+      }
+      #s1-zone {
+        position: absolute;
+        left: 762px;
+        top: 236px;
+        width: 1058px;
+        height: 608px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #s1-frame {
+        position: relative;
+        width: 1058px;
+        height: 596px;
+        overflow: hidden;
+        border-radius: 16px;
+        border: 2px solid var(--line-strong);
+        background: #0d100f;
+      }
+      #s1-inner {
+        position: absolute;
+        left: 0;
+        top: -6px;
+        width: 1080px;
+        height: 608px;
+      }
+      #s1-labels {
+        position: absolute;
+        left: 762px;
+        top: 176px;
+        width: 1058px;
+        height: 34px;
+      }
+      #s1-labels .lb {
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+      #s1-lbl9 {
+        color: var(--accent-lift);
+      }
+
+      /* ---------- scene 2 ---------- */
+      #s2-wrap {
+        position: absolute;
+        left: 160px;
+        top: 300px;
+        width: 1600px;
+      }
+      #s2-lock {
+        display: flex;
+        align-items: center;
+        gap: 34px;
+      }
+      #s2-mark {
+        width: 132px;
+        height: 132px;
+        border-radius: 30px;
+      }
+      #s2-word {
+        font-size: 138px;
+      }
+      #s2-word .b {
+        color: var(--accent-lift);
+      }
+      #s2-rule {
+        margin-top: 46px;
+        width: 1180px;
+        height: 3px;
+        background: var(--line-strong);
+        transform-origin: left center;
+      }
+      #s2-sub {
+        margin-top: 42px;
+        font-size: 44px;
+        font-weight: 500;
+        color: var(--grey);
+        letter-spacing: -0.01em;
+      }
+      #s2-meta {
+        margin-top: 34px;
+        display: flex;
+        gap: 46px;
+      }
+
+      /* ---------- app window chrome (scenes 3 + 4) ---------- */
+      .win {
+        position: absolute;
+        left: 110px;
+        top: 96px;
+        width: 1700px;
+        height: 888px;
+        border-radius: 20px;
+        border: 2px solid var(--line);
+        background: var(--raise);
+        overflow: hidden;
+        box-shadow: 0 60px 140px rgba(0, 0, 0, 0.6);
+      }
+      .win-bar {
+        position: relative;
+        height: 74px;
+        border-bottom: 2px solid var(--line);
+        display: flex;
+        align-items: center;
+        padding: 0 30px;
+      }
+      .win-bar .back {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 22px;
+        color: var(--grey);
+      }
+      .win-bar .proj {
+        position: absolute;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 22px;
+        color: var(--white);
+      }
+      .win-bar .gear {
+        margin-left: auto;
+        opacity: 0.55;
+      }
+      .win-body {
+        padding: 40px 48px;
+      }
+
+      /* ---------- scene 3 ---------- */
+      #s3-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 18px;
+      }
+      #s3-head .h {
+        font-size: 58px;
+      }
+      #s3-head .sub {
+        margin-top: 12px;
+        font-size: 25px;
+        color: var(--grey);
+      }
+      #s3-actions {
+        position: absolute;
+        right: 48px;
+        top: 114px;
+        display: flex;
+        gap: 16px;
+      }
+      .btn {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 62px;
+        padding: 0 26px;
+        border-radius: 12px;
+        font-size: 23px;
+        font-weight: 500;
+        border: 2px solid var(--line-strong);
+        color: var(--white);
+        background: var(--panel);
+      }
+      .btn.pri {
+        background: var(--white);
+        color: #0a0a0a;
+        border-color: var(--white);
+      }
+      #s3-cards {
+        position: absolute;
+        left: 48px;
+        top: 246px;
+        display: flex;
+        gap: 34px;
+      }
+      .card {
+        width: 512px;
+        border-radius: 16px;
+        border: 2px solid var(--line);
+        background: var(--panel);
+        overflow: hidden;
+      }
+      .card .thumb {
+        position: relative;
+        width: 508px;
+        height: 286px;
+        overflow: hidden;
+        background: #0d100f;
+      }
+      .card .thumb .scaler {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform: scale(0.4704);
+        transform-origin: 0 0;
+      }
+      .badges {
+        position: absolute;
+        left: 16px;
+        top: 16px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .rank {
+        height: 40px;
+        padding: 0 14px;
+        border-radius: 10px;
+        background: rgba(10, 10, 10, 0.78);
+        border: 2px solid var(--line-strong);
+        font-family: var(--mono);
+        font-size: 19px;
+        display: flex;
+        align-items: center;
+        color: var(--white);
+      }
+      .score {
+        height: 40px;
+        padding: 0 14px 0 10px;
+        border-radius: 10px;
+        background: rgba(10, 10, 10, 0.82);
+        border: 2px solid rgba(52, 211, 153, 0.45);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--score);
+        font-size: 21px;
+        font-weight: 600;
+      }
+      .dur {
+        position: absolute;
+        right: 16px;
+        bottom: 16px;
+        height: 36px;
+        padding: 0 12px;
+        border-radius: 9px;
+        background: rgba(10, 10, 10, 0.8);
+        font-family: var(--mono);
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        color: var(--white);
+      }
+      .card .meta {
+        padding: 24px 24px 26px;
+      }
+      .card .t {
+        font-size: 27px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        min-height: 74px;
+      }
+      .card .d {
+        margin-top: 12px;
+        font-size: 21px;
+        line-height: 1.4;
+        color: var(--grey);
+        min-height: 60px;
+      }
+      .card .tags {
+        margin-top: 14px;
+        font-size: 19px;
+        color: var(--dim);
+      }
+      .card .row {
+        display: flex;
+        gap: 14px;
+        margin-top: 22px;
+      }
+      .card .row .btn {
+        flex: 1;
+        height: 56px;
+        justify-content: center;
+        font-size: 21px;
+      }
+
+      /* ---------- scene 4 ---------- */
+      #s4-preview {
+        position: absolute;
+        left: 60px;
+        top: 130px;
+        width: 424px;
+        height: 754px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #0d100f;
+        border: 2px solid var(--line);
+      }
+      #s4-cam {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1340px;
+        height: 754px;
+      }
+      #s4-cam .scaler {
+        position: absolute;
+        left: 0;
+        top: 0;
+        transform: scale(1.2401);
+        transform-origin: 0 0;
+      }
+      #s4-brand {
+        position: absolute;
+        right: 16px;
+        top: 16px;
+        height: 44px;
+        padding: 0 16px;
+        border-radius: 10px;
+        background: rgba(244, 246, 245, 0.9);
+        color: #0a0a0a;
+        font-family: var(--mono);
+        font-size: 17px;
+        letter-spacing: 0.08em;
+        display: flex;
+        align-items: center;
+      }
+      #s4-caption {
+        position: absolute;
+        left: 22px;
+        right: 22px;
+        bottom: 132px;
+        text-align: center;
+        font-family: "Poppins", sans-serif;
+        font-weight: 700;
+        font-size: 40px;
+        line-height: 1.22;
+        color: #fff;
+        text-shadow: 0 5px 0 rgba(0, 0, 0, 0.5), 0 0 22px rgba(0, 0, 0, 0.85);
+      }
+      #s4-caption2 {
+        position: absolute;
+        left: 22px;
+        right: 22px;
+        bottom: 132px;
+        text-align: center;
+        font-family: "Poppins", sans-serif;
+        font-weight: 700;
+        font-size: 40px;
+        line-height: 1.22;
+        color: #fff;
+        text-shadow: 0 5px 0 rgba(0, 0, 0, 0.5), 0 0 22px rgba(0, 0, 0, 0.85);
+      }
+      #s4-caption .w.hot,
+      #s4-caption2 .w.hot {
+        color: var(--hl);
+      }
+      #s4-pvbar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 62px;
+        background: rgba(10, 10, 10, 0.78);
+        border-top: 2px solid var(--line);
+        display: flex;
+        align-items: center;
+        padding: 0 18px;
+        gap: 14px;
+      }
+      #s4-pvbar .bar {
+        flex: 1;
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(244, 246, 245, 0.16);
+        position: relative;
+        overflow: hidden;
+      }
+      #s4-pvbar .bar i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 42%;
+        background: var(--white);
+        border-radius: 3px;
+      }
+      #s4-pvbar .tc {
+        font-family: var(--mono);
+        font-size: 17px;
+        color: var(--grey);
+      }
+      #s4-claim {
+        position: absolute;
+        left: 112px;
+        top: 32px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      #s4-claim .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      #s4-rail {
+        position: absolute;
+        left: 528px;
+        top: 130px;
+        width: 1112px;
+      }
+      .rail-row {
+        margin-bottom: 14px;
+      }
+      #s4-titlerow {
+        display: flex;
+        align-items: flex-start;
+        gap: 26px;
+      }
+      #s4-titlerow .ct {
+        font-size: 30px;
+        font-weight: 600;
+      }
+      #s4-titlerow .cd {
+        margin-top: 10px;
+        font-size: 21px;
+        color: var(--grey);
+        line-height: 1.4;
+      }
+      #s4-badge {
+        margin-left: auto;
+        width: 214px;
+        height: 92px;
+        border-radius: 14px;
+        border: 2px solid rgba(52, 211, 153, 0.45);
+        background: rgba(52, 211, 153, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+      }
+      #s4-badge .n {
+        font-family: var(--display);
+        font-weight: 800;
+        font-size: 50px;
+        color: var(--score);
+        line-height: 1;
+      }
+      #s4-badge .k {
+        font-family: var(--mono);
+        font-size: 16px;
+        letter-spacing: 0.12em;
+        color: var(--score);
+      }
+      .why {
+        border-radius: 14px;
+        border: 2px solid var(--line);
+        background: var(--panel);
+        padding: 18px 24px;
+        font-size: 22px;
+        line-height: 1.45;
+        color: var(--grey);
+      }
+      .why b {
+        color: var(--white);
+        font-weight: 600;
+      }
+      .sec {
+        font-family: var(--mono);
+        font-size: 17px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--dim);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .strip {
+        height: 64px;
+        border-radius: 12px;
+        border: 2px solid var(--line);
+        overflow: hidden;
+        display: flex;
+        background: #0e1110;
+      }
+      .strip span {
+        flex: 1;
+        border-right: 1px solid rgba(10, 10, 10, 0.8);
+        background: #1e2422;
+      }
+      .strip span.sel {
+        background: #313b35;
+      }
+      .strip span.edge {
+        background: var(--white);
+        flex: 0 0 4px;
+      }
+      .striplab {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 8px;
+        font-family: var(--mono);
+        font-size: 17px;
+        color: var(--dim);
+      }
+      .toggles {
+        display: flex;
+        gap: 14px;
+      }
+      .toggle {
+        flex: 1;
+        height: 68px;
+        border-radius: 12px;
+        border: 2px solid var(--line);
+        background: var(--panel);
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        font-size: 20px;
+        line-height: 1.22;
+        color: var(--white);
+      }
+      .sw {
+        margin-left: auto;
+        width: 62px;
+        height: 34px;
+        border-radius: 17px;
+        background: rgba(244, 246, 245, 0.18);
+        position: relative;
+      }
+      .sw i {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--white);
+      }
+      .sw.on {
+        background: var(--accent);
+      }
+      .sw.on i {
+        left: 32px;
+      }
+      .chips {
+        display: flex;
+        gap: 14px;
+      }
+      .chip {
+        height: 58px;
+        padding: 0 26px;
+        border-radius: 12px;
+        border: 2px solid var(--line);
+        background: var(--panel);
+        color: var(--grey);
+        font-size: 21px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .chip.act {
+        border-color: var(--accent);
+        background: rgba(139, 92, 246, 0.14);
+        color: var(--white);
+      }
+      .capstyles {
+        display: flex;
+        gap: 14px;
+      }
+      .capstyle {
+        flex: 1;
+        height: 70px;
+        border-radius: 12px;
+        border: 2px solid var(--line);
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 20px;
+        gap: 4px;
+      }
+      .capstyle .p {
+        font-family: "Poppins", sans-serif;
+        font-weight: 700;
+        font-size: 24px;
+      }
+      .capstyle .p em {
+        font-style: normal;
+        background: var(--hl);
+        color: #0a0a0a;
+        padding: 0 6px;
+        border-radius: 3px;
+      }
+      .capstyle .p u {
+        text-decoration: none;
+        color: var(--score);
+      }
+      .capstyle .n {
+        font-family: var(--mono);
+        font-size: 16px;
+        color: var(--dim);
+      }
+      #s4-export {
+        height: 68px;
+        border-radius: 12px;
+        background: var(--white);
+        color: #0a0a0a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      #s4-cursor {
+        position: absolute;
+        left: 1180px;
+        top: 700px;
+        width: 40px;
+        height: 46px;
+        opacity: 0;
+      }
+
+      /* ---------- scene 5 ---------- */
+      #s5-top {
+        position: absolute;
+        left: 120px;
+        top: 214px;
+        width: 1680px;
+      }
+      #s5-rule {
+        margin-top: 22px;
+        height: 3px;
+        background: var(--line-strong);
+        transform-origin: left center;
+      }
+      #s5-price {
+        position: absolute;
+        left: 120px;
+        top: 356px;
+        font-size: 268px;
+        line-height: 0.86;
+      }
+      #s5-price .c {
+        font-size: 150px;
+        color: var(--accent-lift);
+        vertical-align: super;
+        letter-spacing: -0.02em;
+      }
+      #s5-priceSub {
+        position: absolute;
+        left: 128px;
+        top: 690px;
+        width: 720px;
+        line-height: 1.5;
+      }
+      #s5-chips {
+        position: absolute;
+        right: 140px;
+        top: 344px;
+        width: 700px;
+      }
+      .nline {
+        display: flex;
+        align-items: center;
+        gap: 26px;
+        margin-bottom: 40px;
+      }
+      .nline .dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: var(--accent);
+        flex: 0 0 18px;
+      }
+      .nline .tx {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 62px;
+        letter-spacing: -0.03em;
+      }
+
+      /* ---------- scene 6 ---------- */
+      #s6-wrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      #s6-lock {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+      }
+      #s6-mark {
+        width: 118px;
+        height: 118px;
+        border-radius: 27px;
+      }
+      #s6-word {
+        font-size: 124px;
+      }
+      #s6-word .b {
+        color: var(--accent-lift);
+      }
+      #s6-sub {
+        margin-top: 40px;
+        font-size: 38px;
+        font-weight: 500;
+        color: var(--grey);
+      }
+      #s6-url {
+        margin-top: 30px;
+        font-family: var(--mono);
+        font-size: 27px;
+        letter-spacing: 0.06em;
+        color: var(--accent-lift);
+      }
+
+      .ico {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="23.4"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- persistent background: untimed, so it needs its own positioning -->
+      <div id="bg">
+        <div id="bg-glow"></div>
+        <div id="bg-wide"></div>
+        <div id="bg-tall"></div>
+        <div id="bg-rule-t"></div>
+        <div id="bg-rule-b"></div>
+        <div id="bg-grain"></div>
+      </div>
+
+      <!-- ============================ SCENE 1 — hook ============================ -->
+      <section id="s1" class="clip" data-start="0" data-duration="3.4" data-track-index="0">
+        <div id="s1-copy">
+          <div id="s1-lineA" class="dsp l">Wide video in.</div>
+          <div id="s1-lineB" class="dsp l">Vertical clips out.</div>
+        </div>
+        <div id="s1-note">Podcasts, webinars, streams and interviews — cut, cropped and captioned on your own machine.</div>
+
+        <div id="s1-labels">
+          <div id="s1-lbl16" class="eyebrow lb">Source — 16:9</div>
+          <div id="s1-lbl9" class="eyebrow lb">Clip — 9:16</div>
+        </div>
+
+        <div id="s1-zone">
+          <div id="s1-frame">
+            <div id="s1-inner" data-layout-allow-overflow="true">
+              <div class="stage">
+                <div class="st-wall"></div>
+                <div class="st-table"></div>
+                <div class="st-person a"><span class="hd"></span><span class="bd"></span></div>
+                <div class="st-person b"><span class="hd"></span><span class="bd"></span></div>
+                <div class="st-mic a"></div>
+                <div class="st-mic b"></div>
+                <div id="s1-focus" class="st-focus on-a"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ SCENE 2 — reveal ============================ -->
+      <section id="s2" class="clip" data-start="3.4" data-duration="3.4" data-track-index="1">
+        <div id="s2-wrap">
+          <div id="s2-eyebrow" class="eyebrow on">Open-source video clipper</div>
+          <div id="s2-lock" style="margin-top: 30px">
+            <img id="s2-mark" src="assets/icon.png" alt="ClipForge icon" />
+            <div id="s2-word" class="dsp">Clip<span class="b">Forge</span></div>
+          </div>
+          <div id="s2-rule"></div>
+          <div id="s2-sub">The open-source Opus Clip alternative that runs on your desktop.</div>
+          <div id="s2-meta">
+            <span class="eyebrow">MIT licensed</span>
+            <span class="eyebrow">v0.8.0</span>
+            <span class="eyebrow">macOS · Windows · Linux</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ SCENE 3 — the clips grid ============================ -->
+      <section id="s3" class="clip" data-start="6.8" data-duration="4.6" data-track-index="2">
+        <div id="s3-win" class="win">
+          <div class="win-bar">
+            <div class="back">
+              <svg class="ico" width="12" height="20" viewBox="0 0 12 20" fill="none">
+                <path d="M10 2L2 10l8 8" stroke="#a9b2ae" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              Home
+            </div>
+            <div class="proj">Demo: creator growth podcast</div>
+            <svg class="ico gear" width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="3.4" stroke="#a9b2ae" stroke-width="2" />
+              <circle cx="12" cy="12" r="8.4" stroke="#a9b2ae" stroke-width="2" stroke-dasharray="3 3" />
+            </svg>
+          </div>
+
+          <div class="win-body">
+            <div id="s3-head">
+              <svg class="ico" width="40" height="40" viewBox="0 0 24 24" fill="none" style="margin-top: 10px">
+                <path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9L12 2.5z" fill="#a78bfa" />
+                <path d="M19 15l.9 2.6 2.6.9-2.6.9L19 22l-.9-2.6-2.6-.9 2.6-.9L19 15z" fill="#a78bfa" opacity=".7" />
+              </svg>
+              <div>
+                <div class="h dsp">4 clips found</div>
+                <div class="sub">Ranked by virality score. Open a clip to trim, reframe and style captions before exporting.</div>
+              </div>
+            </div>
+
+            <div id="s3-actions">
+              <div class="btn">
+                <svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 12a8 8 0 1 1-2.4-5.7M20 4v4h-4" stroke="#f4f6f5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Regenerate
+              </div>
+              <div class="btn pri">
+                <svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 19h16" stroke="#0a0a0a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Export all
+              </div>
+            </div>
+
+            <div id="s3-cards">
+              <div id="card1" class="card">
+                <div class="thumb">
+                  <div class="scaler">
+                    <div class="stage">
+                      <div class="st-wall"></div>
+                      <div class="st-table"></div>
+                      <div class="st-person a"><span class="hd"></span><span class="bd"></span></div>
+                      <div class="st-person b"><span class="hd"></span><span class="bd"></span></div>
+                      <div class="st-mic a"></div>
+                      <div class="st-mic b"></div>
+                      <div class="st-focus on-a"></div>
+                    </div>
+                  </div>
+                  <div class="badges">
+                    <div class="rank">#1</div>
+                    <div id="c1-score" class="score">
+                      <svg class="ico" width="17" height="21" viewBox="0 0 16 20" fill="none">
+                        <path d="M8 .8S3 5.2 3 10.4a5 5 0 0 0 10 0C13 7.6 10.6 5 8 .8z" fill="#34d399" />
+                      </svg>
+                      91
+                    </div>
+                  </div>
+                  <div class="dur">0:24</div>
+                </div>
+                <div class="meta">
+                  <div class="t">One clip changes everything overnight</div>
+                  <div class="d">The turning point every consistent creator eventually hits, and why it feels sudden.</div>
+                  <div class="tags">#creator #growth #contentstrategy</div>
+                  <div class="row">
+                    <div class="btn">Edit</div>
+                    <div class="btn pri">Export</div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="card2" class="card">
+                <div class="thumb">
+                  <div class="scaler">
+                    <div class="stage">
+                      <div class="st-wall"></div>
+                      <div class="st-table"></div>
+                      <div class="st-person a"><span class="hd"></span><span class="bd"></span></div>
+                      <div class="st-person b"><span class="hd"></span><span class="bd"></span></div>
+                      <div class="st-mic a"></div>
+                      <div class="st-mic b"></div>
+                      <div class="st-focus on-b"></div>
+                    </div>
+                  </div>
+                  <div class="badges">
+                    <div class="rank">#2</div>
+                    <div id="c2-score" class="score">
+                      <svg class="ico" width="17" height="21" viewBox="0 0 16 20" fill="none">
+                        <path d="M8 .8S3 5.2 3 10.4a5 5 0 0 0 10 0C13 7.6 10.6 5 8 .8z" fill="#34d399" />
+                      </svg>
+                      84
+                    </div>
+                  </div>
+                  <div class="dur">0:18</div>
+                </div>
+                <div class="meta">
+                  <div class="t">The first 100 videos are practice</div>
+                  <div class="d">A blunt reframe of early content as reps, not results.</div>
+                  <div class="tags">#contentcreator #mindset #audience</div>
+                  <div class="row">
+                    <div class="btn">Edit</div>
+                    <div class="btn pri">Export</div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="card3" class="card">
+                <div class="thumb">
+                  <div class="scaler">
+                    <div class="stage">
+                      <div class="st-wall"></div>
+                      <div class="st-table"></div>
+                      <div class="st-person a"><span class="hd"></span><span class="bd"></span></div>
+                      <div class="st-person b"><span class="hd"></span><span class="bd"></span></div>
+                      <div class="st-mic a"></div>
+                      <div class="st-mic b"></div>
+                      <div class="st-focus on-a"></div>
+                    </div>
+                  </div>
+                  <div class="badges">
+                    <div class="rank">#3</div>
+                    <div id="c3-score" class="score">
+                      <svg class="ico" width="17" height="21" viewBox="0 0 16 20" fill="none">
+                        <path d="M8 .8S3 5.2 3 10.4a5 5 0 0 0 10 0C13 7.6 10.6 5 8 .8z" fill="#34d399" />
+                      </svg>
+                      76
+                    </div>
+                  </div>
+                  <div class="dur">0:18</div>
+                </div>
+                <div class="meta">
+                  <div class="t">The algorithm is not against you</div>
+                  <div class="d">Why the algorithm ignores new creators and how to feed it evidence.</div>
+                  <div class="tags">#algorithm #shorts #tiktokgrowth</div>
+                  <div class="row">
+                    <div class="btn">Edit</div>
+                    <div class="btn pri">Export</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ SCENE 4 — the editor ============================ -->
+      <section id="s4" class="clip" data-start="11.4" data-duration="5.2" data-track-index="3">
+        <div id="s4-win" class="win">
+          <div class="win-bar">
+            <div class="back">
+              <svg class="ico" width="12" height="20" viewBox="0 0 12 20" fill="none">
+                <path d="M10 2L2 10l8 8" stroke="#a9b2ae" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+              All clips
+            </div>
+            <div class="proj">Demo: creator growth podcast</div>
+            <svg class="ico gear" width="26" height="26" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="3.4" stroke="#a9b2ae" stroke-width="2" />
+              <circle cx="12" cy="12" r="8.4" stroke="#a9b2ae" stroke-width="2" stroke-dasharray="3 3" />
+            </svg>
+          </div>
+
+          <div id="s4-preview">
+            <div id="s4-cam" data-layout-allow-overflow="true">
+              <div class="scaler">
+                <div class="stage">
+                  <div class="st-wall"></div>
+                  <div class="st-table"></div>
+                  <div class="st-person a"><span class="hd"></span><span class="bd"></span></div>
+                  <div class="st-person b"><span class="hd"></span><span class="bd"></span></div>
+                  <div class="st-mic a"></div>
+                  <div class="st-mic b"></div>
+                </div>
+              </div>
+            </div>
+            <div id="s4-focus" class="st-focus" style="left: 96px; top: 262px; width: 258px; height: 298px"></div>
+            <div id="s4-brand">My brand</div>
+            <div id="s4-caption" data-layout-allow-caption-zone="true">
+              <span class="w" id="cw0">This </span><span class="w" id="cw1">is </span><span class="w" id="cw2">how </span><span class="w" id="cw3">creators </span><span class="w" id="cw4">actually </span><span class="w" id="cw5">blow </span><span class="w" id="cw6">up…</span>
+            </div>
+            <div id="s4-caption2" data-layout-allow-caption-zone="true">
+              <span class="w" id="dw0">and </span><span class="w" id="dw1">it </span><span class="w" id="dw2">isn't </span><span class="w" id="dw3">luck.</span>
+            </div>
+            <div id="s4-pvbar">
+              <svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M7 4l13 8-13 8V4z" fill="#f4f6f5" />
+              </svg>
+              <div class="bar"><i></i></div>
+              <div class="tc">0:10.1 / 0:24.0</div>
+            </div>
+          </div>
+
+          <div id="s4-rail">
+            <div id="s4-titlerow" class="rail-row s4-item">
+              <div>
+                <div class="ct">One clip changes everything overnight</div>
+                <div class="cd">The turning point every consistent creator eventually hits, and why it feels sudden.</div>
+              </div>
+              <div id="s4-badge">
+                <div class="n">91</div>
+                <div class="k">Exceptional</div>
+              </div>
+            </div>
+
+            <div class="rail-row s4-item">
+              <div class="why"><b>Why this score:</b> Strong curiosity hook, emotionally resonant payoff and a complete standalone arc.</div>
+            </div>
+
+            <div class="rail-row s4-item">
+              <div class="sec">
+                <svg class="ico" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 3l12 18M18 3L6 21" stroke="#8d9591" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                Trim
+              </div>
+              <div class="strip">
+                <span></span><span></span><span></span><span class="edge"></span><span class="sel"></span><span class="sel"></span><span class="sel"></span><span class="sel"></span><span class="edge"></span><span></span><span></span><span></span>
+              </div>
+              <div class="striplab"><span>In 0:14.0</span><span>0:24.0 long</span><span>Out 0:38.0</span></div>
+            </div>
+
+            <div class="rail-row s4-item">
+              <div class="toggles">
+                <div class="toggle">Tighten cuts — remove pauses and filler words<span class="sw on"><i></i></span></div>
+                <div class="toggle">Auto zoom — punch-ins on emphasis<span class="sw on"><i></i></span></div>
+              </div>
+            </div>
+
+            <div class="rail-row s4-item">
+              <div class="sec">Layout</div>
+              <div class="chips">
+                <div class="chip act">9:16</div>
+                <div class="chip">1:1</div>
+                <div class="chip">16:9</div>
+                <div class="chip act">
+                  <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" stroke="#f4f6f5" stroke-width="2" stroke-linecap="round" />
+                    <circle cx="12" cy="12" r="3" stroke="#a78bfa" stroke-width="2" />
+                  </svg>
+                  Auto (AI faces)
+                </div>
+              </div>
+            </div>
+
+            <div class="rail-row s4-item">
+              <div class="sec">Captions</div>
+              <div class="capstyles">
+                <div class="capstyle">
+                  <div class="p">So I <em>said</em></div>
+                  <div class="n">Beast</div>
+                </div>
+                <div class="capstyle">
+                  <div class="p">so I <u>said</u></div>
+                  <div class="n">Karaoke</div>
+                </div>
+                <div class="capstyle">
+                  <div class="p">So I said</div>
+                  <div class="n">Minimal</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rail-row s4-item">
+              <div id="s4-export">
+                <svg class="ico" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 3v12m0 0l-4.5-4.5M12 15l4.5-4.5M4 19h16" stroke="#0a0a0a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Export
+              </div>
+            </div>
+          </div>
+
+          <svg id="s4-cursor" viewBox="0 0 24 28" fill="none">
+            <path d="M2 1.5l17 11-7.2 1.4 4 8.3-3.6 1.8-4-8.4L2 21V1.5z" fill="#f4f6f5" stroke="#0a0a0a" stroke-width="1.6" stroke-linejoin="round" />
+          </svg>
+        </div>
+
+        <div id="s4-claim">
+          <span class="dot"></span>
+          <span class="eyebrow on">The crop follows the voice, not the movement</span>
+        </div>
+      </section>
+
+      <!-- ============================ SCENE 5 — the price ============================ -->
+      <section id="s5" class="clip" data-start="16.6" data-duration="4.15" data-track-index="4">
+        <div id="s5-top">
+          <div id="s5-eyebrow" class="eyebrow">The trade</div>
+          <div id="s5-rule"></div>
+        </div>
+        <div id="s5-price" class="dsp"><span class="c">$</span>0.36</div>
+        <div id="s5-priceSub" class="eyebrow">Per hour of video, paid to OpenAI directly</div>
+        <div id="s5-chips">
+          <div id="n1" class="nline"><span class="dot"></span><span class="tx">No subscription.</span></div>
+          <div id="n2" class="nline"><span class="dot"></span><span class="tx">No uploads.</span></div>
+          <div id="n3" class="nline"><span class="dot"></span><span class="tx">No cap.</span></div>
+        </div>
+      </section>
+
+      <!-- ============================ SCENE 6 — outro ============================ -->
+      <section id="s6" class="clip" data-start="20.75" data-duration="2.65" data-track-index="5">
+        <div id="s6-wrap">
+          <div id="s6-lock">
+            <img id="s6-mark" src="assets/icon-outro.png" alt="ClipForge icon" />
+            <div id="s6-word" class="dsp">Clip<span class="b">Forge</span></div>
+          </div>
+          <div id="s6-sub">MIT licensed. Your machine. Your footage.</div>
+          <div id="s6-url">github.com/JeremySNR/clip-forge</div>
+        </div>
+      </section>
+
+      <!-- ============================ audio ============================ -->
+      <audio
+        id="bgm"
+        data-start="0"
+        data-duration="23.4"
+        data-track-index="10"
+        data-volume="0.3"
+        src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"
+      ></audio>
+      <audio id="sfx-crush" data-start="1.3" data-duration="0.12" data-track-index="11" data-volume="0.62" src="assets/sfx/impact/impactSoft_medium_000.ogg"></audio>
+      <audio id="sfx-card1" data-start="7.09" data-duration="0.69" data-track-index="12" data-volume="0.4" src="assets/sfx/casino/card-place-1.ogg"></audio>
+      <audio id="sfx-card2" data-start="8.19" data-duration="0.46" data-track-index="13" data-volume="0.4" src="assets/sfx/casino/card-place-2.ogg"></audio>
+      <audio id="sfx-card3" data-start="9.29" data-duration="0.88" data-track-index="14" data-volume="0.48" src="assets/sfx/casino/card-place-3.ogg"></audio>
+      <audio id="sfx-badge" data-start="13.11" data-duration="0.11" data-track-index="15" data-volume="0.5" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio id="sfx-cut" data-start="13.64" data-duration="0.1" data-track-index="16" data-volume="0.42" src="assets/sfx/interface/click_001.ogg"></audio>
+      <audio id="sfx-click" data-start="15.72" data-duration="0.1" data-track-index="17" data-volume="0.46" src="assets/sfx/interface/click_001.ogg"></audio>
+      <audio id="sfx-bell" data-start="20.75" data-duration="1.48" data-track-index="18" data-volume="0.5" src="assets/sfx/impact/impactBell_heavy_000.ogg"></audio>
+    </div>
+
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var OUT = "power3.out";
+
+        /* ---------------- scene 1 — hook (0 → 3.4) ---------------- */
+        tl.fromTo("#s1-frame", { opacity: 0, scale: 0.965 }, { opacity: 1, scale: 1, duration: 0.55, ease: OUT }, 0.1);
+        tl.fromTo("#s1-lbl16", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power2.out" }, 0.42);
+        tl.set("#s1-lbl9", { opacity: 0 }, 0);
+        tl.fromTo("#s1-lineA", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: OUT }, 0.5);
+        tl.fromTo("#s1-focus", { opacity: 0, scale: 1.16 }, { opacity: 1, scale: 1, duration: 0.26, ease: "power4.out" }, 0.88);
+        tl.fromTo("#s1-note", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 1.0);
+
+        /* the crush: 16:9 → 9:16, camera holding the speaker centred */
+        tl.to("#s1-frame", { width: 336, duration: 0.56, ease: "power3.inOut" }, 1.32);
+        tl.to("#s1-inner", { x: -220, duration: 0.56, ease: "power3.inOut" }, 1.32);
+        tl.to("#s1-focus", { opacity: 0, duration: 0.34, ease: "power2.out" }, 1.44);
+        tl.to("#s1-lbl16", { opacity: 0, duration: 0.24 }, 1.42);
+        tl.to("#s1-lbl9", { opacity: 1, duration: 0.3 }, 1.74);
+        tl.fromTo("#s1-lineB", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.5, ease: OUT }, 1.76);
+
+        /* ---------------- scene 2 — reveal (3.4 → 6.8) ---------------- */
+        tl.fromTo("#s2-eyebrow", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, ease: OUT }, 3.5);
+        tl.fromTo("#s2-mark", { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 0.55, ease: OUT }, 3.54);
+        tl.fromTo("#s2-word", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.6, ease: OUT }, 3.6);
+        tl.fromTo("#s2-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "power3.inOut" }, 3.72);
+        tl.fromTo("#s2-sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: OUT }, 3.8);
+        tl.fromTo("#s2-meta", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 4.25);
+
+        /* ---------------- scene 3 — clips grid (6.8 → 11.4) ---------------- */
+        tl.fromTo("#s3-win", { opacity: 0, y: 26, scale: 0.988 }, { opacity: 1, y: 0, scale: 1, duration: 0.5, ease: OUT }, 6.82);
+        tl.fromTo("#s3-head", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.45, ease: OUT }, 6.96);
+        tl.fromTo("#s3-actions", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, ease: OUT }, 7.02);
+
+        /* // beat-grid: card 1 at 7.09s, card 2 at 8.19s, card 3 at 9.29s (every other beat, ~1.1s apart so each title is readable) */
+        /* // beat-locked: 9.29s (strongCue 0.97) */
+        [
+          ["#card1", "#c1-score", 7.09],
+          ["#card2", "#c2-score", 8.19],
+          ["#card3", "#c3-score", 9.29],
+        ].forEach(function (row) {
+          tl.fromTo(row[0], { opacity: 0, y: 48, scale: 0.975 }, { opacity: 1, y: 0, scale: 1, duration: 0.46, ease: OUT }, row[2]);
+          tl.fromTo(row[1], { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.32, ease: "power4.out" }, row[2] + 0.16);
+        });
+
+        /* ---------------- scene 4 — the editor (11.4 → 16.6) ---------------- */
+        tl.fromTo("#s4-win", { opacity: 0, scale: 0.99 }, { opacity: 1, scale: 1, duration: 0.45, ease: OUT }, 11.42);
+        tl.fromTo("#s4-preview", { opacity: 0, x: -34 }, { opacity: 1, x: 0, duration: 0.5, ease: OUT }, 11.5);
+        tl.fromTo(".s4-item", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.075, ease: OUT }, 11.56);
+        tl.set("#s4-cam", { x: -256 }, 11.4);
+        tl.set("#s4-focus", { opacity: 0 }, 11.4);
+        tl.to("#s4-focus", { opacity: 1, duration: 0.3 }, 11.78);
+
+        /* karaoke word highlighting — the caption burning in, word by word */
+        var words = ["#cw0", "#cw1", "#cw2", "#cw3", "#cw4", "#cw5", "#cw6"];
+        var wordTimes = [12.0, 12.22, 12.44, 12.68, 12.98, 13.26, 13.48];
+        words.forEach(function (w, i) {
+          tl.set(w, { className: "w hot" }, wordTimes[i]);
+          tl.set(w, { className: "w" }, i === words.length - 1 ? 13.62 : wordTimes[i + 1]);
+        });
+
+        /* // beat-locked: 13.11s (strongCue 0.98) — the score badge lands on the strongest hit in the scene */
+        tl.fromTo("#s4-badge", { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1, duration: 0.34, ease: "power4.out" }, 13.11);
+
+        /* the crop cuts to the other speaker like a camera switch — a hard cut, not a slide */
+        tl.set("#s4-cam", { x: -636 }, 13.64);
+        tl.set("#s4-focus", { left: 104, top: 262, opacity: 0.25 }, 13.64);
+        tl.to("#s4-focus", { opacity: 1, duration: 0.18, ease: "power2.out" }, 13.66);
+        tl.set("#s4-caption", { opacity: 0 }, 13.66);
+
+        /* the second speaker's line, captioned the same way */
+        tl.set("#s4-caption2", { opacity: 0 }, 11.4);
+        tl.set("#s4-caption2", { opacity: 1 }, 13.92);
+        var words2 = ["#dw0", "#dw1", "#dw2", "#dw3"];
+        var word2Times = [13.96, 14.18, 14.42, 14.72];
+        words2.forEach(function (w, i) {
+          tl.set(w, { className: "w hot" }, word2Times[i]);
+          tl.set(w, { className: "w" }, i === words2.length - 1 ? 15.04 : word2Times[i + 1]);
+        });
+
+        tl.fromTo("#s4-claim", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.45, ease: OUT }, 13.88);
+
+        /* simulated export click */
+        tl.set("#s4-cursor", { x: 0, y: 0 }, 11.4);
+        tl.fromTo("#s4-cursor", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 15.15);
+        tl.to("#s4-cursor", { x: -100, y: 132, duration: 0.5, ease: "power2.inOut" }, 15.2);
+        tl.to("#s4-cursor", { scale: 0.84, duration: 0.1, ease: "power2.in" }, 15.72);
+        tl.to("#s4-cursor", { scale: 1, duration: 0.14, ease: "power2.out" }, 15.82);
+        tl.fromTo("#s4-export", { backgroundColor: "#f4f6f5" }, { backgroundColor: "#a78bfa", duration: 0.12 }, 15.72);
+        tl.to("#s4-export", { backgroundColor: "#f4f6f5", duration: 0.3 }, 15.9);
+
+        /* ---------------- scene 5 — the price (16.6 → 20.75) ---------------- */
+        tl.fromTo("#s5-eyebrow", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: OUT }, 16.68);
+        tl.fromTo("#s5-rule", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power3.inOut" }, 16.72);
+        /* // beat-locked: 17.47s (strongCue 0.99) — the number lands on the payoff hit */
+        tl.fromTo("#s5-price", { opacity: 0, y: 44 }, { opacity: 1, y: 0, duration: 0.55, ease: OUT }, 17.47);
+        tl.fromTo("#s5-priceSub", { opacity: 0 }, { opacity: 1, duration: 0.45 }, 17.8);
+        /* // beat-grid: 18.02s, 18.56s, 19.10s */
+        [
+          ["#n1", 18.02],
+          ["#n2", 18.56],
+          ["#n3", 19.1],
+        ].forEach(function (row) {
+          tl.fromTo(row[0], { opacity: 0, x: 34 }, { opacity: 1, x: 0, duration: 0.42, ease: OUT }, row[1]);
+        });
+
+        /* ---------------- scene 6 — outro (20.75 → 23.4) ---------------- */
+        /* // beat-locked: 20.75s — the wordmark lands with the closing bell */
+        tl.fromTo("#s6-lock", { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.55, ease: OUT }, 20.75);
+        tl.fromTo("#s6-sub", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 21.25);
+        tl.fromTo("#s6-url", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: OUT }, 21.72);
+
+        /* ---------------- ambient background motion (finite repeats) ---------------- */
+        tl.fromTo("#bg-wide", { opacity: 0.7, x: 0 }, { opacity: 1, x: -22, duration: 5.9, repeat: 3, yoyo: true, ease: "sine.inOut" }, 0);
+        tl.fromTo("#bg-tall", { opacity: 0.55, y: 0 }, { opacity: 1, y: -18, duration: 6.7, repeat: 3, yoyo: true, ease: "sine.inOut" }, 0);
+        tl.fromTo("#bg-rule-t", { scaleX: 0.97 }, { scaleX: 1, duration: 7.8, repeat: 2, yoyo: true, ease: "sine.inOut" }, 0);
+
+        /* ---------------- music bed: fade in, then fade under the outro ---------------- */
+        tl.fromTo("#bgm", { volume: 0 }, { volume: 0.3, duration: 0.7, ease: "power1.out" }, 0);
+        tl.to("#bgm", { volume: 0, duration: 1.7, ease: "power1.in" }, 20.9);
+
+        /* ---------------- audio-reactive: the violet accent breathes with the bed ---------------- */
+        var glow = document.getElementById("bg-glow");
+        var mark = document.getElementById("s2-mark");
+        var preview = document.getElementById("s4-preview");
+
+        function applyAudio(i) {
+          var r = AUDIO_DATA.rms[i];
+          var b = AUDIO_DATA.bass[i];
+          var t = AUDIO_DATA.treble[i];
+          glow.style.opacity = (0.13 + r * 0.2).toFixed(3);
+          glow.style.transform = "scale(" + (1 + b * 0.09).toFixed(3) + ")";
+          mark.style.filter = "drop-shadow(0 0 " + (16 + t * 40).toFixed(1) + "px rgba(139,92,246," + (0.22 + t * 0.34).toFixed(2) + "))";
+          preview.style.boxShadow = "0 30px 90px rgba(0,0,0,.6), 0 0 " + (26 + b * 62).toFixed(0) + "px rgba(139,92,246," + (0.1 + b * 0.16).toFixed(2) + ")";
+        }
+        for (var f = 0; f < AUDIO_DATA.totalFrames; f++) {
+          tl.call(
+            (function (frame) {
+              return function () {
+                applyAudio(frame);
+              };
+            })(f),
+            [],
+            f / AUDIO_DATA.fps
+          );
+        }
+
+        window.__timelines["main"] = tl;
+        tl.seek(0);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+ClipForge: the open-source Opus Clip alternative that runs on your desktop.
+
+Wide video in, vertical clips out — AI-picked moments scored 0-99, karaoke captions burned in, and a crop that follows the voice, not the movement. Roughly $0.36 an hour of video, paid to OpenAI directly.
+
+No subscription. No uploads. No cap. MIT licensed: github.com/JeremySNR/clip-forge
