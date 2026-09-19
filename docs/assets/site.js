@@ -96,9 +96,13 @@ function selectPlatform(platform) {
 }
 platformButtons.forEach((button) => button.addEventListener('click', () => selectPlatform(button.dataset.platform)));
 // Keep mobile browsers generic: their users need a desktop installer.
-if (!/Android|iPhone|iPad/i.test(navigator.userAgent)) {
-  if (/Macintosh|Mac OS X/i.test(navigator.userAgent)) selectPlatform('mac');
-  else if (/Linux/i.test(navigator.userAgent)) selectPlatform('linux');
+// iPadOS Safari reports as Macintosh without "iPad"; touch Macs are tablets.
+const ua = navigator.userAgent;
+const isMobile = /Android|iPhone|iPad/i.test(ua) ||
+  (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+if (!isMobile) {
+  if (/Macintosh|Mac OS X/i.test(ua)) selectPlatform('mac');
+  else if (/Linux/i.test(ua)) selectPlatform('linux');
 }
 
 // Site interactions never gate access to the static content or release links.
