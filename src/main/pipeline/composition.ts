@@ -7,7 +7,7 @@ import { contentRegionPixels, proposedContentRegion } from '@shared/contentRegio
 import type { ContentRegion } from '@shared/types'
 import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes, extractClipFrames } from './visualScore'
-import { probeVideo, runFfmpeg } from './ffmpeg'
+import { probeImageDimensions, runFfmpeg } from './ffmpeg'
 import { mapLimit } from './concurrency'
 import { refineScreenDetails } from './screenDetail'
 
@@ -98,7 +98,7 @@ async function verifyContentRegion(
     const parts: ChatContentPart[] = [{ type: 'text', text:
       `Review a proposed content-region layout for "${title}". Each image has THREE panels: LEFT is a larger original-source reference for checking containment; MIDDLE is the current full-frame fit into portrait; RIGHT is the proposed region fit into an IDENTICAL-SIZED portrait canvas. Compare MIDDLE versus RIGHT for enlargement, never compare size to the left reference. Seven chronological frames sample one shot, including frames not used for the proposal. Accept only if the right view is meaningfully larger than the middle AND retains all essential demonstrated objects, hands throughout their movement, faces when relevant, text and context in EVERY frame. Reject clipping, missing causal relationships, unreadable isolated UI without context, or uncertain boundaries. Empty source borders may be discarded. Return accept=false if unsure. This verifies containment and usefulness, not popularity.` }]
     for (const [i, path] of frames.entries()) {
-      const info = await probeVideo(path)
+      const info = await probeImageDimensions(path)
       const pixels = contentRegionPixels(region, info.width, info.height)
       const pair = join(dirname(path), `region-${i}.jpg`)
       await runFfmpeg(['-i', path, '-filter_complex',

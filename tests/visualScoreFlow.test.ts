@@ -4,7 +4,7 @@ import { chatJSON } from '../src/main/pipeline/openai'
 import type { Clip, Transcript } from '../src/shared/types'
 vi.mock('../src/main/pipeline/openai',()=>({chatJSON:vi.fn()}))
 vi.mock('../src/main/pipeline/ffmpeg',()=>({runFfmpeg:vi.fn()}))
-vi.mock('node:fs/promises',()=>({readFile:async()=>Buffer.from('test image'),mkdir:vi.fn().mockResolvedValue(undefined),rm:vi.fn().mockResolvedValue(undefined)}))
+vi.mock('node:fs/promises',()=>({readFile:async()=>Buffer.from('test image'),mkdir:vi.fn().mockResolvedValue(undefined),rm:vi.fn().mockResolvedValue(undefined),stat:vi.fn().mockResolvedValue({size:1})}))
 const transcript:Transcript={language:'en',durationSec:12,segments:[{id:0,start:0,end:12,text:'',words:[
  {text:'We',start:0,end:.2},{text:'found',start:.3,end:.5},{text:'it.',start:.6,end:1},
  {text:'um',start:5,end:5.2},{text:'Here',start:10,end:10.2},{text:'it',start:10.3,end:10.5},{text:'is.',start:10.6,end:11}

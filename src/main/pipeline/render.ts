@@ -21,7 +21,7 @@ import { fitRegionGraph } from './layoutFilters'
 import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
-import { FFMPEG_PATH, runFfmpegWith } from './ffmpeg'
+import { FFMPEG_PATH, probeVideo, runFfmpegWith } from './ffmpeg'
 import { loudnormFilter, measureLoudness, normalisationMode, type LoudnessStats } from './loudness'
 import { buildAss, fontsDir } from './captions'
 import { fontMetricsForFamily } from '../fonts'
@@ -595,7 +595,10 @@ export interface RenderResult {
 }
 
 export async function renderClip(job: RenderJob): Promise<RenderResult> {
-  const { clip, source, transcript } = job
+  const { clip, transcript } = job
+  // Projects store probe results; refresh them for rotated or relinked source
+  // files before translating normalized regions into decoded-frame pixels.
+  const source = await probeVideo(job.source.path)
   const quality = job.quality ?? 'standard'
   const start = clip.edit.start
   const duration = Math.max(0.5, clip.edit.end - clip.edit.start)

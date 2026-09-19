@@ -4,7 +4,7 @@ import type { Clip, ContentRegion, Transcript } from '@shared/types'
 import { detailEnlargement, MIN_DETAIL_GAIN, proposedContentRegion } from '@shared/contentRegion'
 import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes, extractClipFrames } from './visualScore'
-import { probeVideo, runFfmpeg } from './ffmpeg'
+import { probeImageDimensions, runFfmpeg } from './ffmpeg'
 import { fitRegionGraph } from './layoutFilters'
 
 type Shots = NonNullable<NonNullable<Clip['visualLayout']>['shots']>
@@ -90,7 +90,7 @@ async function verifyScreenDetail(
     const parts: ChatContentPart[] = [{ type: 'text', text:
       `Check a screen-detail layout for "${title}". Narration during this interval: ${narration.slice(0, 4000)}. Each image shows SOURCE reference, BEFORE portrait, AFTER portrait. Before/after canvases are both 360x640. After retains the source overview above enlarged detail; the black gap between panels is reserved for captions. Judge the AFTER detail itself: can a phone viewer read the labels relevant to this narration and understand its action? Reject clipping of the discussed warnings/buttons/labels, an empty or wrong detail area, lost action/result relationships even with the overview, or inadequate enlargement. Inspect all seven times. Incidental neighbouring controls, unrelated cursor activity and other text need not all appear in the detail: the overview retains context. A partly visible incidental control is not by itself grounds for rejection. Return accept=true only when useful and readable. List a few labels actually legible in the AFTER detail as evidence; do not infer them solely from the larger source reference.` }]
     for (const [i, frame] of frames.entries()) {
-      const source = await probeVideo(frame)
+      const source = await probeImageDimensions(frame)
       if (detailEnlargement(region, source.width, source.height) < MIN_DETAIL_GAIN) return false
       const path = join(dirname(frame), `detail-${i}.jpg`)
       const graph = '[0:v]split=3[a][b][c];[a]scale=480:270:force_original_aspect_ratio=decrease,pad=480:640:(ow-iw)/2:(oh-ih)/2[l];' +

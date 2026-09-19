@@ -7,7 +7,7 @@ vi.mock('../src/main/pipeline/visualScore', () => ({
   extractClipFrames: mocks.frames,
   clipFrameTimes: (start: number, end: number) => [start + .2, (start + end) / 2, end - .2]
 }))
-vi.mock('../src/main/pipeline/ffmpeg', () => ({ runFfmpeg: mocks.ffmpeg, probeVideo: async () => ({ width: 512, height: 288 }) }))
+vi.mock('../src/main/pipeline/ffmpeg', () => ({ runFfmpeg: mocks.ffmpeg, probeImageDimensions: async () => ({ width: 512, height: 288 }) }))
 vi.mock('node:fs/promises', () => ({ readFile: async () => Buffer.from('image'), rm: async () => undefined }))
 import { refineComposition } from '../src/main/pipeline/composition'
 

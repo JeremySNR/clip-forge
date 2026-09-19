@@ -1,4 +1,4 @@
-import { readFile, rm, mkdir } from 'node:fs/promises'
+import { readFile, rm, mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -100,14 +100,27 @@ export async function extractFramesAtTimes(videoPath: string, times: number[], s
       signal?.throwIfAborted()
       // Hook frame slightly inside the clip; then spread across it.
       const out = join(dir, `f${i}.jpg`)
-      await runFfmpeg([
-        '-ss', t.toFixed(3),
-        '-i', videoPath,
-        '-frames:v', '1',
-        '-vf', `scale='min(${Math.max(128, Math.min(1920, Math.round(maxWidth)))},iw)':-2`,
-        '-q:v', '6',
-        out
-      ], { signal })
+      // FFmpeg can exit successfully without writing a frame when the seek
+      // lands after the last timestamp of a low-FPS clip. Step back until a
+      // real frame exists instead of failing the whole visual review later.
+      let extracted = false
+      for (const seek of new Set([t, t - 0.25, t - 0.5, t - 1].map(value => Math.max(0, value)))) {
+        signal?.throwIfAborted()
+        await rm(out, { force: true })
+        await runFfmpeg([
+          '-ss', seek.toFixed(3),
+          '-i', videoPath,
+          '-frames:v', '1',
+          '-vf', `scale='min(${Math.max(128, Math.min(1920, Math.round(maxWidth)))},iw)':-2`,
+          '-q:v', '6',
+          out
+        ], { signal })
+        if (await stat(out).then(file => file.size > 0).catch(() => false)) {
+          extracted = true
+          break
+        }
+      }
+      if (!extracted) throw new Error(`Could not extract a frame near ${t.toFixed(3)}s`)
       paths.push(out)
     }
   } catch (error) {
