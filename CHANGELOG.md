@@ -21,7 +21,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Validation and requirements
 
-- 439 tests, typecheck, lint, and the production build passed before release preparation.
+- 440 tests, typecheck, lint, and the production build passed during release preparation. Project saves now replace JSON atomically, so background readers cannot encounter a half-written file.
 - Local Whisper setup requires a separately installed Python 3.10+ and a model download from Hugging Face. The ChatGPT route additionally requires an installed Codex CLI signed in with ChatGPT. The model download itself was not exercised in the test environment.
 
 ## [0.9.0] - 2026-09-19

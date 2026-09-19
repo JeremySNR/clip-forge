@@ -1,6 +1,7 @@
 import { app } from 'electron'
+import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, readdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Project, ProjectSummary } from '@shared/types'
 import { highlightClips } from '@shared/wholeVideo'
@@ -47,7 +48,16 @@ async function persistProject(project: Project): Promise<void> {
   allowMediaPath(project.video.path)
   // sourceMissing is transient state, recomputed on every load.
   const { sourceMissing: _omit, ...persisted } = project
-  await writeFile(join(dir, 'project.json'), JSON.stringify(persisted), 'utf8')
+  // Readers (including background analysis) do not hold the writer lock.
+  // Replace the file atomically so they see either complete version, never a
+  // truncated JSON document while writeFile is in progress.
+  const temporary = join(dir, `.project-${randomUUID()}.tmp`)
+  try {
+    await writeFile(temporary, JSON.stringify(persisted), 'utf8')
+    await rename(temporary, join(dir, 'project.json'))
+  } finally {
+    await rm(temporary, { force: true })
+  }
 }
 
 export async function saveProject(project: Project): Promise<void> {
