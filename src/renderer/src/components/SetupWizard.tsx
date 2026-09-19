@@ -63,8 +63,8 @@ export default function SetupWizard(): React.JSX.Element {
     } finally { setBusy(false) }
   }
 
-  return <div className="fixed inset-0 z-[60] overflow-y-auto bg-surface-950 px-5 py-10 text-zinc-100">
-    <div className="mx-auto max-w-2xl">
+  return <div className="fixed inset-0 z-[60] overflow-y-auto px-5 py-10 text-zinc-100" style={{ backgroundColor: '#09090b' }}>
+    <div className="mx-auto max-w-2xl rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl shadow-black/70 sm:p-8">
       <div className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent-400">Welcome to Cutawan</p>
         <h1 className="mt-2 text-3xl font-bold">Choose how your clips get made</h1>

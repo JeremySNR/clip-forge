@@ -6,6 +6,12 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.10.1] - 2026-09-19
+
+### Fixed
+
+- Give the first-run wizard a fully opaque backdrop and a solid, bordered panel so setup options remain readable over the app, including on macOS with window vibrancy enabled.
+
 ## [0.10.0] - 2026-09-19
 
 ### Added
