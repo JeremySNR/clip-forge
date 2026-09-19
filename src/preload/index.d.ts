@@ -1,8 +1,8 @@
-import type { ClipForgeApi } from './index'
+import type { CutawanApi } from './index'
 
 declare global {
   interface Window {
-    clipforge: ClipForgeApi
+    cutawan: CutawanApi
   }
 }
 

@@ -102,7 +102,7 @@ export default function TrimBar({
             {timeline.frames.map((f) => (
               <img
                 key={f}
-                src={window.clipforge.mediaUrl(f)}
+                src={window.cutawan.mediaUrl(f)}
                 alt=""
                 draggable={false}
                 className="h-full min-w-0 flex-1 object-cover"

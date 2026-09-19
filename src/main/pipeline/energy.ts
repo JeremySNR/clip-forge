@@ -19,7 +19,7 @@ const BYTES_PER_SAMPLE = 2
 
 /** Decode an audio file to mono 16k PCM and return per-second RMS values. */
 async function perSecondRms(audioPath: string): Promise<number[]> {
-  const pcmPath = join(tmpdir(), 'clipforge', `energy-${randomUUID()}.pcm`)
+  const pcmPath = join(tmpdir(), 'cutawan', `energy-${randomUUID()}.pcm`)
   await runFfmpeg([
     '-i', audioPath,
     '-ac', '1',

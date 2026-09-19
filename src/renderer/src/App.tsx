@@ -33,7 +33,7 @@ export default function App(): React.JSX.Element {
     void init()
     // macOS renders with native vibrancy behind a translucent shell; the
     // class switches the surface palette to translucent variants (index.css).
-    if (window.clipforge.platform === 'darwin') document.body.classList.add('mac-glass')
+    if (window.cutawan.platform === 'darwin') document.body.classList.add('mac-glass')
 
     // Dropping a file anywhere outside a designated drop zone would otherwise
     // make Chromium navigate the window to that file and blow away the app.

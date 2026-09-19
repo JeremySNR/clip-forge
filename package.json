@@ -1,15 +1,16 @@
 {
-  "name": "clipforge",
+  "name": "cutawan",
   "version": "0.9.0",
   "description": "Open-source AI video clipper — turn long videos into viral short clips (an Opus Clip alternative)",
   "main": "out/main/index.js",
-  "author": "ClipForge Contributors",
+  "author": "Cutawan Contributors",
   "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "test": "vitest run",
+    "screenshots": "node scripts/capture-screenshots.mjs",
     "quality:benchmark": "tsx --tsconfig tsconfig.node.json scripts/quality-benchmark.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
@@ -48,8 +49,8 @@
     "zustand": "^5.0.3"
   },
   "build": {
-    "appId": "org.clipforge.app",
-    "productName": "ClipForge",
+    "appId": "org.cutawan.app",
+    "productName": "Cutawan",
     "icon": "build/icon.png",
     "directories": {
       "output": "release"
@@ -57,7 +58,7 @@
     "publish": {
       "provider": "github",
       "owner": "JeremySNR",
-      "repo": "clip-forge",
+      "repo": "cutawan",
       "releaseType": "release"
     },
     "files": [
@@ -97,6 +98,9 @@
     },
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",

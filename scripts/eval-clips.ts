@@ -2,7 +2,7 @@
  * Clip boundary eval over saved projects.
  *
  * The project lives or dies by where its clips start and stop. This script
- * reads every project in ClipForge's userData (transcript + clips), measures
+ * reads every project in Cutawan's userData (transcript + clips), measures
  * each AI clip's boundaries against the transcript's sentences and prints a
  * per-project and overall report: how many clips open mid-sentence, how many
  * cut a sentence off, how the tails fall (too tight for the audio fade, clean,
@@ -16,11 +16,12 @@
  *               project, no transcription cost) and report the fresh clips
  *               next to the saved ones — the way to A/B a prompt change.
  *
- * Projects live in CLIPFORGE_USER_DATA (default ~/.config/clipforge). Runs
+ * Projects live in CUTAWAN_USER_DATA (default ~/.config/cutawan). Runs
  * fully offline without --rerun.
  */
 import { readdir, readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
+import { resolveUserDataPath } from '../src/main/userData'
 import { join } from 'node:path'
 import {
   analyzeClipBoundaries,
@@ -33,7 +34,12 @@ import {
 import { transcriptSentences } from '../src/shared/sentences'
 import type { Clip, Project } from '../src/shared/types'
 
-const USER_DATA = process.env.CLIPFORGE_USER_DATA ?? join(homedir(), '.config', 'clipforge')
+const appData = process.platform === 'win32'
+  ? process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming')
+  : process.platform === 'darwin'
+    ? join(homedir(), 'Library', 'Application Support')
+    : process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
+const USER_DATA = resolveUserDataPath(appData, process.env.CUTAWAN_USER_DATA)
 const args = process.argv.slice(2)
 const verbose = args.includes('--verbose')
 const rerun = args.includes('--rerun')
@@ -106,7 +112,7 @@ async function main(): Promise<void> {
         process.exit(1)
       }
       const { detectHighlights } = await import('../src/main/pipeline/highlights')
-      const model = process.env.CLIPFORGE_ANALYSIS_MODEL ?? 'gpt-5.4-mini'
+      const model = process.env.CUTAWAN_ANALYSIS_MODEL ?? 'gpt-5.4-mini'
       const fresh = await detectHighlights(
         apiKey,
         model,

@@ -182,7 +182,7 @@ export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   const titleShadow = Math.max(2, Math.round(opts.height * 0.0032))
 
   const header = `[Script Info]
-Title: ClipForge captions
+Title: Cutawan captions
 ScriptType: v4.00+
 PlayResX: ${opts.width}
 PlayResY: ${opts.height}

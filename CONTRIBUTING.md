@@ -1,6 +1,6 @@
-# Contributing to ClipForge
+# Contributing to Cutawan
 
-Thanks for looking. ClipForge is a TypeScript Electron app and contributions are
+Thanks for looking. Cutawan is a TypeScript Electron app and contributions are
 genuinely welcome, whether that is a bug report, a caption style or a new
 pipeline stage.
 
@@ -10,8 +10,8 @@ You need **Node.js 20+**. FFmpeg is bundled, so there is nothing else to
 install.
 
 ```bash
-git clone https://github.com/JeremySNR/clip-forge.git
-cd clip-forge
+git clone https://github.com/JeremySNR/cutawan.git
+cd cutawan
 npm install
 npm run dev
 ```

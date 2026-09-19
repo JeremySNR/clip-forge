@@ -30,7 +30,7 @@ export function resolveOpenAiApiBase(
   const trimmed = raw.replace(/\/$/, '')
   if (!/^https?:\/\//i.test(trimmed)) {
     console.warn(
-      `[clipforge] API base URL must be an absolute http(s) URL (got ${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
+      `[cutawan] API base URL must be an absolute http(s) URL (got ${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
     )
     return DEFAULT_OPENAI_API_BASE
   }
@@ -45,7 +45,7 @@ export function resolveOpenAiApiBase(
     return trimmed
   } catch {
     console.warn(
-      `[clipforge] API base URL is invalid (${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
+      `[cutawan] API base URL is invalid (${JSON.stringify(raw)}); using ${DEFAULT_OPENAI_API_BASE}`
     )
     return DEFAULT_OPENAI_API_BASE
   }

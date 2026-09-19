@@ -122,7 +122,7 @@ async function reserveRequest(limit: number): Promise<void> {
   // Fail closed across multiple app processes too. Never reset a damaged or
   // locked ledger and accidentally give an expensive run a fresh allowance.
   const lock = await open(lockPath, 'wx').catch(() => {
-    throw new Error('Could not reserve ChatGPT usage. Close other ClipForge instances. If a previous run crashed, remove subscription-usage.lock from the app data folder, keeping subscription-usage.json.')
+    throw new Error('Could not reserve ChatGPT usage. Close other Cutawan instances. If a previous run crashed, remove subscription-usage.lock from the app data folder, keeping subscription-usage.json.')
   })
   try {
     const used = await requestsToday()

@@ -15,7 +15,7 @@ const cli = (...args: string[]) => exec(process.execPath,
 
 describe('offline quality experiment', () => {
   beforeAll(async () => {
-    dir = await mkdtemp(join(tmpdir(), 'clipforge-benchmark-'))
+    dir = await mkdtemp(join(tmpdir(), 'cutawan-benchmark-'))
     await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=blue:s=160x90:d=1:r=10',
       '-c:v', 'libx264', '-pix_fmt', 'yuv420p', join(dir, 'source.mp4')])
   })

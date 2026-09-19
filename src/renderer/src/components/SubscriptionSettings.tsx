@@ -16,7 +16,7 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
     setChecking(true)
     try {
       await onSave()
-      const result = await window.clipforge.checkSubscriptionSetup()
+      const result = await window.cutawan.checkSubscriptionSetup()
       setMessage(`${result.message} ${result.requestsToday} requests used today.`)
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)) }
     finally { setChecking(false) }
@@ -30,9 +30,9 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
     </select>
     {value.provider === 'chatgpt' && <>
       <p className="text-xs leading-relaxed text-zinc-400">Use your existing ChatGPT sign-in for analysis, with local Whisper for transcription. Requires Codex CLI, Python with faster-whisper, and a downloaded speech model. Subscription limits apply; no API key is required.</p>
-      <p className="text-xs leading-relaxed text-zinc-400">Install Codex CLI and run <code>codex login</code> once to sign in with ChatGPT. ClipForge never reads or stores your login tokens. Transcript text and selected video frames are sent to Codex; audio is transcribed on this computer.</p>
+      <p className="text-xs leading-relaxed text-zinc-400">Install Codex CLI and run <code>codex login</code> once to sign in with ChatGPT. Cutawan never reads or stores your login tokens. Transcript text and selected video frames are sent to Codex; audio is transcribed on this computer.</p>
       <a className="block text-xs underline" href="https://developers.openai.com/codex/cli" target="_blank" rel="noreferrer">Codex installation and sign-in</a>
-      <a className="block text-xs underline" href="https://github.com/JeremySNR/clip-forge/blob/main/docs/chatgpt-subscription.md" target="_blank" rel="noreferrer">Local transcription setup guide</a>
+      <a className="block text-xs underline" href="https://github.com/JeremySNR/cutawan/blob/main/docs/chatgpt-subscription.md" target="_blank" rel="noreferrer">Local transcription setup guide</a>
       <label className="block text-xs" htmlFor="codex-path">Codex executable
         <input id="codex-path" className={inputClass} value={value.codexPath} onChange={e => update({ codexPath: e.target.value })} />
       </label>

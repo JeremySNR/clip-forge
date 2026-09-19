@@ -1,6 +1,6 @@
 # Judge the story the viewer receives — 13 September 2026
 
-ClipForge now checks for concrete story-coherence failures without seeing a candidate's generated title, intended hook or previous score. A quoted, validated failure can exclude a candidate before layout analysis, even if its aggregate score is high. This addresses an observed cinematic selection that appended an unexplained scene to an unresolved exchange.
+Cutawan now checks for concrete story-coherence failures without seeing a candidate's generated title, intended hook or previous score. A quoted, validated failure can exclude a candidate before layout analysis, even if its aggregate score is high. This addresses an observed cinematic selection that appended an unexplained scene to an unresolved exchange.
 
 [Inspect eleven reviewed clips](../../.tmp/quality-corpus/editorial-v2/index.html). The gallery plays existing v8 exports; this pass did not render new edits or change those files.
 

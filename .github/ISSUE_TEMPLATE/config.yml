@@ -1,8 +1,8 @@
 blank_issues_enabled: true
 contact_links:
   - name: Question or idea
-    url: https://github.com/JeremySNR/clip-forge/discussions
+    url: https://github.com/JeremySNR/cutawan/discussions
     about: For questions, setup help and general ideas, use Discussions.
   - name: Security vulnerability
-    url: https://github.com/JeremySNR/clip-forge/security/advisories/new
+    url: https://github.com/JeremySNR/cutawan/security/advisories/new
     about: Please report security issues privately, not as a public issue.

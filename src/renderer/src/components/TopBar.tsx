@@ -41,7 +41,7 @@ export default function TopBar(): React.JSX.Element {
             alt=""
             className="h-8 w-8 rounded-lg object-cover shadow-inner shadow-purple-500/20"
           />
-          <span className="text-[15px] font-semibold tracking-tight">ClipForge</span>
+          <span className="text-[15px] font-semibold tracking-tight">Cutawan</span>
           <span className="rounded-full border border-surface-600 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
             Open source
           </span>
@@ -69,7 +69,7 @@ export default function TopBar(): React.JSX.Element {
         {updateCheck?.updateAvailable && updateCheck.releaseUrl && (
           <button
             onClick={() => setSettingsOpen(true)}
-            title={`ClipForge v${updateCheck.latestVersion} is available — update from Settings`}
+            title={`Cutawan v${updateCheck.latestVersion} is available — update from Settings`}
             className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
           >
             <ArrowUpCircle size={14} />

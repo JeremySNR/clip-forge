@@ -1,5 +1,5 @@
 """
-ClipForge yt-dlp plugin: read Chromium cookie databases even when the browser
+Cutawan yt-dlp plugin: read Chromium cookie databases even when the browser
 has them open.
 
 Chromium locks its SQLite cookie store while running, so yt-dlp's default

@@ -89,7 +89,7 @@ function ImportHero(): React.JSX.Element {
       setPipelineError(`"${file.name}" is not a supported video file (MP4, MOV, MKV, WEBM and more).`)
       return
     }
-    const path = window.clipforge.pathForFile(file)
+    const path = window.cutawan.pathForFile(file)
     if (!path) {
       setPipelineError('Could not read that file from disk. Try choosing it instead.')
       return
@@ -107,7 +107,7 @@ function ImportHero(): React.JSX.Element {
         </span>
       </h1>
       <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-zinc-400">
-        Drop in a podcast, webinar or stream. ClipForge transcribes it, finds the best moments
+        Drop in a podcast, webinar or stream. Cutawan transcribes it, finds the best moments
         with AI, scores them for virality and renders caption-burned vertical clips.
       </p>
 
@@ -238,7 +238,7 @@ function CookieBrowserPicker(): React.JSX.Element | null {
         </select>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
-        {window.clipforge.platform === 'win32' &&
+        {window.cutawan.platform === 'win32' &&
           isChromiumBrowser(settings.importCookiesBrowser) &&
           !settings.hasImportCookiesFile && (
             <p className="w-full rounded-lg bg-amber-500/10 px-2.5 py-2 text-amber-300">
@@ -344,7 +344,7 @@ function SetupPanel(): React.JSX.Element {
             </div>
           </div>
           <video
-            src={window.clipforge.mediaUrl(project.video.path)}
+            src={window.cutawan.mediaUrl(project.video.path)}
             className="mt-4 aspect-video w-full rounded-xl bg-black object-contain"
             controls
             preload="metadata"
@@ -441,7 +441,7 @@ function SetupPanel(): React.JSX.Element {
                 What kind of video is this?
               </label>
               <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-                Helps ClipForge pick the right 9:16 layout — crop and zoom for talking heads,
+                Helps Cutawan pick the right 9:16 layout — crop and zoom for talking heads,
                 letterbox for screen recordings.
               </p>
               <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -751,7 +751,7 @@ function RecentProjects(): React.JSX.Element | null {
             <div className="flex aspect-video items-center justify-center bg-black">
               {p.thumbnailPath ? (
                 <img
-                  src={window.clipforge.mediaUrl(p.thumbnailPath)}
+                  src={window.cutawan.mediaUrl(p.thumbnailPath)}
                   alt=""
                   className="h-full w-full object-cover"
                 />

@@ -669,7 +669,7 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
       brandColors: job.branding?.colors,
       positionRanges: detailCaptionRanges(effectiveClip)
     })
-    const dir = join(tmpdir(), 'clipforge')
+    const dir = join(tmpdir(), 'cutawan')
     await mkdir(dir, { recursive: true })
     assPath = join(dir, `captions-${randomUUID()}.ass`)
     await writeFile(assPath, ass, 'utf8')
@@ -691,11 +691,11 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
   const loudness = source.hasAudio
     ? await measureLoudness(source.path, start, duration, job.signal)
     : null
-  if (process.env.CLIPFORGE_DEBUG) {
+  if (process.env.CUTAWAN_DEBUG) {
     console.error(`[render] loudness normalisation: ${normalisationMode(loudness)}`, loudness)
   }
 
-  const tempDir = join(tmpdir(), 'clipforge')
+  const tempDir = join(tmpdir(), 'cutawan')
   await mkdir(tempDir, { recursive: true })
   // Named up front because the graph has to reference the file; it is only
   // written if the graph comes back needing crop commands.

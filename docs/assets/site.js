@@ -91,7 +91,7 @@ function selectPlatform(platform) {
   if (!data || !platformButtons.length) return;
   platformButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.platform === platform)));
   const cta = document.querySelector('.download-cta');
-  cta.firstChild.textContent = `Get ClipForge for ${data.name} `;
+  cta.firstChild.textContent = `Get Cutawan for ${data.name} `;
   document.querySelector('.download-help').textContent = data.help;
 }
 platformButtons.forEach((button) => button.addEventListener('click', () => selectPlatform(button.dataset.platform)));
@@ -103,6 +103,10 @@ const isMobile = /Android|iPhone|iPad/i.test(ua) ||
 if (!isMobile) {
   if (/Macintosh|Mac OS X/i.test(ua)) selectPlatform('mac');
   else if (/Linux/i.test(ua)) selectPlatform('linux');
+} else if (platformButtons.length) {
+  platformButtons.forEach(button => button.setAttribute('aria-pressed', 'false'));
+  document.querySelector('.download-cta').firstChild.textContent = 'Get Cutawan for desktop ';
+  document.querySelector('.download-help').textContent = 'Choose the operating system of the computer you want to use.';
 }
 
 // Site interactions never gate access to the static content or release links.

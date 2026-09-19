@@ -435,7 +435,7 @@ async function refineClipEndings(
       const clip = refined[entry.index]
       if (!clip || entry.ends_with_payoff) continue
       refined[entry.index] = applyRefinedEnding(clip, entry.better_end, sentenceEnds, videoDurationSec, maxDuration, transcript)
-      if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
+      if (process.env.CUTAWAN_DEBUG && refined[entry.index] !== clip) {
         console.error(
           `[highlights] ending review moved clip ${entry.index} end ` +
             `${clip.suggestedEnd.toFixed(1)}s -> ${refined[entry.index].suggestedEnd.toFixed(1)}s: ${entry.reason}`
@@ -563,7 +563,7 @@ async function refineClipStarts(
       const clip = refined[entry.index]
       if (!clip || entry.opens_with_hook) continue
       refined[entry.index] = applyRefinedStart(clip, entry.better_start, sentenceStarts, transcript)
-      if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
+      if (process.env.CUTAWAN_DEBUG && refined[entry.index] !== clip) {
         console.error(
           `[highlights] opening review moved clip ${entry.index} start ` +
             `${clip.suggestedStart.toFixed(1)}s -> ${refined[entry.index].suggestedStart.toFixed(1)}s: ${entry.reason}`
@@ -689,7 +689,7 @@ async function requestHighlights(
       maxExtendSec: MAX_END_EXTEND_SEC
     })
 
-  if (process.env.CLIPFORGE_DEBUG) {
+  if (process.env.CUTAWAN_DEBUG) {
     console.error('[highlights] raw LLM response:', JSON.stringify(res, null, 2))
   }
 
@@ -720,7 +720,7 @@ async function requestHighlights(
       end = padSpeechEnd(lastSentenceEnd, transcript, videoDurationSec, END_POST_ROLL_SEC)
     }
     if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
-      if (process.env.CLIPFORGE_DEBUG) {
+      if (process.env.CUTAWAN_DEBUG) {
         console.error(`[highlights] dropped too-short clip ${raw.start}-${raw.end} -> ${start.toFixed(1)}-${end.toFixed(1)}`)
       }
       continue

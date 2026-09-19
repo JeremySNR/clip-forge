@@ -33,7 +33,7 @@ The code currently assigns a single `speaker`/`screencast` content type to a who
 
 ## ChatGPT-backed full run
 
-The local Codex CLI is already authenticated using ChatGPT. A real structured image-analysis request through `codex exec` succeeded and independently reported the NASA question-text crop. No account tokens were copied into ClipForge.
+The local Codex CLI is already authenticated using ChatGPT. A real structured image-analysis request through `codex exec` succeeded and independently reported the NASA question-text crop. No account tokens were copied into Cutawan.
 
 An experimental local bridge is prepared in `.tmp/run-with-chatgpt.mjs`. It connects the existing OpenAI-compatible pipeline interface to:
 

@@ -234,7 +234,7 @@ export async function downloadGpuFfmpeg(
 
   const binDir = join(userDataDir(), 'bin')
   await mkdir(binDir, { recursive: true })
-  const archivePath = join(tmpdir(), `clipforge-ffmpeg-gpu${url.endsWith('.zip') ? '.zip' : '.tar.xz'}`)
+  const archivePath = join(tmpdir(), `cutawan-ffmpeg-gpu${url.endsWith('.zip') ? '.zip' : '.tar.xz'}`)
   // Extract next to the destination: rename() below cannot cross filesystems
   // (EXDEV), and /tmp is commonly tmpfs on Linux while userData is not.
   const extractDir = join(binDir, '.extract')

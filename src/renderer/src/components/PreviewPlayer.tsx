@@ -184,7 +184,7 @@ export default function PreviewPlayer({
     return events.length > 0 ? events : null
   }, [clip, project.transcript, start, end, keptSegments])
 
-  const src = window.clipforge.mediaUrl(project.video.path)
+  const src = window.cutawan.mediaUrl(project.video.path)
   const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'
   const isFitBlur = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'fit-blur'
 
@@ -269,7 +269,7 @@ export default function PreviewPlayer({
       >
         {isFitBlur && clip.thumbnailPath && (
           <img
-            src={window.clipforge.mediaUrl(clip.thumbnailPath)}
+            src={window.cutawan.mediaUrl(clip.thumbnailPath)}
             alt=""
             className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl brightness-75"
           />
@@ -278,7 +278,7 @@ export default function PreviewPlayer({
           <video
             ref={videoRef}
             src={src}
-            poster={clip.thumbnailPath ? window.clipforge.mediaUrl(clip.thumbnailPath) : undefined}
+            poster={clip.thumbnailPath ? window.cutawan.mediaUrl(clip.thumbnailPath) : undefined}
             className="h-full w-full"
             style={{ objectFit: isCrop ? 'cover' : 'contain' }}
             onClick={togglePlay}
@@ -357,7 +357,7 @@ function WatermarkOverlay(): React.JSX.Element | null {
   }
   return (
     <img
-      src={window.clipforge.mediaUrl(branding.imagePath)}
+      src={window.cutawan.mediaUrl(branding.imagePath)}
       alt=""
       className="pointer-events-none absolute"
       style={{
@@ -417,7 +417,7 @@ function BrollOverlay({ clip, time }: { clip: Clip; time: number }): React.JSX.E
     (b) => b.enabled && b.imagePath && time >= b.start && time <= b.end
   )
   if (!active) return null
-  const src = window.clipforge.mediaUrl(active.imagePath!)
+  const src = window.cutawan.mediaUrl(active.imagePath!)
   if (active.mode === 'fullscreen') {
     return (
       <img

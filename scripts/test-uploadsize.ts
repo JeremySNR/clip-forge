@@ -131,7 +131,7 @@ async function testFitsCap(info: VideoInfo, capMb: number): Promise<void> {
 async function testLeavesNoTempFiles(info: VideoInfo): Promise<void> {
   const { readdir } = await import('node:fs/promises')
   const { tmpdir } = await import('node:os')
-  const dir = join(tmpdir(), 'clipforge')
+  const dir = join(tmpdir(), 'cutawan')
   const before = new Set(await readdir(dir).catch(() => [] as string[]))
   await renderClip({
     clip: makeClip(),

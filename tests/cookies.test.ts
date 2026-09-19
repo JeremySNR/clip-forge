@@ -33,7 +33,7 @@ describe('isNetscapeCookiesFile', () => {
 
 describe('ytdlp cookie helpers', () => {
   it('prefers cookies file over browser extraction', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'clipforge-cookies-'))
+    const dir = mkdtempSync(join(tmpdir(), 'cutawan-cookies-'))
     const file = join(dir, 'cookies.txt')
     writeFileSync(file, '# Netscape HTTP Cookie File\n')
     expect(cookieArgs({ cookiesFile: file, cookiesFromBrowser: 'chrome' })).toEqual([

@@ -10,7 +10,7 @@ import { withRetries, withTimeout } from './openai'
  * keep working offline.
  */
 
-const USER_AGENT = 'ClipForge/0.1 (open-source video clipper; https://github.com/clipforge)'
+const USER_AGENT = 'Cutawan/0.1 (open-source video clipper; https://github.com/JeremySNR/cutawan)'
 
 // Without a timeout, a request a corporate firewall silently drops hangs forever
 // and freezes the whole B-roll stage. Fail fast instead so the clip just skips

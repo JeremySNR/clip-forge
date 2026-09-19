@@ -14,11 +14,11 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const PACKAGE_ID = 'JeremySNR.ClipForge'
+const PACKAGE_ID = 'JeremySNR.Cutawan'
 const OWNER = 'JeremySNR'
-const REPO = 'clip-forge'
+const REPO = 'cutawan'
 const PUBLISHER = 'Jeremy Smith'
-const PACKAGE_NAME = 'ClipForge'
+const PACKAGE_NAME = 'Cutawan'
 
 const args = process.argv.slice(2)
 let versionArg = null
@@ -72,10 +72,10 @@ PackageName: ${PACKAGE_NAME}
 PackageUrl: https://github.com/${OWNER}/${REPO}
 License: MIT
 LicenseUrl: https://github.com/${OWNER}/${REPO}/blob/main/LICENSE
-Copyright: Copyright (c) ClipForge Contributors
+Copyright: Copyright (c) Cutawan Contributors
 ShortDescription: Open-source Opus Clip alternative. Turn long videos into vertical clips on your desktop.
 Description: Turn podcasts, webinars, streams and interviews into ready-to-post vertical clips. AI-picked moments, virality scores, animated captions, auto zoom and speaker-aware reframing. Runs on your machine; you bring an OpenAI API key.
-Moniker: clipforge
+Moniker: cutawan
 Tags:
   - video
   - captions
@@ -91,7 +91,7 @@ ManifestVersion: 1.6.0
 }
 
 async function githubJson(path) {
-  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'clipforge-winget' }
+  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'cutawan-winget' }
   if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) {
     headers.Authorization = `Bearer ${process.env.GH_TOKEN || process.env.GITHUB_TOKEN}`
   }
@@ -105,9 +105,9 @@ async function main() {
     ? await githubJson(`releases/tags/v${versionArg.replace(/^v/, '')}`)
     : await githubJson('releases/latest')
   const version = String(release.tag_name ?? '').replace(/^v/, '')
-  const installer = (release.assets ?? []).find((a) => /^ClipForge-Setup-.*\.exe$/.test(a.name))
+  const installer = (release.assets ?? []).find((a) => /^Cutawan-Setup-.*\.exe$/.test(a.name))
   if (!installer) {
-    throw new Error(`No ClipForge-Setup-*.exe on ${release.tag_name}`)
+    throw new Error(`No Cutawan-Setup-*.exe on ${release.tag_name}`)
   }
   const manifests = buildManifests({
     version,

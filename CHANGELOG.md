@@ -1,7 +1,7 @@
 # Changelog
 
 Notable changes per release. Full commit history and downloadable builds are on
-the [releases page](https://github.com/JeremySNR/clip-forge/releases).
+the [releases page](https://github.com/JeremySNR/cutawan/releases).
 
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
@@ -18,7 +18,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Added
 
-- Optional **ChatGPT subscription via Codex (beta)** for analysis, with local Whisper transcription. Requires an installed, signed-in Codex CLI, Python with faster-whisper, and a downloaded speech model; see [setup instructions](https://github.com/JeremySNR/clip-forge/blob/main/docs/chatgpt-subscription.md).
+- Optional **ChatGPT subscription via Codex (beta)** for analysis, with local Whisper transcription. Requires an installed, signed-in Codex CLI, Python with faster-whisper, and a downloaded speech model; see [setup instructions](https://github.com/JeremySNR/cutawan/blob/main/docs/chatgpt-subscription.md).
 - Luna with low reasoning as the subscription default, cached analysis, configurable daily request limits, and no automatic paid-API fallback.
 
 ### Validation and known limitations
@@ -176,7 +176,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Added
 
-- **Video type selector.** Tell ClipForge what kind of footage it is and it
+- **Video type selector.** Tell Cutawan what kind of footage it is and it
   steers 9:16 layout and face tracking accordingly.
 - Screencasts are detected and letterboxed for 9:16 rather than cropped into
   unreadable text.
@@ -201,5 +201,5 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 ## Earlier releases
 
 0.6.14 and earlier predate this changelog. See the
-[releases page](https://github.com/JeremySNR/clip-forge/releases) for the
+[releases page](https://github.com/JeremySNR/cutawan/releases) for the
 history.

@@ -93,7 +93,7 @@ export async function extractClipFrames(
 
 export async function extractFramesAtTimes(videoPath: string, times: number[], signal?: AbortSignal, maxWidth = 512): Promise<string[]> {
   if (!times.length) return []
-  const dir = join(tmpdir(), 'clipforge', `vframes-${randomUUID()}`)
+  const dir = join(tmpdir(), 'cutawan', `vframes-${randomUUID()}`)
   await mkdir(dir, { recursive: true })
   const paths: string[] = []
   try {

@@ -1,4 +1,4 @@
-# ClipForge website redesign
+# Cutawan website redesign
 
 ## Objective
 
@@ -32,7 +32,7 @@ These are qualitative references. None of these companies’ private conversion 
 - Dedicated pages address the useful intents “open-source Opus Clip alternative” and “turn long video into short clips,” with substantive text rather than keyword filler.
 - The hero uses a local 1200×800 WebP, approximately 90 KB. It is preloaded and reused across the illustration; below-fold screenshots are lazy-loaded. No remote fonts, analytics scripts or animation libraries are required.
 - Reduced motion, visible focus, a skip link, native FAQ disclosures, accessible tabs and responsive layouts are included.
-- `robots.txt` already declares the sitemap. Because this is a project hosted under `/clip-forge/`, the domain-root robots policy remains controlled by the GitHub Pages domain owner.
+- `robots.txt` already declares the sitemap. Because this is a project hosted under `/cutawan/`, the domain-root robots policy remains controlled by the GitHub Pages domain owner.
 
 ## After publication
 

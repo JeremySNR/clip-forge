@@ -3,9 +3,9 @@
   --ink:#252720;
   --muted:#65675f;
   --line:#ddddd4;
-  --orange:#f0542c;
-  --orange-dark:#b8391b;
-  --sage:#e6eadd;
+  --accent:#7952db;
+  --accent-dark:#5833ac;
+  --sage:#efecf7;
   --sans:Arial,Helvetica,sans-serif;
   --serif:Georgia,'Times New Roman',serif;
   --mono:'Courier New',monospace
@@ -58,7 +58,7 @@ button:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visi
 }
 
 ::selection {
-  background:#ffbf99;
+  background:#ded2f5;
   color:var(--ink)
 }
 
@@ -149,34 +149,20 @@ h3 {
 }
 
 .brand-mark {
-  display:flex;
-  align-items:center;
-  gap:3px;
-  transform:rotate(-18deg);
-  width:25px;
-  height:30px
+  display:inline-block;
+  width:32px;
+  height:32px;
+  flex-shrink:0;
+  background:url("app-icon.png") center/contain no-repeat
 }
 
-.brand-mark i {
-  width:6px;
-  height:22px;
-  background:var(--orange);
-  border-radius:2px
-}
-
-.brand-mark i:nth-child(2) {
-  height:31px
-}
-
-.brand-mark i:last-child {
-  height:17px
-}
+.brand-mark i { display:none }
 
 .brand-dot {
   font-size:15px;
   align-self:flex-start;
   margin:0 0 0 -5px;
-  color:var(--orange)
+  color:var(--accent)
 }
 
 .nav-inner nav {
@@ -187,7 +173,7 @@ h3 {
 }
 
 .nav-inner nav>a:not(.button):hover,.text-link:hover,.site-footer a:hover {
-  color:var(--orange-dark)
+  color:var(--accent-dark)
 }
 
 .nav-github {
@@ -223,13 +209,13 @@ h3 {
   box-shadow:0 5px 12px #25272012
 }
 
-.button-orange {
-  background:var(--orange);
-  color:#171d15
+.button-primary {
+  background:var(--accent);
+  color:#fff
 }
 
-.button-orange:hover {
-  background:#ff6840
+.button-primary:hover {
+  background:#5833ac
 }
 
 .button-dark {
@@ -285,7 +271,7 @@ h3 {
 }
 
 .announcement:hover {
-  border-color:var(--orange)
+  border-color:var(--accent)
 }
 
 .status-dot {
@@ -310,7 +296,7 @@ h1 {
 }
 
 h1 .serif {
-  color:var(--orange-dark);
+  color:var(--accent-dark);
   position:relative
 }
 
@@ -321,7 +307,7 @@ h1 .serif:after {
   left:2%;
   width:95%;
   height:9px;
-  border-top:2px solid var(--orange);
+  border-top:2px solid var(--accent);
   border-radius:50%;
   transform:rotate(-1deg);
   opacity:.5
@@ -806,7 +792,7 @@ h1 .serif:after {
 }
 
 .eyebrow>span {
-  color:var(--orange-dark);
+  color:var(--accent-dark);
   margin-right:10px
 }
 
@@ -1115,7 +1101,7 @@ h1 .serif:after {
 
 .step-number {
   font:italic 38px var(--serif);
-  color:var(--orange-dark)
+  color:var(--accent-dark)
 }
 
 .step-line {
@@ -1133,7 +1119,7 @@ h1 .serif:after {
   top:-2.5px;
   left:0;
   border-radius:50%;
-  background:var(--orange)
+  background:var(--accent)
 }
 
 .steps h3 {
@@ -1313,9 +1299,9 @@ details a {
 }
 
 .download-section {
-  background:#f1b797;
-  border-top:1px solid #edb08c;
-  border-bottom:1px solid #edb08c;
+  background:#e9dff7;
+  border-top:1px solid #d5c4ed;
+  border-bottom:1px solid #d5c4ed;
   overflow:hidden
 }
 
@@ -1333,7 +1319,7 @@ details a {
   font-size:120px;
   line-height:1;
   transform:rotate(-14deg);
-  color:#a34422;
+  color:#7952db;
   opacity:.55
 }
 
@@ -1347,7 +1333,7 @@ details a {
 
 .download-inner>p:not(.eyebrow) {
   margin:20px 0;
-  color:#5d3f2f;
+  color:#51445f;
   font-size:14px
 }
 
@@ -1358,7 +1344,7 @@ details a {
   margin:25px auto 16px;
   width:fit-content;
   padding:4px;
-  border:1px solid #bd805b;
+  border:1px solid #b7a0d2;
   border-radius:6px
 }
 
@@ -1368,13 +1354,13 @@ details a {
   background:transparent;
   padding:7px 17px;
   font-size:12px;
-  color:#573b2d;
+  color:#51445f;
   min-height:35px
 }
 
 .platform-picker button[aria-pressed=true] {
-  background:#fff4e3;
-  color:#30261c;
+  background:#faf7ff;
+  color:#30233f;
   box-shadow:0 1px 2px #402c2020
 }
 
@@ -1494,7 +1480,7 @@ details a {
 }
 
 .article-shell p a,.article-shell li a {
-  color:var(--orange-dark);
+  color:var(--accent-dark);
   text-decoration:underline;
   text-underline-offset:3px
 }
@@ -2507,3 +2493,15 @@ html:not(.js-enabled) .demo-controls,html:not(.js-enabled) .product-tabs,html:no
   display:none
 }
 
+
+/* One small character moment, keeping the editorial layout and cream canvas. */
+.workflow-apprentice { display:flex; align-items:center; gap:14px; max-width:370px }
+.workflow-apprentice img { width:144px; height:144px; object-fit:contain; flex:none }
+.workflow-apprentice p { margin:0 0 9px; font-size:15px; font-weight:600; color:var(--accent-dark) }
+.workflow-apprentice .text-link { font-size:12px }
+.hero-description strong { font-weight:600; color:var(--ink) }
+.announcement .status-dot { background:#168998 }
+@media(max-width:700px) {
+  .workflow-apprentice { margin-top:22px; max-width:100%; gap:12px }
+  .workflow-apprentice img { width:112px; height:112px }
+}

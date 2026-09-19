@@ -27,7 +27,7 @@ async function registerFonts(fonts: CustomFont[]): Promise<void> {
   for (const f of fonts) {
     if (loadedFontFaces.has(f.family)) continue
     try {
-      const face = new FontFace(f.family, `url("${window.clipforge.mediaUrl(f.path)}")`)
+      const face = new FontFace(f.family, `url("${window.cutawan.mediaUrl(f.path)}")`)
       await face.load()
       document.fonts.add(face)
       loadedFontFaces.set(f.family, face)
@@ -168,20 +168,20 @@ export const useStore = create<AppState>((set, get) => ({
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
-      window.clipforge.getSettings(),
-      window.clipforge.listProjects(),
-      window.clipforge.listFonts()
+      window.cutawan.getSettings(),
+      window.cutawan.listProjects(),
+      window.cutawan.listFonts()
     ])
     set({ settings, projects, customFonts })
     void registerFonts(customFonts)
     // Automatic update check on launch; failures stay silent here and are
     // only surfaced when the user checks manually from Settings.
     void get().checkForUpdates(true)
-    window.clipforge.onPipelineProgress((p) => set({ pipelineProgress: p }))
-    window.clipforge.onImportProgress((p) => {
+    window.cutawan.onPipelineProgress((p) => set({ pipelineProgress: p }))
+    window.cutawan.onImportProgress((p) => {
       if (get().importProgress !== null) set({ importProgress: p })
     })
-    window.clipforge.onExportProgress((p) => {
+    window.cutawan.onExportProgress((p) => {
       const entry = get().exports[p.clipId]
       if (entry?.status === 'exporting') {
         set({ exports: { ...get().exports, [p.clipId]: { ...entry, progress: p.progress } } })
@@ -190,18 +190,18 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   refreshProjects: async () => {
-    set({ projects: await window.clipforge.listProjects() })
+    set({ projects: await window.cutawan.listProjects() })
   },
 
   importVideo: async () => {
-    const path = await window.clipforge.selectVideo()
+    const path = await window.cutawan.selectVideo()
     if (!path) return
     await get().importVideoFromPath(path)
   },
 
   importVideoFromPath: async (path) => {
     try {
-      const project = await window.clipforge.createProject(path)
+      const project = await window.cutawan.createProject(path)
       set({ project, screen: 'home', pipelineError: null })
       await get().refreshProjects()
     } catch (err) {
@@ -212,7 +212,7 @@ export const useStore = create<AppState>((set, get) => ({
   importVideoFromUrl: async (url) => {
     set({ importProgress: { progress: -1, message: 'Starting…' }, pipelineError: null })
     try {
-      const project = await window.clipforge.createProjectFromUrl(url.trim())
+      const project = await window.cutawan.createProjectFromUrl(url.trim())
       set({ project, screen: 'home', importProgress: null })
       await get().refreshProjects()
     } catch (err) {
@@ -224,7 +224,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   openProject: async (id) => {
-    const project = await window.clipforge.loadProject(id)
+    const project = await window.cutawan.loadProject(id)
     // A whole-video project reopens on its edit; a clip project on the grid.
     const wholeVideo = project.mode === 'whole-video' ? findWholeVideoClip(project) : null
     set({
@@ -236,7 +236,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   deleteProject: async (id) => {
-    await window.clipforge.deleteProject(id)
+    await window.cutawan.deleteProject(id)
     if (get().project?.id === id) set({ project: null, screen: 'home' })
     await get().refreshProjects()
   },
@@ -245,7 +245,7 @@ export const useStore = create<AppState>((set, get) => ({
     const project = get().project
     if (!project) return
     try {
-      const updated = await window.clipforge.relinkVideo(project.id)
+      const updated = await window.cutawan.relinkVideo(project.id)
       set({ project: updated, pipelineError: null })
     } catch (err) {
       set({ pipelineError: err instanceof Error ? cleanIpcError(err.message) : String(err) })
@@ -262,12 +262,12 @@ export const useStore = create<AppState>((set, get) => ({
   setSettingsOpen: (open) => set({ settingsOpen: open }),
 
   saveSettings: async (update) => {
-    const settings = await window.clipforge.updateSettings(update)
+    const settings = await window.cutawan.updateSettings(update)
     set({ settings })
   },
 
   refreshSettings: async () => {
-    set({ settings: await window.clipforge.getSettings() })
+    set({ settings: await window.cutawan.getSettings() })
   },
 
   analyze: async (options) => {
@@ -280,13 +280,13 @@ export const useStore = create<AppState>((set, get) => ({
       pipelineProgress: { stage: 'audio', progress: 0, message: 'Starting…' }
     })
     try {
-      const updated = await window.clipforge.analyzeProject(project.id, options)
+      const updated = await window.cutawan.analyzeProject(project.id, options)
       set({ project: updated, screen: 'clips', pipelineProgress: null })
     } catch (err) {
       const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
       const cancelled = message.includes('Analysis cancelled')
       // Pick up any checkpoint (e.g. saved transcript) the failed run left.
-      const reloaded = await window.clipforge.loadProject(project.id).catch(() => project)
+      const reloaded = await window.cutawan.loadProject(project.id).catch(() => project)
       set({
         project: reloaded,
         screen: 'home',
@@ -308,7 +308,7 @@ export const useStore = create<AppState>((set, get) => ({
       pipelineProgress: { stage: 'audio', progress: 0, message: 'Starting…' }
     })
     try {
-      const updated = await window.clipforge.captionWholeVideo(project.id, options)
+      const updated = await window.cutawan.captionWholeVideo(project.id, options)
       const clip = findWholeVideoClip(updated)
       // Straight into the editor: captions and framing are what this mode is
       // for, and there is no clip grid to choose from.
@@ -322,7 +322,7 @@ export const useStore = create<AppState>((set, get) => ({
       const message = err instanceof Error ? cleanIpcError(err.message) : String(err)
       const cancelled = message.includes('Analysis cancelled')
       // Pick up any checkpoint (e.g. saved transcript) the failed run left.
-      const reloaded = await window.clipforge.loadProject(project.id).catch(() => project)
+      const reloaded = await window.cutawan.loadProject(project.id).catch(() => project)
       set({
         project: reloaded,
         screen: 'home',
@@ -335,7 +335,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   cancelAnalyze: async () => {
     const project = get().project
-    if (project) await window.clipforge.cancelAnalyze(project.id)
+    if (project) await window.cutawan.cancelAnalyze(project.id)
   },
 
   openEditor: (clipId) => set({ selectedClipId: clipId, screen: 'editor' }),
@@ -357,7 +357,7 @@ export const useStore = create<AppState>((set, get) => ({
     const project = get().project
     if (!project) return
     get().updateClipLocal(clip)
-    await window.clipforge.updateClip(project.id, clip)
+    await window.cutawan.updateClip(project.id, clip)
     if (get().project?.id === project.id && get().selectedClipId === clip.id) {
       await get().ensureReframe(clip.id)
     }
@@ -368,7 +368,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!project || get().captionBusy[clipId]) return
     set({ captionBusy: { ...get().captionBusy, [clipId]: true } })
     try {
-      const updated = await window.clipforge.generateCaption(project.id, clipId)
+      const updated = await window.cutawan.generateCaption(project.id, clipId)
       const fresh = updated.clips.find((c) => c.id === clipId)
       const current = get().project
       // Only graft the caption on: other clip edits may be in flight.
@@ -403,7 +403,7 @@ export const useStore = create<AppState>((set, get) => ({
     delete errors[clipId]
     set({ reframeBusy: { ...get().reframeBusy, [clipId]: true }, reframeError: errors })
     try {
-      const updated = await window.clipforge.ensureReframe(project.id, clipId)
+      const updated = await window.cutawan.ensureReframe(project.id, clipId)
       const fresh = updated.clips.find((c) => c.id === clipId)
       const current = get().project
       // Graft only what the analysis owns: edits made while it ran stay.
@@ -435,7 +435,7 @@ export const useStore = create<AppState>((set, get) => ({
   updateTranscriptWord: async (segmentId, wordIndex, text) => {
     const project = get().project
     if (!project) return
-    const updated = await window.clipforge.updateTranscriptWord(
+    const updated = await window.cutawan.updateTranscriptWord(
       project.id,
       segmentId,
       wordIndex,
@@ -453,13 +453,13 @@ export const useStore = create<AppState>((set, get) => ({
     if (!project) return
     let dir = get().exportDir
     if (!dir) {
-      dir = await window.clipforge.selectDirectory()
+      dir = await window.cutawan.selectDirectory()
       if (!dir) return
       set({ exportDir: dir })
     }
     set({ exports: { ...get().exports, [clipId]: { status: 'exporting', progress: 0 } } })
     try {
-      const result = await window.clipforge.exportClip(project.id, { clipId, outputDir: dir })
+      const result = await window.cutawan.exportClip(project.id, { clipId, outputDir: dir })
       set({
         exports: {
           ...get().exports,
@@ -490,7 +490,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   cancelExport: async (clipId) => {
-    await window.clipforge.cancelExport(clipId)
+    await window.cutawan.cancelExport(clipId)
   },
 
   exportAll: async () => {
@@ -508,7 +508,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   chooseExportDir: async () => {
-    const dir = await window.clipforge.selectDirectory()
+    const dir = await window.cutawan.selectDirectory()
     if (dir) set({ exportDir: dir })
   },
 
@@ -519,14 +519,14 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   addFonts: async () => {
-    const customFonts = await window.clipforge.addFonts()
+    const customFonts = await window.cutawan.addFonts()
     set({ customFonts })
     await registerFonts(customFonts)
   },
 
   removeFont: async (fileName) => {
     const removed = get().customFonts.find((f) => f.fileName === fileName)
-    const customFonts = await window.clipforge.removeFont(fileName)
+    const customFonts = await window.cutawan.removeFont(fileName)
     if (removed && !customFonts.some((f) => f.family === removed.family)) {
       unregisterFontFamily(removed.family)
     }
@@ -534,22 +534,22 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   importCookiesFile: async () => {
-    set({ settings: await window.clipforge.importCookiesFile() })
+    set({ settings: await window.cutawan.importCookiesFile() })
   },
 
   clearCookiesFile: async () => {
-    set({ settings: await window.clipforge.clearCookiesFile() })
+    set({ settings: await window.cutawan.clearCookiesFile() })
   },
 
   selectBrandingLogo: async () => {
-    set({ settings: await window.clipforge.selectBrandingLogo() })
+    set({ settings: await window.cutawan.selectBrandingLogo() })
   },
 
   checkForUpdates: async (silent = false) => {
     if (get().checkingForUpdates) return
     set({ checkingForUpdates: true })
     try {
-      const updateCheck = await window.clipforge.checkForUpdates()
+      const updateCheck = await window.cutawan.checkForUpdates()
       if (!silent || !updateCheck.error) set({ updateCheck })
     } finally {
       set({ checkingForUpdates: false })
@@ -559,13 +559,13 @@ export const useStore = create<AppState>((set, get) => ({
   downloadUpdate: async () => {
     if (get().updateDownload.status === 'downloading') return
     set({ updateDownload: { status: 'downloading', progress: 0 } })
-    const unsubscribe = window.clipforge.onUpdateDownloadProgress((p) => {
+    const unsubscribe = window.cutawan.onUpdateDownloadProgress((p) => {
       if (get().updateDownload.status === 'downloading') {
         set({ updateDownload: { status: 'downloading', progress: p.progress } })
       }
     })
     try {
-      await window.clipforge.downloadUpdate()
+      await window.cutawan.downloadUpdate()
       set({ updateDownload: { status: 'downloaded', progress: 1 } })
     } catch (err) {
       set({
@@ -581,13 +581,13 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   installUpdate: async () => {
-    await window.clipforge.installUpdate()
+    await window.cutawan.installUpdate()
   },
 
   updateFromSource: async () => {
     if (get().sourceUpdate.status === 'running') return
     set({ sourceUpdate: { status: 'running', message: 'Starting…' } })
-    const unsubscribe = window.clipforge.onSourceUpdateProgress((p) => {
+    const unsubscribe = window.cutawan.onSourceUpdateProgress((p) => {
       if (get().sourceUpdate.status === 'running') {
         set({ sourceUpdate: { status: 'running', message: p.message } })
       }
@@ -595,7 +595,7 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       // On success the main process relaunches the app; this state only
       // matters for the brief "Restarting…" moment.
-      await window.clipforge.updateFromSource()
+      await window.cutawan.updateFromSource()
     } catch (err) {
       set({
         sourceUpdate: {

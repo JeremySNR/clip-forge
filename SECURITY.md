@@ -5,7 +5,7 @@
 Please **do not open a public issue** for a security problem.
 
 Report it privately through GitHub's
-[private vulnerability reporting](https://github.com/JeremySNR/clip-forge/security/advisories/new),
+[private vulnerability reporting](https://github.com/JeremySNR/cutawan/security/advisories/new),
 which goes straight to the maintainers.
 
 Please include what you were doing, what happened, and the app version. If you
@@ -17,13 +17,13 @@ week rather than within hours.
 
 ## What is in scope
 
-ClipForge is a desktop app that handles credentials and personal video, so the
+Cutawan is a desktop app that handles credentials and personal video, so the
 interesting areas are:
 
 - **The OpenAI API key.** Stored encrypted with Electron `safeStorage`, in
   `userData/settings.json`. Anything that leaks it, logs it, or exposes it to
   the renderer beyond the typed IPC bridge is in scope.
-- **Browser cookies.** To download private or SSO-protected videos, ClipForge
+- **Browser cookies.** To download private or SSO-protected videos, Cutawan
   can borrow cookies from your installed browser. Anything that sends those
   somewhere they should not go is in scope.
 - **The `media://` protocol.** It serves local files to the renderer. Path

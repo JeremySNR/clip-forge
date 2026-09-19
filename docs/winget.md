@@ -1,11 +1,11 @@
-# Publishing ClipForge to winget
+# Publishing Cutawan to winget
 
-Windows is where most ClipForge installs happen. A
+Windows is where most Cutawan installs happen. A
 [winget](https://learn.microsoft.com/en-us/windows/package-manager/) package
 lets people run:
 
 ```
-winget install JeremySNR.ClipForge
+winget install JeremySNR.Cutawan
 ```
 
 The app is **not code-signed yet**, which winget allows. Users will still see a
@@ -26,9 +26,9 @@ Then either:
 - install [wingetcreate](https://github.com/microsoft/winget-create) and submit
   (`wingetcreate submit .tmp/winget`), or
 - open a PR against `microsoft/winget-pkgs` under
-  `manifests/j/JeremySNR/ClipForge/<version>/` with those three files.
+  `manifests/j/JeremySNR/Cutawan/<version>/` with those three files.
 
-Package identifier: **JeremySNR.ClipForge**.
+Package identifier: **JeremySNR.Cutawan**.
 
 ## Later releases (automatic)
 
@@ -37,7 +37,7 @@ Once the package exists, set two repository secrets/variables:
 | Name | Where | Value |
 | --- | --- | --- |
 | `WINGET_TOKEN` | Actions secret | A PAT with `public_repo` that can open PRs on a fork of `winget-pkgs` |
-| `WINGET_PACKAGE_ID` | Actions variable | `JeremySNR.ClipForge` |
+| `WINGET_PACKAGE_ID` | Actions variable | `JeremySNR.Cutawan` |
 
 The [Release workflow](../.github/workflows/release.yml) then runs
 `winget-releaser` after each GitHub Release so the manifest stays current.
