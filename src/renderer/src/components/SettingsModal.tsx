@@ -103,7 +103,7 @@ export default function SettingsModal(): React.JSX.Element {
   const [gpuError, setGpuError] = useState<string | null>(null)
   const [section, setSection] = useState<SectionId>('general')
 
-  useEffect(() => window.clipforge.onGpuProgress(setGpuProgress), [])
+  useEffect(() => window.cutawan.onGpuProgress(setGpuProgress), [])
 
   const save = async (): Promise<void> => {
     setSaving(true)
@@ -127,7 +127,7 @@ export default function SettingsModal(): React.JSX.Element {
     setGpuError(null)
     setGpuProgress({ progress: 0, message: 'Starting download…' })
     try {
-      await window.clipforge.downloadGpuFfmpeg()
+      await window.cutawan.downloadGpuFfmpeg()
       await refreshSettings()
     } catch (err) {
       setGpuError(err instanceof Error ? err.message : String(err))
@@ -529,7 +529,7 @@ function BrandingSection(): React.JSX.Element {
           onClick={() => saveColors({ ...DEFAULT_BRAND_COLORS, enabled: colors.enabled })}
           className="mt-3 text-[11px] text-zinc-500 transition hover:text-zinc-300"
         >
-          Reset colours to ClipForge defaults
+          Reset colours to Cutawan defaults
         </button>
       </div>
 
@@ -553,7 +553,7 @@ function BrandingSection(): React.JSX.Element {
       <div className="mt-2.5 flex items-center gap-3">
         {branding?.imagePath ? (
           <img
-            src={window.clipforge.mediaUrl(branding.imagePath)}
+            src={window.cutawan.mediaUrl(branding.imagePath)}
             alt="Watermark"
             className="h-12 w-12 shrink-0 rounded-lg border border-surface-600 bg-black/40 object-contain p-1"
           />
@@ -838,7 +838,7 @@ function UpdatesSection(): React.JSX.Element {
         App updates
       </label>
       <p className="mt-1 text-xs text-zinc-500">
-        ClipForge v{settings?.appVersion ?? '…'} — updates are checked automatically on launch.
+        Cutawan v{settings?.appVersion ?? '…'} — updates are checked automatically on launch.
       </p>
 
       {updateCheck?.updateAvailable && updateCheck.releaseUrl ? (

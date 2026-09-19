@@ -13,7 +13,7 @@ import { configureSubscription, subscriptionJSON, subscriptionEnvironment, codex
 const messages = [{ role: 'user' as const, content: 'Pick a complete moment.' }]
 const schema = { type: 'object', properties: { title: { type: 'string' } }, required: ['title'], additionalProperties: false }
 beforeEach(async () => {
-  mock.root = await mkdtemp(join(tmpdir(), 'clipforge-subscription-test-'))
+  mock.root = await mkdtemp(join(tmpdir(), 'cutawan-subscription-test-'))
   mock.login = 'Logged in using ChatGPT'
   mock.fail = false
   mock.spawn.mockReset().mockImplementation((_exe: string, args: string[]) => {

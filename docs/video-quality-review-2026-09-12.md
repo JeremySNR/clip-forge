@@ -1,8 +1,8 @@
-**ClipForge video-quality review — 12 September 2026**
+**Cutawan video-quality review — 12 September 2026**
 
 **Implementation update:** The first quality milestone now preserves original speech through caption edits, scouts for returning faces throughout clips, records framing coverage and handles trim/relink races, enforces duration limits after refinement, and retains export brand colours without requiring a logo. An offline, provider-neutral benchmark and blind video-review generator are documented in [quality-benchmark.md](quality-benchmark.md). The findings below describe the reviewed baseline; these fixes do not establish Opus parity or select a winning replacement model. Remaining architectural recommendations still require real-footage comparisons.
 
-ClipForge has a credible foundation for high-quality talking-head and podcast clips. Its strongest work is the local rendering pipeline, shared preview/export planning, real audio-visual active-speaker detection, and explicit review of clip endings. Those are useful assets, but none of the present algorithms, models, pipeline stages, or deployment choices should be presumed optimal. Reaching or beating OpusClip requires choosing methods by their effect on finished videos, including replacing substantial parts of the pipeline when alternatives perform better.
+Cutawan has a credible foundation for high-quality talking-head and podcast clips. Its strongest work is the local rendering pipeline, shared preview/export planning, real audio-visual active-speaker detection, and explicit review of clip endings. Those are useful assets, but none of the present algorithms, models, pipeline stages, or deployment choices should be presumed optimal. Reaching or beating OpusClip requires choosing methods by their effect on finished videos, including replacing substantial parts of the pipeline when alternatives perform better.
 
 Podcasts/interviews are a useful first evaluation category, not an assumed limit on the product. Sports, gameplay, demos, and visual storytelling need their own evaluation categories. The current implementation's strengths should not determine which source types the future product can handle.
 
@@ -28,7 +28,7 @@ The following is a researched shortlist, not a claim that untested candidates ar
 
 Speech shortlist evidence: [Qwen3-ASR and ForcedAligner](https://github.com/QwenLM/Qwen3-ASR), [Parakeet model card](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), [Scribe v2 API](https://elevenlabs.io/docs/api-reference/speech-to-text/convert), and [WhisperX](https://github.com/m-bain/whisperX). Qwen's recognition and alignment language coverage differ; test the requested languages explicitly.
 
-For diarization, pyannote's own benchmark table reports lower error for Precision-2 than Community-1 across its listed datasets, including 8.5% versus 11.2% on VoxConverse and 14.7% versus 20.2% on DIHARD 3. These are provider-reported results under stated conditions, not measurements of ClipForge footage. They justify including the hosted option in a quality-first comparison rather than assuming local open-source inference is sufficient. [Model card and methodology](https://huggingface.co/pyannote/speaker-diarization-community-1).
+For diarization, pyannote's own benchmark table reports lower error for Precision-2 than Community-1 across its listed datasets, including 8.5% versus 11.2% on VoxConverse and 14.7% versus 20.2% on DIHARD 3. These are provider-reported results under stated conditions, not measurements of Cutawan footage. They justify including the hosted option in a quality-first comparison rather than assuming local open-source inference is sufficient. [Model card and methodology](https://huggingface.co/pyannote/speaker-diarization-community-1).
 
 For ASD, [GateFusion, WACV 2026](https://openaccess.thecvf.com/content/WACV2026/html/Wang_GateFusion_Hierarchical_Gated_Cross-Modal_Fusion_for_Active_Speaker_Detection_WACV_2026_paper.html) reports results on Ego4D-ASD, UniTalk, and WASD, using pretrained encoders and gated cross-modal fusion. [UniTalk](https://arxiv.org/abs/2505.21954) specifically identifies the domain gap between movie-based AVA evaluation and challenging modern footage. Treat this as a reason to test broad generalization, not to select a model from one reported mAP number. [TalkNCE](https://github.com/kaistmm/TalkNCE) supplies a LoCoNet checkpoint trained with its contrastive objective. [NVIDIA's ASD model card](https://build.nvidia.com/nvidia/active-speaker-detection/modelcard) describes face detection, appearance embeddings, and audio-visual activity components together; its [support matrix](https://docs.nvidia.com/nim/maxine/active-speaker-detection/1.0.0/support-matrix.html) must inform deployment feasibility.
 
@@ -68,7 +68,7 @@ Validation completed:
 - Renderer TypeScript check passed.
 - Main-process TypeScript check failed because this local installation cannot resolve `electron-updater`, which is declared in package.json. This is an installed-dependency issue, not evidence of a faulty media algorithm.
 - Existing offline `test-pipeline.ts` and `test-quality.ts` passed, including actual FFmpeg exports. A generated vertical captioned frame was visually inspected.
-- Four targeted behavior checks reproduced the caption-hiding, tracking bailout, stale tracking, and clip-duration issues below. The temporary harness is [.tmp/review-quality-check.ts](C:/Users/ggwpm/Desktop/j-clip/.tmp/review-quality-check.ts).
+- Four targeted behavior checks reproduced the caption-hiding, tracking bailout, stale tracking, and clip-duration issues below. The temporary harness is [.tmp/review-quality-check.ts](../.tmp/review-quality-check.ts).
 - The ordinary npm launcher failed due to a missing npm CLI at its resolved roaming path. Checks used installed local tools directly; Vitest and integration tests required execution outside the filesystem sandbox for configuration resolution.
 - Live AI output, real-person ASD accuracy, desktop interaction, and packaged-app behavior were not validated in this review.
 
@@ -90,7 +90,7 @@ These strengths make controlled comparisons practical. Electron and React need n
 | P2 | Ending refinement can exceed the promised duration cap | The initial selection enforces a 45-second cap for short clips, but later ending refinement can extend it substantially. A 44-second clip became 80.6 seconds in the targeted check. | Validate the final edit after all refinements; find a complete shorter ending or explicitly classify it as a longer alternative. |
 | P2 | Brand colors depend on a usable logo during export | IPC passes branding only when the watermark is enabled and its image exists. Preview caption colors are read independently. A color-only brand can therefore render differently. | Pass colors independently; gate only the watermark image overlay. |
 
-Evidence: [tighten.ts:63](C:/Users/ggwpm/Desktop/j-clip/src/shared/tighten.ts:63), [caption word filtering](C:/Users/ggwpm/Desktop/j-clip/src/shared/captionLayout.ts:25), [TranscriptEditor.tsx:17](C:/Users/ggwpm/Desktop/j-clip/src/renderer/src/components/TranscriptEditor.tsx:17), [ASD bailout](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/asd.ts:131), [tracking invalidation](C:/Users/ggwpm/Desktop/j-clip/src/shared/reframe.ts:41), [highlight refinements](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/highlights.ts:594), [branding export](C:/Users/ggwpm/Desktop/j-clip/src/main/ipc.ts:258).
+Evidence: [tighten.ts:63](../src/shared/tighten.ts:63), [caption word filtering](../src/shared/captionLayout.ts:25), [TranscriptEditor.tsx:17](../src/renderer/src/components/TranscriptEditor.tsx:17), [ASD bailout](../src/main/pipeline/asd.ts:131), [tracking invalidation](../src/shared/reframe.ts:41), [highlight refinements](../src/main/pipeline/highlights.ts:594), [branding export](../src/main/ipc.ts:258).
 
 **1. Improve which moments become clips**
 
@@ -113,7 +113,7 @@ Keep candidate generation generous, but make publishable recommendations selecti
 
 Do not jump straight to autonomous rearrangement of quotes. Start with contiguous clips and optional, inspectable removal of redundant sentences. Later support noncontiguous assemblies with source provenance and a check that the edit preserves meaning.
 
-Evidence: [pipeline order](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/index.ts:164), [selection prompt](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/highlights.ts:621), [visual sampling](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/visualScore.ts:54).
+Evidence: [pipeline order](../src/main/pipeline/index.ts:164), [selection prompt](../src/main/pipeline/highlights.ts:621), [visual sampling](../src/main/pipeline/visualScore.ts:54).
 
 **2. Turn speaker detection into good camera direction**
 
@@ -132,7 +132,7 @@ I would add:
 
 OpusClip documents split, multi-person, screenshare, and gameplay layouts plus per-segment adjustments. That is a tangible compositional gap beyond speaker detection itself. [Official layout documentation](https://help.opus.pro/docs/article/layout-and-reframing).
 
-Evidence: [types.ts:14](C:/Users/ggwpm/Desktop/j-clip/src/shared/types.ts:14), [focus representation](C:/Users/ggwpm/Desktop/j-clip/src/shared/types.ts:76), [face association](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/facetracks.ts:113), [whole-video decisions](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/wholeVideo.ts:170).
+Evidence: [types.ts:14](../src/shared/types.ts:14), [focus representation](../src/shared/types.ts:76), [face association](../src/main/pipeline/facetracks.ts:113), [whole-video decisions](../src/main/pipeline/wholeVideo.ts:170).
 
 **3. Preserve timing, meaning, and natural pacing**
 
@@ -146,7 +146,7 @@ Offer gentle, standard, and aggressive pacing, backed by voice activity and prot
 
 Zoom is described as scene-aware, but its planner receives transcript energy, the clip range, and tightening joins—not detected source shots, face geometry, or camera motion. It adds creep after sufficiently long stretches and punches on loud segments. I would replace the periodic-motion rule with intentional emphasis, avoid stacking zoom on a camera push-in, reset at source cuts, and constrain zoom by face position and available source pixels.
 
-Evidence: [timing normalization](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/transcribe.ts:63), [tightening](C:/Users/ggwpm/Desktop/j-clip/src/shared/tighten.ts:48), [zoom inputs](C:/Users/ggwpm/Desktop/j-clip/src/shared/zoom.ts:68), [internal joins](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/render.ts:274).
+Evidence: [timing normalization](../src/main/pipeline/transcribe.ts:63), [tightening](../src/shared/tighten.ts:48), [zoom inputs](../src/shared/zoom.ts:68), [internal joins](../src/main/pipeline/render.ts:274).
 
 **4. Judge captions and image quality in the finished composition**
 
@@ -160,7 +160,7 @@ Use crop-aware resolution budgeting, preserve high-resolution source footage, an
 
 For audio, retain measured normalization and add optional denoise, de-reverb, and speaker-level balancing only after listening tests. Measure the final encoded output's loudness and true peak. The existing quality test checks audio stream presence; it does not verify that output achieves the stated loudness target.
 
-Evidence: [caption layout](C:/Users/ggwpm/Desktop/j-clip/src/shared/captionLayout.ts:102), [preview compositor](C:/Users/ggwpm/Desktop/j-clip/src/renderer/src/components/PreviewPlayer.tsx:385), [source metadata](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/ffmpeg.ts:130), [output dimensions](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/render.ts:68), [encoder settings](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/encoders.ts:136).
+Evidence: [caption layout](../src/shared/captionLayout.ts:102), [preview compositor](../src/renderer/src/components/PreviewPlayer.tsx:385), [source metadata](../src/main/pipeline/ffmpeg.ts:130), [output dimensions](../src/main/pipeline/render.ts:68), [encoder settings](../src/main/pipeline/encoders.ts:136).
 
 **5. Treat engagement as an outcome to learn from**
 
@@ -178,7 +178,7 @@ Current B-roll is keyword-triggered still-image search. It chooses the first qua
 
 Prefer supporting visuals from the source itself, then an optional creator asset library, then external material. Validate image content and effective resolution, use shot-aware timing, and avoid covering the expression that made the clip engaging. Keep asset provenance and license metadata with the project. Do not add generic footage merely to keep the frame moving.
 
-Evidence: [B-roll planner](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/broll.ts:77), [image selection](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/imagesearch.ts:43), [overlay composition](C:/Users/ggwpm/Desktop/j-clip/src/main/pipeline/render.ts:464).
+Evidence: [B-roll planner](../src/main/pipeline/broll.ts:77), [image selection](../src/main/pipeline/imagesearch.ts:43), [overlay composition](../src/main/pipeline/render.ts:464).
 
 **7. Add a real quality benchmark before judging parity**
 
@@ -192,7 +192,7 @@ Evaluate three separate tasks:
 - Editing: given identical source boundaries, which system produces the better finished video?
 - End-to-end: which system yields more publishable clips with less human repair?
 
-Compare ClipForge, the current OpusClip configuration, and human edits using blinded order and matched source/settings. Keep whole source videos and creators separated between tuning and holdout sets. Report uncertainty and results by content type rather than a single flattering average.
+Compare Cutawan, the current OpusClip configuration, and human edits using blinded order and matched source/settings. Keep whole source videos and creators separated between tuning and holdout sets. Report uncertainty and results by content type rather than a single flattering average.
 
 Suggested initial engineering targets, to revise after establishing the baseline:
 

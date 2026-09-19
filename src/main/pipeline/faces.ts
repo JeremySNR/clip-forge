@@ -60,7 +60,7 @@ async function sampleFaceCentres(
   signal?: AbortSignal
 ): Promise<SampledFrames> {
   const duration = Math.max(0.1, endSec - startSec)
-  const rawPath = join(tmpdir(), 'clipforge', `faces-${randomUUID()}.rgb`)
+  const rawPath = join(tmpdir(), 'cutawan', `faces-${randomUUID()}.rgb`)
   await runFfmpeg(
     [
       '-ss', startSec.toFixed(3),

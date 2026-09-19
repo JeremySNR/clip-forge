@@ -78,7 +78,7 @@ export default function EditorScreen(): React.JSX.Element {
   useEffect(() => {
     if (!videoPath || sourceMissing) return
     let alive = true
-    window.clipforge
+    window.cutawan
       .getTimeline(videoPath, windowStart, windowEnd)
       .then((data) => {
         if (alive) setLoadedTimeline({ key: timelineKey, data })
@@ -458,7 +458,7 @@ export default function EditorScreen(): React.JSX.Element {
                 >
                   {item.imagePath && (
                     <img
-                      src={window.clipforge.mediaUrl(item.imagePath)}
+                      src={window.cutawan.mediaUrl(item.imagePath)}
                       alt={item.trigger}
                       className="h-12 w-16 shrink-0 rounded-lg bg-black object-cover"
                     />

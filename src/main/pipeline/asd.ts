@@ -314,7 +314,7 @@ async function extractMfcc(
   duration: number,
   signal?: AbortSignal
 ): Promise<Float32Array | null> {
-  const pcmPath = join(tmpdir(), 'clipforge', `asd-${randomUUID()}.pcm`)
+  const pcmPath = join(tmpdir(), 'cutawan', `asd-${randomUUID()}.pcm`)
   try {
     await runFfmpeg(
       [

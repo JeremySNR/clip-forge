@@ -11,7 +11,7 @@ export const VIDEO_TYPE_OPTIONS: VideoTypeOption[] = [
   {
     value: 'auto',
     label: 'Auto-detect',
-    hint: 'Let ClipForge decide per clip'
+    hint: 'Let Cutawan decide per clip'
   },
   {
     value: 'talking-head',

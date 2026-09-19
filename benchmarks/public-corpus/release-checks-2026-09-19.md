@@ -38,7 +38,7 @@ After the user requested cheaper testing, future uncached corpus requests were p
 
 ## Windows package and compatibility
 
-The actual packaged `ClipForge.exe` reported `app.isPackaged === true` and loaded its `resources/app.asar`. Tests used isolated app/session data directories established before application initialization. This was an unsigned unpacked Windows build; installer installation, signing, macOS and Linux packages were not tested.
+The actual packaged `Cutawan.exe` reported `app.isPackaged === true` and loaded its `resources/app.asar`. Tests used isolated app/session data directories established before application initialization. This was an unsigned unpacked Windows build; installer installation, signing, macOS and Linux packages were not tested.
 
 - A fresh NASA import created a 460-word transcript and four clip candidates through the packaged app. Following the cost-related interruption, its saved project was reopened, preview playback advanced with decoded 1280×720 source frames, and a vertical captioned clip was exported through the UI.
 - A copied pre-change Wozniak project loaded with 14 clips. A clip title and a transcript word were edited and survived reopening. Other clips were unchanged, export succeeded, and the original project JSON remained byte-for-byte unchanged.
@@ -66,6 +66,6 @@ Media and machine-specific test helpers remain excluded from Git. On the validat
 - `.tmp/release-validation/subscription-final/result.json` — final packaged local-transcription result.
 - `.tmp/release-validation/subscription-smoke/result.json` — bounded live provider result.
 - `.tmp/release-validation/export-qc.json` — complete-file decode and stream probes.
-- `.tmp/release-validation/package-final/win-unpacked/ClipForge.exe` — tested unsigned application.
+- `.tmp/release-validation/package-final/win-unpacked/Cutawan.exe` — tested unsigned application.
 
 These local paths will not resolve in a fresh GitHub checkout. The corpus catalog, implementation, regression tests and this written evidence are included in the PR. PR #59 remains a draft; no merge or release was performed.

@@ -90,7 +90,7 @@ async function compare(manifestPath: string, outputDir: string): Promise<void> {
 
 async function exportProject(projectPath: string, caseId: string, outputPath: string): Promise<void> {
   const project = await json(projectPath) as Project
-  if (!project.video || !Array.isArray(project.clips)) throw new Error('Expected a saved ClipForge project.json')
+  if (!project.video || !Array.isArray(project.clips)) throw new Error('Expected a saved Cutawan project.json')
   const sample: QualitySample = {
     sourceSha256: await sha256(project.video.path), durationSec: project.video.durationSec,
     words: project.transcript?.segments.flatMap((s) => s.words.map((w) => ({
@@ -102,7 +102,7 @@ async function exportProject(projectPath: string, caseId: string, outputPath: st
   validateQualitySample(sample, true)
   await writeJson(outputPath, {
     schemaVersion: 1,
-    provenance: { system: 'ClipForge saved project', revision: 'unrecorded in project',
+    provenance: { system: 'Cutawan saved project', revision: 'unrecorded in project',
       configuration: 'Saved edits and ranking; record actual model/settings/revision before a controlled comparison. No speaker IDs are inferred from crop positions.' },
     cases: { [caseId]: sample }
   } satisfies Predictions)

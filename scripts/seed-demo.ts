@@ -1,17 +1,23 @@
 /**
- * Seeds a demo project into ClipForge's userData directory so the UI can be
+ * Seeds a demo project into Cutawan's userData directory so the UI can be
  * inspected (and smoke-tested) without running the OpenAI pipeline.
  *
  * Run with: npx tsx --tsconfig tsconfig.node.json scripts/seed-demo.ts
  */
 import { homedir } from 'node:os'
+import { resolveUserDataPath } from '../src/main/userData'
 import { join } from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { runFfmpeg, probeVideo, extractThumbnail } from '../src/main/pipeline/ffmpeg'
 import { DEFAULT_CAPTION_STYLE_ID } from '../src/shared/captionStyles'
 import type { Clip, Project, Transcript, TranscriptWord } from '../src/shared/types'
 
-const USER_DATA = process.env.CLIPFORGE_USER_DATA ?? join(homedir(), '.config', 'clipforge')
+const appData = process.platform === 'win32'
+  ? process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming')
+  : process.platform === 'darwin'
+    ? join(homedir(), 'Library', 'Application Support')
+    : process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config')
+const USER_DATA = resolveUserDataPath(appData, process.env.CUTAWAN_USER_DATA)
 const PROJECT_ID = 'demo-project-0000'
 
 const SPEECH =

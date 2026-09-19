@@ -51,8 +51,8 @@ const RELINK_DURATION_TOLERANCE_SEC = 2
 const VIDEO_FILTERS = [{ name: 'Videos', extensions: [...VIDEO_EXTENSIONS] }]
 
 async function pickVideoFile(sender: Electron.WebContents, title: string): Promise<string | null> {
-  // Headless/CI hook (like CLIPFORGE_SMOKE): skip the native dialog.
-  if (process.env.CLIPFORGE_SELECT_VIDEO) return process.env.CLIPFORGE_SELECT_VIDEO
+  // Headless/CI hook (like CUTAWAN_SMOKE): skip the native dialog.
+  if (process.env.CUTAWAN_SELECT_VIDEO) return process.env.CUTAWAN_SELECT_VIDEO
   const win = BrowserWindow.fromWebContents(sender)
   const result = await dialog.showOpenDialog(win!, {
     title,
@@ -68,8 +68,8 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('dialog:selectDirectory', async (event) => {
-    // Headless/CI hook (like CLIPFORGE_SMOKE): skip the native dialog.
-    if (process.env.CLIPFORGE_EXPORT_DIR) return process.env.CLIPFORGE_EXPORT_DIR
+    // Headless/CI hook (like CUTAWAN_SMOKE): skip the native dialog.
+    if (process.env.CUTAWAN_EXPORT_DIR) return process.env.CUTAWAN_EXPORT_DIR
     const win = BrowserWindow.fromWebContents(event.sender)
     const result = await dialog.showOpenDialog(win!, {
       title: 'Choose export folder',
@@ -336,10 +336,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('fonts:list', async () => listCustomFonts())
 
   ipcMain.handle('fonts:add', async (event) => {
-    // Headless/CI hook (like CLIPFORGE_SELECT_VIDEO): skip the native dialog.
+    // Headless/CI hook (like CUTAWAN_SELECT_VIDEO): skip the native dialog.
     let paths: string[]
-    if (process.env.CLIPFORGE_SELECT_FONTS) {
-      paths = process.env.CLIPFORGE_SELECT_FONTS.split(',')
+    if (process.env.CUTAWAN_SELECT_FONTS) {
+      paths = process.env.CUTAWAN_SELECT_FONTS.split(',')
     } else {
       const win = BrowserWindow.fromWebContents(event.sender)
       const result = await dialog.showOpenDialog(win!, {
@@ -356,8 +356,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('fonts:remove', async (_e, fileName: string) => removeCustomFont(fileName))
 
   ipcMain.handle('cookies:import', async (event) => {
-    if (process.env.CLIPFORGE_COOKIES_FILE) {
-      await installImportCookiesFile(process.env.CLIPFORGE_COOKIES_FILE)
+    if (process.env.CUTAWAN_COOKIES_FILE) {
+      await installImportCookiesFile(process.env.CUTAWAN_COOKIES_FILE)
       return getSettings()
     }
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -379,8 +379,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('branding:selectLogo', async (event) => {
     // Headless/CI hook: skip the native dialog.
     let picked: string | null
-    if (process.env.CLIPFORGE_SELECT_LOGO) {
-      picked = process.env.CLIPFORGE_SELECT_LOGO
+    if (process.env.CUTAWAN_SELECT_LOGO) {
+      picked = process.env.CUTAWAN_SELECT_LOGO
     } else {
       const win = BrowserWindow.fromWebContents(event.sender)
       const result = await dialog.showOpenDialog(win!, {

@@ -148,7 +148,7 @@ export function cookieDpapiErrorHint(hasCookiesFile: boolean): string {
     return 'Your cookies file is set but the import still failed. Open the Vimeo video in your browser while signed in, re-export cookies with the Get cookies.txt LOCALLY extension, import the new file, and retry.'
   }
   return [
-    'Windows encrypts Chrome/Edge cookies so other apps cannot read them (this is a Chromium security change, not a ClipForge bug).',
+    'Windows encrypts Chrome/Edge cookies so other apps cannot read them (this is a Chromium security change, not a Cutawan bug).',
     'Use Import cookies file below: sign in to Vimeo in your browser, export with the Get cookies.txt LOCALLY extension, then import the .txt file.',
     'Or pick Firefox in the browser list. Firefox cookies still work with browser login on Windows.'
   ].join(' ')
@@ -172,7 +172,7 @@ export function cookieCopyErrorHint(browser: BrowserCookieSource, hasCookiesFile
     return 'Your cookies file is set but the import still failed. Re-export it from the browser while signed in to the site (use the Get cookies.txt LOCALLY extension), then import the new file and retry.'
   }
   const parts = [
-    'Chrome and other Chromium browsers lock their cookie store while they are open, so ClipForge could not borrow the login.'
+    'Chrome and other Chromium browsers lock their cookie store while they are open, so Cutawan could not borrow the login.'
   ]
   if (browser && CHROMIUM_BROWSERS.has(browser)) {
     parts.push(

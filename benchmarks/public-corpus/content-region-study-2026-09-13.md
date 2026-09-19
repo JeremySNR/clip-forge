@@ -1,6 +1,6 @@
 # Content-preserving enlargement — 13 September 2026
 
-ClipForge can now fit an inspected source region intact into the output, alongside its existing speaker crop and full-frame fit. This addresses a real failure in the corpus: preserving the entire frame kept the demonstration visible but made it unnecessarily small.
+Cutawan can now fit an inspected source region intact into the output, alongside its existing speaker crop and full-frame fit. This addresses a real failure in the corpus: preserving the entire frame kept the demonstration visible but made it unnecessarily small.
 
 [Play four before/after comparisons](../../.tmp/quality-corpus/content-region-v2/index.html). [Improved popcorn demonstration](../../.tmp/quality-corpus/content-region-v2/renders/automation-empathy-talk/rank-3.mp4).
 

@@ -1,6 +1,6 @@
 # Screen overview and detail views — 13 September 2026
 
-ClipForge now keeps a complete source overview above a larger view of the UI or diagram being discussed. Captions occupy the space between those views. This improves several real screen-demo moments that were preserved but unreadable in the previous full-frame portrait fit.
+Cutawan now keeps a complete source overview above a larger view of the UI or diagram being discussed. Captions occupy the space between those views. This improves several real screen-demo moments that were preserved but unreadable in the previous full-frame portrait fit.
 
 [Play four before/after comparisons](../../.tmp/quality-corpus/screen-detail-v3/index.html). [Warning and translation controls](../../.tmp/quality-corpus/screen-detail-v3/renders/narrated-screen-demo/rank-1.mp4).
 

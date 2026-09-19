@@ -148,7 +148,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
       >
         {clip.thumbnailPath ? (
           <img
-            src={window.clipforge.mediaUrl(clip.thumbnailPath)}
+            src={window.cutawan.mediaUrl(clip.thumbnailPath)}
             alt=""
             className="h-full w-full object-cover transition group-hover:opacity-90"
           />
@@ -240,7 +240,7 @@ export function ExportButton({
     const sizeLabel = bytes !== undefined ? ` · ${formatBytes(bytes)}` : ''
     return (
       <button
-        onClick={() => void window.clipforge.showItemInFolder(outputPath)}
+        onClick={() => void window.cutawan.showItemInFolder(outputPath)}
         className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
         title={
           downscaled

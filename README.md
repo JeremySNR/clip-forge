@@ -1,10 +1,10 @@
 <p align="center">
-  <img src=".github/assets/hero.png" alt="ClipForge: turn long videos into viral clips on your desktop" width="100%" />
+  <img src=".github/assets/hero.png" alt="Cutawan: turn long videos into viral clips on your desktop" width="100%" />
 </p>
 
 <h3 align="center">The open-source Opus Clip alternative that runs on your desktop.</h3>
 
-<p align="center"><a href="https://jeremysnr.github.io/clip-forge/"><strong>clipforge site</strong></a> &nbsp;·&nbsp; <a href="https://github.com/JeremySNR/clip-forge/releases/latest">download</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
+<p align="center"><a href="https://jeremysnr.github.io/cutawan/"><strong>cutawan site</strong></a> &nbsp;·&nbsp; <a href="https://github.com/JeremySNR/cutawan/releases/latest">download</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
 
 <p align="center">
   Turn podcasts, webinars, streams and interviews into ready-to-post vertical clips.<br/>
@@ -12,21 +12,21 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/JeremySNR/clip-forge/releases/latest"><img src="https://img.shields.io/github/v/release/JeremySNR/clip-forge?color=10b981&label=release" alt="Latest release" /></a>
-  <a href="https://github.com/JeremySNR/clip-forge/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JeremySNR/clip-forge/ci.yml?branch=main&label=CI" alt="CI status" /></a>
-  <a href="https://github.com/JeremySNR/clip-forge/releases"><img src="https://img.shields.io/github/downloads/JeremySNR/clip-forge/total?color=6366f1&label=downloads" alt="Total downloads" /></a>
+  <a href="https://github.com/JeremySNR/cutawan/releases/latest"><img src="https://img.shields.io/github/v/release/JeremySNR/cutawan?color=10b981&label=release" alt="Latest release" /></a>
+  <a href="https://github.com/JeremySNR/cutawan/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/JeremySNR/cutawan/ci.yml?branch=main&label=CI" alt="CI status" /></a>
+  <a href="https://github.com/JeremySNR/cutawan/releases"><img src="https://img.shields.io/github/downloads/JeremySNR/cutawan/total?color=6366f1&label=downloads" alt="Total downloads" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platforms" />
-  <a href="https://github.com/JeremySNR/clip-forge/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
+  <a href="https://github.com/JeremySNR/cutawan/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs welcome" /></a>
 </p>
 
 ---
 
-## Why ClipForge instead of Opus Clip?
+## Why Cutawan instead of Opus Clip?
 
-Opus Clip is great, but it costs a subscription, runs in the cloud, and uploads your footage. ClipForge does the same job as a free desktop app. You bring an OpenAI API key and pay **cents per video** instead of dollars per month.
+Opus Clip is great, but it costs a subscription, runs in the cloud, and uploads your footage. Cutawan does the same job as a free desktop app. You bring an OpenAI API key and pay **cents per video** instead of dollars per month.
 
-|                          | **ClipForge**                                   | Opus Clip (and similar SaaS)      |
+|                          | **Cutawan**                                   | Opus Clip (and similar SaaS)      |
 | ------------------------ | ----------------------------------------------- | --------------------------------- |
 | Price                    | Free and open source (MIT). Pay only OpenAI API cents | Monthly subscription          |
 | Your footage             | Stays on your machine. Only audio, transcripts and a few frames go to the API | Uploaded to their cloud |
@@ -83,8 +83,8 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 ## Quick start
 
 ```bash
-git clone https://github.com/JeremySNR/clip-forge.git
-cd clip-forge
+git clone https://github.com/JeremySNR/cutawan.git
+cd cutawan
 npm install
 npm run dev        # development with hot reload
 npm run package    # distributable build (dmg / nsis / AppImage)
@@ -92,7 +92,7 @@ npm run package    # distributable build (dmg / nsis / AppImage)
 
 ### Publishing a release (for maintainers)
 
-Most people should just download the app from the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest) — there's no need to run anything from source. To cut a new release, bump the version and push a tag; the [`Release` workflow](.github/workflows/release.yml) builds the macOS `.dmg`, Windows installer and Linux `AppImage` and publishes them, along with the update manifests the in-app updater reads:
+Most people should just download the app from the [releases page](https://github.com/JeremySNR/cutawan/releases/latest) — there's no need to run anything from source. To cut a new release, bump the version and push a tag; the [`Release` workflow](.github/workflows/release.yml) builds the macOS `.dmg`, Windows installer and Linux `AppImage` and publishes them, along with the update manifests the in-app updater reads:
 
 ```bash
 npm version patch        # or minor / major — bumps package.json and creates the tag
@@ -103,7 +103,7 @@ Windows packages can also be listed on [winget](docs/winget.md) after a one-off 
 
 Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
 
-You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/clip-forge/releases/latest). On Windows, `winget install JeremySNR.ClipForge` will work once the [winget package](docs/winget.md) is listed.
+You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/cutawan/releases/latest). On Windows, `winget install JeremySNR.Cutawan` will work once the [winget package](docs/winget.md) is listed.
 
 Everything except transcription and analysis runs locally. Rendering, face tracking, editing, zoom and export never leave your machine. Only extracted audio, transcripts and a few sampled frames go to the OpenAI API. Never the full video.
 
@@ -184,11 +184,11 @@ tracking, zoom and export are entirely local.
 
 **How is this different from Opus Clip's free tier?**
 Free SaaS tiers cap your processing minutes and usually watermark the output.
-ClipForge has no cap because it runs on your hardware, and the only watermark is
+Cutawan has no cap because it runs on your hardware, and the only watermark is
 one you add yourself.
 
 **Do I need a GPU?**
-No. ClipForge uses NVIDIA NVENC if it finds it and falls back to CPU encoding
+No. Cutawan uses NVIDIA NVENC if it finds it and falls back to CPU encoding
 automatically. A GPU makes exports faster, nothing more. Speaker detection runs
 on-device through ONNX Runtime and is fine on CPU.
 
@@ -236,12 +236,12 @@ is still on the roadmap.
 
 Each of these is an open issue, so the discussion and the detail live there. Contributions very welcome.
 
-- [Multi-language caption translation](https://github.com/JeremySNR/clip-forge/issues/49)
-- [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/clip-forge/issues/50)
+- [Multi-language caption translation](https://github.com/JeremySNR/cutawan/issues/49)
+- [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/cutawan/issues/50)
 - Bundled on-device Whisper, so transcription needs no server at all
 - Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app)
 
-Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/clip-forge/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.
+Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/cutawan/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.
 
 ## Contributing
 
@@ -252,3 +252,35 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (including how to explore the U
 ## License
 
 [MIT](LICENSE)
+
+> On Windows `cmd.exe` (and PowerShell), don't paste the `#` comments in the examples above — they aren't comment characters there and get passed to the script as arguments. Run just `npm run dev`.
+
+### Troubleshooting: `Error: Electron uninstall`
+
+If `npm run dev` fails with `Error: Electron uninstall` (or `An entry point is required…` right before it), the Electron runtime binary didn't finish downloading during `npm install` — a common consequence of a dropped/interrupted connection. `node_modules/electron/dist/` ends up missing `electron.exe`. Fix it without a full reinstall:
+
+```bash
+npm rebuild electron
+```
+
+If that no-ops and the binary is still missing, force a clean re-download:
+
+```bash
+# macOS / Linux
+rm -rf node_modules/electron/dist node_modules/electron/path.txt
+force_no_cache=true node node_modules/electron/install.js
+```
+
+```powershell
+# Windows PowerShell
+Remove-Item -Recurse -Force node_modules\electron\dist, node_modules\electron\path.txt -ErrorAction SilentlyContinue
+$env:force_no_cache = "true"; node node_modules/electron/install.js
+```
+
+Verify with `npx electron --version` (should print the Electron version, e.g. `v35.7.5`). Note that `npm run package` can succeed even while this is broken — electron-builder downloads its own copy of Electron separately from the dev runtime.
+
+## Screenshots and brand assets
+
+Run `npm run screenshots` to build Cutawan and capture eight real app views with
+an isolated offline demo profile. See [rename notes](docs/rename-plan.md) for
+existing-install compatibility and screenshot details.

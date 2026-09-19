@@ -24,7 +24,7 @@ describe('findGitRoot', () => {
 })
 
 describe('resolveSourceRepoRoot', () => {
-  it('finds the clipforge checkout from the workspace cwd', () => {
+  it('finds the cutawan checkout from the workspace cwd', () => {
     expect(resolveSourceRepoRoot()).toBe(process.cwd())
   })
 })

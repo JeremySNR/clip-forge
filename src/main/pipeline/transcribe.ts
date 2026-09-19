@@ -227,7 +227,7 @@ export async function transcribeChunks(
     if (seam - from >= 16 && end - seam >= 16 && needsSeamRepair(complete(left), complete(right), seam)) {
       let temporary: string | undefined
       try {
-        temporary = await mkdtemp(join(tmpdir(), 'clipforge-seam-'))
+        temporary = await mkdtemp(join(tmpdir(), 'cutawan-seam-'))
         const path = join(temporary, 'audio.wav')
         // One contiguous source interval, assembled from the already decoded
         // upload files. Split at the source seam; do not concatenate overlap.
@@ -245,10 +245,10 @@ export async function transcribeChunks(
         }])
         const repair = repairTranscriptSeam(transcript, patch, seam)
         transcript = repair.transcript
-        if (!repair.applied) console.warn(`[clipforge] Transcript join ${seam}s retained: ${repair.reason}`)
+        if (!repair.applied) console.warn(`[cutawan] Transcript join ${seam}s retained: ${repair.reason}`)
       } catch (error) {
         signal?.throwIfAborted()
-        console.warn(`[clipforge] Transcript join ${seam}s could not be checked:`, error)
+        console.warn(`[cutawan] Transcript join ${seam}s could not be checked:`, error)
       } finally {
         if (temporary) await rm(temporary, { recursive: true, force: true }).catch(() => undefined)
       }

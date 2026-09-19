@@ -15,7 +15,7 @@ import type { Clip, Project } from '@shared/types'
 const { userData } = await vi.hoisted(async () => {
   const os = await import('node:os')
   const path = await import('node:path')
-  return { userData: path.join(os.tmpdir(), `clipforge-lazy-reframe-${process.pid}-${Date.now()}`) }
+  return { userData: path.join(os.tmpdir(), `cutawan-lazy-reframe-${process.pid}-${Date.now()}`) }
 })
 
 vi.mock('electron', () => ({

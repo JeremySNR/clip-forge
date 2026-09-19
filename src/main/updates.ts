@@ -14,7 +14,7 @@ import type { ImportProgress, UpdateCheckResult, UpdateDownloadProgress } from '
  * via electron-updater; source checkouts pull, rebuild and relaunch in place.
  */
 
-const REPO = 'JeremySNR/clip-forge'
+const REPO = 'JeremySNR/cutawan'
 const RELEASES_PAGE = `https://github.com/${REPO}/releases/latest`
 const CHECK_TIMEOUT_MS = 10_000
 
@@ -53,7 +53,7 @@ export function compareVersions(a: string, b: string): number {
  * from a source checkout via electron-updater's dev-update config.
  */
 export function isAutoUpdateSupported(): boolean {
-  return app?.isPackaged === true || process.env.CLIPFORGE_FORCE_DEV_UPDATES === '1'
+  return app?.isPackaged === true || process.env.CUTAWAN_FORCE_DEV_UPDATES === '1'
 }
 
 /**
@@ -71,7 +71,7 @@ export function findGitRoot(start: string): string | null {
 }
 
 /**
- * Locate the ClipForge git checkout root. `app.getAppPath()` often points at
+ * Locate the Cutawan git checkout root. `app.getAppPath()` often points at
  * `out/main` (next to the compiled main bundle), not the repo root where
  * `.git` lives — so we walk upward from several likely starting points.
  */
@@ -85,7 +85,7 @@ export function resolveSourceRepoRoot(): string | null {
     if (!root || !existsSync(join(root, 'package.json'))) continue
     try {
       const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { name?: string }
-      if (pkg.name === 'clipforge') return root
+      if (pkg.name === 'cutawan') return root
     } catch {
       /* try the next candidate */
     }
@@ -130,7 +130,7 @@ function currentVersion(): string {
 
 export async function checkForUpdates(): Promise<UpdateCheckResult> {
   // Test hook: force a fake latest version without hitting the network.
-  const fake = process.env.CLIPFORGE_FAKE_LATEST
+  const fake = process.env.CUTAWAN_FAKE_LATEST
   if (fake) {
     return evaluateUpdate(
       currentVersion(),
@@ -145,11 +145,11 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github+json',
       // GitHub's API rejects requests without a User-Agent.
-      'User-Agent': `ClipForge/${version}`
+      'User-Agent': `Cutawan/${version}`
     }
     // Unauthenticated requests 404 on private repos; a token from the
     // environment lets installs of a private fork see releases too.
-    const token = process.env.CLIPFORGE_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN
+    const token = process.env.CUTAWAN_GITHUB_TOKEN ?? process.env.GITHUB_TOKEN
     if (token) headers.Authorization = `Bearer ${token}`
 
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
@@ -190,7 +190,7 @@ function configureAutoUpdater(): typeof autoUpdater {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.fullChangelog = false
-  if (process.env.CLIPFORGE_FORCE_DEV_UPDATES === '1') {
+  if (process.env.CUTAWAN_FORCE_DEV_UPDATES === '1') {
     // Dev/test only: read the feed from dev-app-update.yml instead of the
     // packaged app-update.yml.
     autoUpdater.forceDevUpdateConfig = true
@@ -353,7 +353,7 @@ function relaunchAfterSourceUpdate(root: string): Promise<void> {
     const onFailure = (err: unknown): void => {
       reject(
         new Error(
-          `The update is installed, but ClipForge could not restart itself (${
+          `The update is installed, but Cutawan could not restart itself (${
             err instanceof Error ? err.message : String(err)
           }). Quit and start it again to finish.`
         )

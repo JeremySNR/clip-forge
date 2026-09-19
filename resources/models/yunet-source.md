@@ -8,4 +8,4 @@
 - Size: 229738 bytes
 - Licence: MIT, reproduced in `yunet-LICENSE` alongside the model.
 
-Preprocessing uses unnormalized BGR with zero padding to multiples of 32. The stride heads combine classification/objectness scores and decode grid offsets and exponential box sizes. These conventions were checked against OpenCV's official `modules/objdetect/src/face_detect.cpp` implementation. ClipForge's TypeScript inference path uses its existing ONNX Runtime dependency, not Python/OpenCV.
+Preprocessing uses unnormalized BGR with zero padding to multiples of 32. The stride heads combine classification/objectness scores and decode grid offsets and exponential box sizes. These conventions were checked against OpenCV's official `modules/objdetect/src/face_detect.cpp` implementation. Cutawan's TypeScript inference path uses its existing ONNX Runtime dependency, not Python/OpenCV.

@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest something ClipForge should do
+description: Suggest something Cutawan should do
 labels: ["enhancement"]
 body:
   - type: textarea

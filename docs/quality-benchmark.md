@@ -11,7 +11,7 @@ node node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/quality
 node node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.node.json scripts/quality-benchmark.ts compare "benchmarks/manifest.json" ".tmp/experiment-01"
 ```
 
-Output paths must be new. The exporter reads the actual video to calculate its SHA-256. It exports saved word timings and ranked clip ranges. Current ClipForge projects do **not** contain diarized speaker identities, so this adapter leaves speaker and visual-target metrics unavailable rather than inferring identity from horizontal crop positions. Record the model names, settings, code revision, manual edits, and runtime for any controlled baseline; old projects do not preserve those details.
+Output paths must be new. The exporter reads the actual video to calculate its SHA-256. It exports saved word timings and ranked clip ranges. Current Cutawan projects do **not** contain diarized speaker identities, so this adapter leaves speaker and visual-target metrics unavailable rather than inferring identity from horizontal crop positions. Record the model names, settings, code revision, manual edits, and runtime for any controlled baseline; old projects do not preserve those details.
 
 ## Manifest and result contract
 

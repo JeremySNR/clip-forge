@@ -34,7 +34,7 @@ beforeEach(() => {
   mocks.assess.mockResolvedValue(review)
   mocks.complete.mockResolvedValue(null)
   mocks.faces.mockResolvedValue({ focusTrack: null, contentType: 'screencast' })
-  mocks.projectDir.mockImplementation(() => join(tmpdir(), 'clipforge', `job-${project.id}`))
+  mocks.projectDir.mockImplementation(() => join(tmpdir(), 'cutawan', `job-${project.id}`))
   mocks.save.mockImplementation(async (_: string, update: (p: Project) => void) => { update(project); return project })
 })
 

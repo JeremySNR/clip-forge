@@ -15,7 +15,7 @@ describe('media dimensions used for verified composition', () => {
   })
 
   it('uses displayed dimensions for rotated video and its region crop', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'clipforge-probe-'))
+    const dir = await mkdtemp(join(tmpdir(), 'cutawan-probe-'))
     try {
       const source = join(dir, 'source.mp4')
       const rotated = join(dir, 'rotated.mp4')

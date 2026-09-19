@@ -5,6 +5,10 @@ import { migrateLegacyCookiesDir } from './cookies'
 import { registerIpcHandlers } from './ipc'
 import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
 import { initialWindowSize, MIN_WINDOW } from './windowSize'
+import { resolveUserDataPath } from './userData'
+
+app.setName('Cutawan')
+app.setPath('userData', resolveUserDataPath(app.getPath('appData'), process.env.CUTAWAN_USER_DATA))
 
 // Backstop: a stray rejection or throw in a background task (pipeline stages,
 // network calls) would otherwise take the whole app down by Node's default.
@@ -103,7 +107,9 @@ function applyAppIcon(): void {
 function createWindow(): void {
   // A floating window with margin around it, never edge-to-edge (and never
   // larger than the work area on small laptop displays).
-  const { width, height } = initialWindowSize(screen.getPrimaryDisplay().workAreaSize)
+  const { width, height } = process.env.CUTAWAN_SMOKE
+    ? { width: 1600, height: 1000 }
+    : initialWindowSize(screen.getPrimaryDisplay().workAreaSize)
   const isMac = process.platform === 'darwin'
   const win = new BrowserWindow({
     width,
@@ -113,7 +119,7 @@ function createWindow(): void {
     center: true,
     show: false,
     autoHideMenuBar: true,
-    title: 'ClipForge',
+    title: 'Cutawan',
     icon: appIconPath(),
     // macOS gets the native frosted-glass treatment: system vibrancy showing
     // through a translucent shell (the renderer lightens its surfaces via the
@@ -131,19 +137,23 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
+      backgroundThrottling: !process.env.CUTAWAN_SMOKE,
       contextIsolation: true,
       nodeIntegration: false
     }
   })
 
-  win.on('ready-to-show', () => win.show())
+  win.on('ready-to-show', () => { if (!process.env.CUTAWAN_SMOKE) win.show() })
 
-  // Headless smoke test hook: CLIPFORGE_SMOKE=/dir walks the main screens,
+  // Headless smoke test hook: CUTAWAN_SMOKE=/dir walks the main screens,
   // capturing a screenshot of each, then quits (see scripts/smoke-test.sh).
-  const smokeDir = process.env.CLIPFORGE_SMOKE
+  const smokeDir = process.env.CUTAWAN_SMOKE
   if (smokeDir) {
     win.webContents.on('did-finish-load', () => {
-      void runSmokeCapture(win, smokeDir)
+      void runSmokeCapture(win, smokeDir).catch((error) => {
+        console.error('Screenshot capture failed:', error)
+        app.exit(1)
+      })
     })
   }
 

@@ -118,9 +118,9 @@ const api = {
   pathForFile: (file: File): string => webUtils.getPathForFile(file),
 
   /** OS platform, for platform-specific chrome (mac vibrancy, drag regions). */
-  platform: process.env.CLIPFORGE_FORCE_GLASS ? 'darwin' : process.platform
+  platform: process.env.CUTAWAN_FORCE_GLASS ? 'darwin' : process.platform
 }
 
-export type ClipForgeApi = typeof api
+export type CutawanApi = typeof api
 
-contextBridge.exposeInMainWorld('clipforge', api)
+contextBridge.exposeInMainWorld('cutawan', api)

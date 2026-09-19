@@ -49,7 +49,7 @@ export async function captionWholeVideo(
     throw new Error('No API key configured. Add one in Settings before transcribing.')
   }
   const settings = getModelPreferences()
-  const workDir = join(tmpdir(), 'clipforge', `caption-${project.id}`)
+  const workDir = join(tmpdir(), 'cutawan', `caption-${project.id}`)
   await mkdir(workDir, { recursive: true })
 
   try {

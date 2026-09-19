@@ -1,4 +1,4 @@
-/** Video container extensions ClipForge accepts, without the leading dot. */
+/** Video container extensions Cutawan accepts, without the leading dot. */
 export const VIDEO_EXTENSIONS = [
   'mp4',
   'mov',

@@ -11,7 +11,7 @@ import { refineComposition } from '../src/main/pipeline/composition'
 import { refineScreenDetails } from '../src/main/pipeline/screenDetail'
 
 it('verifies a proposed region using real extracted JPEG frames', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'clipforge-composition-'))
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-composition-'))
   try {
     const video = join(dir, 'source.mp4')
     await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=5:duration=2',
@@ -32,7 +32,7 @@ it('verifies a proposed region using real extracted JPEG frames', async () => {
 }, 15000)
 
 it('verifies an overview and detail plan using real extracted JPEG frames', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'clipforge-detail-'))
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-detail-'))
   try {
     const video = join(dir, 'source.mp4')
     await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=5:duration=2',

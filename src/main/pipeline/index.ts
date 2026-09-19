@@ -145,7 +145,7 @@ export async function analyzeProject(
     throw new Error('No API key configured. Add one in Settings before generating clips.')
   }
   const settings = getModelPreferences()
-  const workDir = join(tmpdir(), 'clipforge', `job-${project.id}`)
+  const workDir = join(tmpdir(), 'cutawan', `job-${project.id}`)
   await mkdir(workDir, { recursive: true })
 
   try {
