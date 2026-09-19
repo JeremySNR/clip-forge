@@ -30,6 +30,18 @@ it('protects a no-face shot without suppressing the following close-up', () => {
     .toEqual([{ start: 0, end: 2 }])
 })
 
+it('does not use a large listener to excuse an unresolved speaking face', () => {
+  const speaker = track(0, 100, .0001)
+  const listener = { ...track(0, 100, .02), scores: Array(100).fill(-1) }
+  const size = { width: 1920, height: 1080 }
+  expect(lowDetailShotRanges([speaker, listener], 100, [], 25, size))
+    .toEqual([{ start: 0, end: 4 }])
+  expect(lowDetailShotRanges([listener, speaker], 100, [], 25, size))
+    .toEqual([{ start: 0, end: 4 }])
+  speaker.areas.fill(.02)
+  expect(lowDetailShotRanges([speaker, listener], 100, [], 25, size)).toEqual([])
+})
+
 it('overrides unsafe speaker crops while retaining existing protected slides', () => {
   const result = protectLayoutRanges({ start: 0, end: 30, preserveContext: true, allowZoom: false, reason: 'Slide',
     shots: [{ start: 0, end: 5, mode: 'fit' }, { start: 5, end: 30, mode: 'crop' }] },

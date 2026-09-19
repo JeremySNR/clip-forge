@@ -280,7 +280,6 @@ export function lowDetailShotRanges(
   for (const track of tracks) {
     for (let i = 0; i < track.areas.length; i++) {
       const frame = track.start + i
-      if (frame >= 0 && frame < frameCount && track.areas[i] >= 0.0025) detail[frame] = 1
       if (frame < 0 || frame >= frameCount || !Number.isFinite(track.scores[i])) continue
       if (track.scores[i] > best[frame]) {
         second[frame] = best[frame]
@@ -289,8 +288,11 @@ export function lowDetailShotRanges(
       } else if (track.scores[i] > second[frame]) second[frame] = track.scores[i]
     }
   }
-  if (cropSize) {
-    for (let frame = 0; frame < frameCount; frame++) {
+  for (let frame = 0; frame < frameCount; frame++) {
+    // A large listener cannot establish usable detail for a tiny speaker.
+    // Use the leading scored face, consistent with the small-face check.
+    if (bestArea[frame] >= 0.0025) detail[frame] = 1
+    if (cropSize) {
       const facePixels = Math.sqrt(bestArea[frame] * cropSize.width * cropSize.height)
       if (facePixels >= 32 && best[frame] > 1 && best[frame] - second[frame] > 1) detail[frame] = 1
     }
