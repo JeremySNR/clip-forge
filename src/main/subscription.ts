@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { DEFAULT_SUBSCRIPTION, type SubscriptionSettings } from '@shared/subscription'
 import type { ChatMessage, TranscribeFileOptions, WhisperResponse } from './pipeline/openai'
 
@@ -34,29 +34,33 @@ export function codexArguments(model: string, dir: string, images: string[]): st
     ...images.flatMap(path => ['--image', path]), '-']
 }
 
-function commandFor(executable: string): { command: string; prefix: string[]; node: boolean } {
-  // npm installs a .cmd shim on Windows; run its JS entry directly, never via a shell.
+function commandFor(executable: string): { command: string; prefix: string[]; node: boolean; shell: boolean } {
+  // npm installs a Codex .cmd shim on Windows; run its JS entry directly, never via a shell.
   if (process.platform === 'win32') {
     const candidates = executable.includes('/') || executable.includes('\\')
       ? [executable] : (process.env.PATH ?? '').split(delimiter).flatMap(dir => [join(dir, executable + '.exe'), join(dir, executable + '.cmd')])
     const found = candidates.find(path => existsSync(path))
     if (found?.endsWith('.cmd')) {
-      const entry = join(dirname(found), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
-      if (!existsSync(entry)) throw new Error('Select the Codex executable in Settings; this command shim is not a Codex installation.')
-      return { command: process.execPath, prefix: [entry], node: true }
+      if (basename(found).toLowerCase() === 'codex.cmd') {
+        const entry = join(dirname(found), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
+        if (!existsSync(entry)) throw new Error('Select the Codex executable in Settings; this command shim is not a Codex installation.')
+        return { command: process.execPath, prefix: [entry], node: true, shell: false }
+      }
+      // Other .cmd wrappers (e.g. conda/env python.cmd) are not Codex; Node needs shell to launch them.
+      return { command: found, prefix: [], node: false, shell: true }
     }
-    if (found) return { command: found, prefix: [], node: false }
+    if (found) return { command: found, prefix: [], node: false, shell: false }
   }
-  return { command: executable, prefix: [], node: false }
+  return { command: executable, prefix: [], node: false, shell: false }
 }
 
 async function run(executable: string, args: string[], input: string, signal: AbortSignal): Promise<string> {
   signal.throwIfAborted()
-  const { command, prefix, node } = commandFor(executable)
+  const { command, prefix, node, shell } = commandFor(executable)
   return new Promise((accept, reject) => {
     const env = subscriptionEnvironment(process.env)
     if (node) env.ELECTRON_RUN_AS_NODE = '1'
-    const child = spawn(command, [...prefix, ...args], { windowsHide: true, shell: false, env, detached: process.platform !== 'win32' })
+    const child = spawn(command, [...prefix, ...args], { windowsHide: true, shell, env, detached: process.platform !== 'win32' })
     const stop = (): void => {
       // npm/Python launchers can have a native child. Killing just the launcher
       // would leave inference running (and consuming allowance) after Cancel.
