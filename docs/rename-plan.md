@@ -2,8 +2,8 @@
 
 Cutawan is the selected product name. The package/repository slug is `cutawan`,
 the application ID is `org.cutawan.app`, and script overrides use `CUTAWAN_`.
-The repository is https://github.com/JeremySNR/cutawan and the Pages destination
-is https://jeremysnr.github.io/cutawan/.
+The repository is https://github.com/JeremySNR/cutawan and the public website
+is https://cutawan.xyz.
 
 ## Existing installations
 
@@ -24,7 +24,7 @@ installer/keyring upgrade behavior requires testing on those operating systems.
 Historical commits, tags, and already-published binaries retain their historical
 contents. Renaming the repository does not rewrite a shipped executable. Publish
 a new Cutawan release to distribute the renamed application and its new icon.
-GitHub Pages must deploy the updated `docs/` tree to serve the new branding.
+The separate marketing website must deploy the updated branding at cutawan.xyz.
 
 ## Artwork and screenshots
 

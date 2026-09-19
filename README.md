@@ -4,7 +4,7 @@
 
 <h3 align="center">The open-source Opus Clip alternative that runs on your desktop.</h3>
 
-<p align="center"><a href="https://jeremysnr.github.io/cutawan/"><strong>cutawan site</strong></a> &nbsp;·&nbsp; <a href="https://github.com/JeremySNR/cutawan/releases/latest">download</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
+<p align="center"><a href="https://cutawan.xyz"><strong>cutawan.xyz</strong></a> &nbsp;·&nbsp; <a href="https://github.com/JeremySNR/cutawan/releases/latest">download</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
 
 <p align="center">
   Turn podcasts, webinars, streams and interviews into ready-to-post vertical clips.<br/>
@@ -79,6 +79,10 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 - **Export** H.264/AAC MP4s with burned-in captions. Loudness-normalised to -14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback. Optionally encode once to fit under a megabyte cap (Discord, email, WhatsApp).
 - **AI post captions.** One click writes a scroll-stopping TikTok/Reels/Shorts caption (hook-first line, one engagement driver, niche hashtags). Copy it and jump straight to TikTok Studio upload.
 - **In-app updates.** Packaged builds download and install updates themselves. Source checkouts update with one click (pull, rebuild, relaunch).
+
+## Website
+
+The marketing website is [cutawan.xyz](https://cutawan.xyz). Its source lives in the separate private [cutawan-website](https://github.com/JeremySNR/cutawan-website) repository. App releases and documentation remain here.
 
 ## Quick start
 
