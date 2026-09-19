@@ -4,6 +4,7 @@ import {
   EAGER_REFRAME_MIN,
   EAGER_REFRAME_SCORE,
   layoutUntouched,
+  mergeClipSave,
   mergeReframeResult,
   needsReframe,
   selectEagerReframeIds
@@ -87,6 +88,17 @@ describe('selectEagerReframeIds', () => {
 })
 
 describe('needsReframe', () => {
+  it('invalidates extensions on either side, including legacy clips, but reuses inner trims', () => {
+    const done = clip('a', 50, { reframeStatus: 'done' })
+    done.edit.end = 40
+    expect(needsReframe(done)).toBe(true)
+    done.reframeAnalysis = { start: 2, end: 40, version: 1 }
+    expect(needsReframe(done)).toBe(true)
+    done.edit.start = 2
+    expect(needsReframe(done)).toBe(false)
+    done.edit.end = 20
+    expect(needsReframe(done)).toBe(false)
+  })
   it('is true only for pending clips', () => {
     expect(needsReframe(clip('a', 50))).toBe(true)
     expect(needsReframe(clip('a', 50, { reframeStatus: 'done' }))).toBe(false)
@@ -97,6 +109,29 @@ describe('needsReframe', () => {
 })
 
 describe('mergeReframeResult', () => {
+  it('allows an ordinary save to turn automatic framing off while retaining main-owned analysis', () => {
+    const saved = clip('a', 50, { reframeStatus: 'done', focusTrack: [{ t: 0, x: 0.3 }] })
+    saved.edit.framing = 'auto'
+    saved.edit.focusX = 0.3
+    const incoming = clip('a', 50, { reframeStatus: 'done' })
+    const merged = mergeClipSave(incoming, saved, 'auto')
+    expect(merged.edit.framing).toBe('manual')
+    expect(merged.edit.focusX).toBe(0.5)
+    expect(merged.focusTrack).toEqual(saved.focusTrack)
+  })
+  it('preserves source invalidation when an old renderer copy is saved after relinking', () => {
+    const stale = clip('a', 50, { reframeStatus: 'done' })
+    const saved = clip('a', 50, { reframeStatus: 'pending' })
+    expect(mergeReframeResult(stale, saved, 'auto').reframeStatus).toBe('pending')
+  })
+  it('does not mark a concurrently extended clip complete with an old result', () => {
+    const current = clip('a', 50)
+    current.edit.end = 40
+    const result = mergeReframeResult(current, clip('a', 50, { reframeStatus: 'done' }), 'auto')
+    expect(result.edit.end).toBe(40)
+    expect(result.reframeStatus).toBe('pending')
+    expect(needsReframe(result)).toBe(true)
+  })
   const analysed = clip('a', 50, {
     reframeStatus: 'done',
     contentType: 'speaker',

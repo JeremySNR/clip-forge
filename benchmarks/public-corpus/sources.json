@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Public source media for ClipForge quality evaluation; labels and model comparison results are separate.",
+  "assets": [
+    {
+      "id": "narrated-screen-demo",
+      "filename": "narrated-screen-demo.webm",
+      "title": "Content Translation Screencast (English)",
+      "creator": "Pau Giner",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Content_Translation_Screencast_(English).webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/e/ee/Content_Translation_Screencast_%28English%29.webm",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "sha1": "8eb92107393e1896ddb2c03f0c6cfd96bd2cb41a",
+      "candidateTags": [
+        "narrated-screen-recording",
+        "no-visible-speaker",
+        "small-ui-text",
+        "720p"
+      ],
+      "split": "test",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Narrated Wikipedia translation screen recording with no visible speaker.",
+      "evaluationUse": "Preserve UI text; avoid invented face tracks; align narration with demonstrated actions."
+    },
+    {
+      "id": "nasa-static-interview",
+      "filename": "nasa-eric-smith-static-interview.webm",
+      "title": "James Webb Space Telescope — Eric Smith fixed-camera interview with slates",
+      "creator": "NASA's Goddard Space Flight Center; Eric Smith",
+      "sourcePage": "https://svs.gsfc.nasa.gov/12548/",
+      "url": "https://svs.gsfc.nasa.gov/vis/a010000/a012500/a012548/EricSideFINALFIXEDSLATE.webm",
+      "license": "NASA public-use media; retain NASA/GSFC credit and check item-specific credits before redistribution",
+      "licenseUrl": "https://svs.gsfc.nasa.gov/help/",
+      "candidateTags": [
+        "static-camera",
+        "single-speaker",
+        "title-slates",
+        "speaker-return"
+      ],
+      "split": "development",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Single speaker filmed with a stationary camera; black question/title slates interrupt the interview.",
+      "evaluationUse": "Speaker reacquisition after slates; silence handling; consistent single-person framing."
+    },
+    {
+      "id": "ami-manual-annotations",
+      "filename": "ami-manual-annotations-1.6.2.zip",
+      "title": "AMI manual annotations v1.6.2",
+      "creator": "AMI Consortium",
+      "sourcePage": "https://groups.inf.ed.ac.uk/ami/download/",
+      "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusAnnotations/ami_public_manual_1.6.2.zip",
+      "license": "CC BY 4.0 (signals and transcription; see archive for other annotation terms)",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "candidateTags": [
+        "annotations",
+        "word-times",
+        "speaker-turns"
+      ],
+      "split": "development",
+      "sourceGroup": "ami-es2002a",
+      "kind": "annotations",
+      "status": "downloaded",
+      "note": "Ancillary archive only. Matching AMI videos are unavailable locally; these are not labels for the nine downloaded videos."
+    },
+    {
+      "id": "hannah-cloke-interview",
+      "filename": "hannah-cloke-interview.webm",
+      "title": "Extreme weather with Hannah Cloke",
+      "creator": "The Royal Society; Roma Agrawal and Hannah Cloke",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Interview_on_extreme_weather_with_physical_geographer_Hannah_Cloke_%E2%80%93_The_Royal_Society.webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/99/Interview_on_extreme_weather_with_physical_geographer_Hannah_Cloke_%E2%80%93_The_Royal_Society.webm",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "candidateTags": [
+        "two-person-interview",
+        "science",
+        "1080p"
+      ],
+      "split": "test",
+      "sourceGroup": "royal-society-interviews",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Studio science interview alternating two-shots and close-ups.",
+      "evaluationUse": "Complete explanations, clean hooks, speaker continuity across camera cuts."
+    },
+    {
+      "id": "gilly-forrester-interview",
+      "filename": "gilly-forrester-interview.webm",
+      "title": "What Great Apes can tell us about language",
+      "creator": "The Royal Society; Roma Agrawal and Gilly Forrester",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Interview_with_human_and_animal_psychologist_Gilly_Forrester_-_What_Great_Apes_can_tell_us_about_language_%E2%80%93_The_Royal_Society.webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/3/35/Interview_with_human_and_animal_psychologist_Gilly_Forrester_-_What_Great_Apes_can_tell_us_about_language_%E2%80%93_The_Royal_Society.webm",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "candidateTags": [
+        "two-person-interview",
+        "science",
+        "1080p"
+      ],
+      "split": "test",
+      "sourceGroup": "royal-society-interviews",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Studio interview including a handheld puzzle-board demonstration.",
+      "evaluationUse": "Keep meaningful props visible; preserve explanation and payoff; distinguish listener from speaker."
+    },
+    {
+      "id": "automation-empathy-talk",
+      "filename": "automation-empathy-talk.webm",
+      "title": "Automation and Empathy: Can We Finally Replace All Artistic Performers with Machines?",
+      "creator": "Moritz Simon Geist; CCC VOC recording",
+      "sourcePage": "https://media.ccc.de/v/38c3-automation-and-empathy-can-we-finally-replace-all-artistic-performers-with-machines",
+      "url": "https://cdn.media.ccc.de/congress/2024/webm-hd/38c3-327-eng-deu-Automation_and_Empathy_Can_We_Finally_Replace_All_Artistic_Performers_with_Machines_webm-hd.webm",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "candidateTags": [
+        "presentation",
+        "slides",
+        "music",
+        "visual-demonstrations",
+        "multiple-audio-tracks"
+      ],
+      "split": "development",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Stage presentation with slides, a small presenter inset and visual demonstrations.",
+      "evaluationUse": "Layout selection, small faces, slides and demonstrations that must remain intelligible."
+    },
+    {
+      "id": "blender-screen-tutorial",
+      "filename": "blender-screen-tutorial.webm",
+      "title": "Blender Tutorial. A cup of tea.",
+      "creator": "Fun with Open Source",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Blender_Tutorial._A_cup_of_tea..webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/b/b1/Blender_Tutorial._A_cup_of_tea..webm",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "sha1": "9f0affee8c762cb23ede208d86133ae87daf76e7",
+      "candidateTags": [
+        "screen-recording",
+        "software-demo",
+        "small-ui-text",
+        "no-visible-speaker"
+      ],
+      "split": "development",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Blender modelling screen recording with no audio track.",
+      "evaluationUse": "Intentional negative control: no hallucinated speech or speakers; visual-only content handling."
+    },
+    {
+      "id": "tears-of-steel",
+      "filename": "tears-of-steel-720p.mov",
+      "title": "Tears of Steel",
+      "creator": "Blender Foundation / Mango Open Movie Project",
+      "sourcePage": "https://mango.blender.org/download/",
+      "url": "https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "candidateTags": [
+        "cinematic-dialogue",
+        "music",
+        "action",
+        "rapid-cuts",
+        "720p"
+      ],
+      "split": "test",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Cinematic dialogue, action, effects, music, rapid cuts and a credits tail.",
+      "evaluationUse": "Shot boundaries, non-speech audio, dialogue context, credits exclusion and cinematic reframing."
+    },
+    {
+      "id": "wozniak-interview",
+      "filename": "wozniak-interview.webm",
+      "title": "Interview with Steve Wozniak",
+      "creator": "ConversationEDU / The Conversation",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Interview_with_Steve_Wozniak.webm",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/a5/Interview_with_Steve_Wozniak.webm",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "sha1": "eaf9793bedde499eb4700ed5729c554e828d1251",
+      "candidateTags": [
+        "interview",
+        "conversational-speech",
+        "1080p"
+      ],
+      "split": "development",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Two-person sofa interview alternating a fixed two-shot and close-ups.",
+      "evaluationUse": "Speaker changes, off-screen interviewer, listener gestures and conversational clip boundaries."
+    },
+    {
+      "id": "godot-panel",
+      "filename": "godot-panel.mp4",
+      "title": "Shipping Godot: From Build to Player",
+      "creator": "Ben Vehling, Paul Lawitzki, Pablo Navarro, Dom Harris, Joseph Hill; GodotFest / CCC VOC recording",
+      "sourcePage": "https://media.ccc.de/v/godotfest2025-shipping-godot-from-build-to-player",
+      "url": "https://cdn.media.ccc.de/events/godotfest/2025/h264-hd/godotfest-25-101-eng-Shipping_Godot_From_Build_to_Player_hd.mp4",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "candidateTags": [
+        "panel",
+        "multiple-speakers",
+        "long-form",
+        "1080p"
+      ],
+      "split": "development",
+      "kind": "video",
+      "status": "downloaded",
+      "observedContent": "Fixed wide view of five seated panelists, with audience silhouettes in the foreground.",
+      "evaluationUse": "Active speaker selection among visible listeners; stable framing; long-form highlight selection."
+    }
+  ],
+  "unavailableCandidates": [
+    {
+      "id": "ami-meeting-wide",
+      "filename": "ami-es2002a-wide.avi",
+      "title": "AMI ES2002a — fixed room overview",
+      "creator": "AMI Consortium",
+      "sourcePage": "https://groups.inf.ed.ac.uk/ami/download/",
+      "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/video/ES2002a.PreferredOverview.avi",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "candidateTags": [
+        "static-camera",
+        "meeting",
+        "multiple-visible-people",
+        "overlapping-speech",
+        "low-resolution"
+      ],
+      "split": "development",
+      "sourceGroup": "ami-es2002a",
+      "audioAsset": "ami-meeting-audio",
+      "status": "not-downloaded",
+      "reason": "Official media server returned HTTP 403; download stopped."
+    },
+    {
+      "id": "ami-meeting-closeup",
+      "filename": "ami-es2002a-closeup1.avi",
+      "title": "AMI ES2002a — fixed participant close-up",
+      "creator": "AMI Consortium",
+      "sourcePage": "https://groups.inf.ed.ac.uk/ami/download/",
+      "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/video/ES2002a.Closeup1.avi",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "candidateTags": [
+        "static-camera",
+        "off-screen-speakers",
+        "listening-face",
+        "low-resolution"
+      ],
+      "split": "development",
+      "sourceGroup": "ami-es2002a",
+      "audioAsset": "ami-meeting-audio",
+      "status": "not-downloaded",
+      "reason": "Not attempted after the companion overview download returned HTTP 403."
+    },
+    {
+      "id": "ami-meeting-audio",
+      "filename": "ami-es2002a-headset-mix.wav",
+      "title": "AMI ES2002a — synchronized headset audio mix",
+      "creator": "AMI Consortium",
+      "sourcePage": "https://groups.inf.ed.ac.uk/ami/download/",
+      "url": "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2002a/audio/ES2002a.Mix-Headset.wav",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "candidateTags": [
+        "companion-audio"
+      ],
+      "split": "development",
+      "sourceGroup": "ami-es2002a",
+      "status": "not-downloaded",
+      "reason": "Not attempted after the companion overview download returned HTTP 403."
+    }
+  ],
+  "splitStatus": "Provisional development/test grouping; no human gold labels or model evaluation results yet."
+}

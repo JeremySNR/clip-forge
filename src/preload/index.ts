@@ -20,6 +20,7 @@ import type {
 } from '@shared/types'
 
 const api = {
+  checkSubscriptionSetup: (): Promise<{ message: string; requestsToday: number }> => ipcRenderer.invoke('settings:checkSubscription'),
   selectVideo: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectVideo'),
   selectDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectDirectory'),
 

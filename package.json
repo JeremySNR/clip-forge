@@ -10,6 +10,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "test": "vitest run",
+    "quality:benchmark": "tsx --tsconfig tsconfig.node.json scripts/quality-benchmark.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "start": "electron-vite preview",
@@ -68,6 +69,7 @@
       "node_modules/onnxruntime-node/**"
     ],
     "extraResources": [
+      { "from": "resources/local-whisper", "to": "local-whisper" },
       {
         "from": "build/icon.png",
         "to": "icon.png"

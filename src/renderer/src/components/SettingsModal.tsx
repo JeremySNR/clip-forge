@@ -1,3 +1,5 @@
+import SubscriptionSettings from './SubscriptionSettings'
+import { DEFAULT_SUBSCRIPTION } from '@shared/subscription'
 import { useEffect, useState } from 'react'
 import {
   X,
@@ -88,6 +90,7 @@ export default function SettingsModal(): React.JSX.Element {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const saveSettings = useStore((s) => s.saveSettings)
   const refreshSettings = useStore((s) => s.refreshSettings)
+  const [subscription, setSubscription] = useState(settings?.subscription ?? DEFAULT_SUBSCRIPTION)
   const [apiKey, setApiKey] = useState('')
   const [model, setModel] = useState(settings?.analysisModel ?? 'gpt-5.4-mini')
   const [openaiBaseUrl, setOpenaiBaseUrl] = useState(settings?.openaiBaseUrl ?? '')
@@ -107,6 +110,7 @@ export default function SettingsModal(): React.JSX.Element {
     try {
       await saveSettings({
         ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+        subscription,
         analysisModel: model,
         openaiBaseUrl,
         transcriptionBaseUrl
@@ -172,6 +176,8 @@ export default function SettingsModal(): React.JSX.Element {
 
           {section === 'general' && (
             <div className="max-w-xl">
+              <SubscriptionSettings value={subscription} onChange={setSubscription} onSave={save} />
+              {subscription.provider === 'api' && <>
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium">
                   <KeyRound size={15} className="text-accent-400" />
@@ -274,6 +280,7 @@ export default function SettingsModal(): React.JSX.Element {
           </div>
         </div>
 
+        </>}
         <div className="mt-5">
           <label className="flex items-center gap-2 text-sm font-medium">
             <Languages size={15} className="text-accent-400" />

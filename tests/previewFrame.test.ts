@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   previewFocusX,
+  previewIsCrop,
+  previewObjectPosition,
   previewZoom,
   smoothPlaybackTime,
   type PreviewFramePlan
@@ -13,6 +15,23 @@ const basePlan = (): PreviewFramePlan => ({
   framing: 'manual',
   manualFocusX: 0.5,
   isCrop: true
+})
+
+describe('shot composition preview', () => {
+  it('switches layout exactly at shot cuts and respects an explicit fit', () => {
+    const plan = { ...basePlan(), fitRanges: [{ start: 10, end: 20 }] }
+    expect(previewIsCrop(plan, 9.99)).toBe(true)
+    expect(previewIsCrop(plan, 10)).toBe(false)
+    expect(previewIsCrop(plan, 20)).toBe(true)
+    expect(previewIsCrop({ ...plan, isCrop: false }, 25)).toBe(false)
+  })
+  it('centres a tracked face using the same crop geometry as export', () => {
+    const plan: PreviewFramePlan = { ...basePlan(), framing: 'auto', focusTrack: [{ t: 0, x: 0.2 }] }
+    const position = previewObjectPosition(plan, 0, 1920, 1080, 9, 16)
+    // Export rounds crop dimensions to even pixels: 606 px wide.
+    expect(position).toBeCloseTo(81 / 1314, 7)
+    expect(previewObjectPosition({ ...plan, framing: 'manual', manualFocusX: 0.2 }, 0, 1920, 1080, 9, 16)).toBe(0.2)
+  })
 })
 
 describe('smoothPlaybackTime', () => {

@@ -5,6 +5,8 @@ import {
   lastWordInClip,
   MAX_SENTENCE_SEC,
   normalizeClipEnd,
+  padSpeechStart,
+  padSpeechEnd,
   sentenceAt,
   sentenceEndTimes,
   sentenceStartTimes,
@@ -100,6 +102,34 @@ describe('sentenceStartTimes', () => {
 })
 
 describe('normalizeClipEnd', () => {
+  it('does not leak into the next sentence or extend again on repeated normalization', () => {
+    const transcript = makeTranscript(['The publisher said delay but it worked out.', 'Because we had another plan.'],
+      { sentenceGapSec: 0, gapSec: 0.02 })
+    const ending = transcript.segments[0].end
+    const nextStart = transcript.segments[1].start
+    const padded = normalizeClipEnd(0, ending, transcript, 30)
+    expect(padded).toBeGreaterThanOrEqual(ending)
+    expect(padded).toBeLessThan(nextStart)
+    expect(normalizeClipEnd(0, padded, transcript, 30)).toBe(padded)
+    expect(lastWordInClip(transcript, 0, padded)?.text).toBe('out.')
+  })
+
+  it('keeps previous speech out of pre-roll, including words hidden in captions', () => {
+    const transcript = makeTranscript(['Have you done?', 'Apple kept its promise.'], { sentenceGapSec: 0, gapSec: 0.02 })
+    const previous = transcript.segments[0].words.at(-1)!
+    previous.sourceText = previous.text
+    previous.text = ''
+    const start = transcript.segments[1].start
+    expect(padSpeechStart(start, transcript)).toBeGreaterThan(previous.end)
+    expect(padSpeechStart(start, transcript)).toBeLessThan(start)
+  })
+
+  it('adds no padding into overlapping speech and caps the video tail', () => {
+    const transcript = twoSentences()
+    transcript.segments[0].words[2].start = 0.8
+    expect(padSpeechEnd(0.9, transcript, 10)).toBe(0.9)
+    expect(padSpeechEnd(2.2, transcript, 2.4)).toBe(2.4)
+  })
   const transcript = transcriptEndingOnSo()
   const postRollSec = 0.6
 

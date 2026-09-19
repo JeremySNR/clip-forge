@@ -80,6 +80,11 @@ describe('targetClipCount', () => {
 })
 
 describe('applyRefinedEnding', () => {
+  it('rejects an extension beyond the requested duration rather than chopping its payoff', () => {
+    const original = clip('a', 0, 44, 90)
+    expect(applyRefinedEnding(original, 80, [80], 300, 45)).toBe(original)
+    expect(applyRefinedEnding(original, 44.5, [44.5], 300, 45)).toBe(original)
+  })
   const sentenceEnds = [10, 20, 30, 38.5, 47, 60]
   const VIDEO_DUR = 300
 

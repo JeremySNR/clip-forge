@@ -1,13 +1,19 @@
 import type { Transcript, TranscriptSegment, TranscriptWord } from '@shared/types'
 import { transcribeAudioFile, type WhisperResponse, type WhisperSegment } from './openai'
 import type { AudioChunk } from './ffmpeg'
+import { runFfmpeg } from './ffmpeg'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { needsSeamRepair, repairTranscriptSeam } from './transcriptSeams'
 
 /**
  * Chunked transcription with overlap-aware stitching. Consecutive audio
  * chunks overlap by a few seconds so Whisper sees full context on both sides
  * of a boundary; the stitcher then takes each word from the single chunk
- * whose responsibility window owns its timestamp, so boundary words are
- * neither lost nor duplicated.
+ * whose responsibility window owns its timestamp. Since independent decodes
+ * can omit opening speech or disagree on timing, suspect joins receive a
+ * short audio re-decode anchored to matching words on both sides.
  */
 
 export interface ChunkResult {
@@ -85,8 +91,8 @@ export function normalizeWordTimings(words: TranscriptWord[]): TranscriptWord[] 
  * - Hallucinated segments (see isHallucinatedSegment) are dropped, along
  *   with the words Whisper placed inside them.
  * - Words: kept from the chunk whose [keepFromSec, keepToSec) window contains
- *   their start — a disjoint tiling, so the merged word pool has no
- *   duplicates and no gaps.
+ *   their start. This gives disjoint ownership of timestamps, not a guarantee
+ *   that independently decoded word sequences agree; join repair runs later.
  * - Segments: kept when their start falls in the window (Whisper segments the
  *   overlap region differently per chunk, so exact segment tiling is
  *   impossible; starts are a stable rule).
@@ -166,11 +172,11 @@ export function stitchChunkResults(results: ChunkResult[]): Transcript {
  * chunk. Feeding a hallucination back in as the prompt is the classic way
  * Whisper is talked into repeating it for the rest of the file.
  */
-export function trustedChunkText(res: WhisperResponse): string {
+export function trustedChunkText(res: WhisperResponse, beforeSec = Infinity): string {
   const segments = res.segments
-  if (!segments || segments.length === 0) return res.text ?? ''
+  if (!segments || segments.length === 0) return beforeSec === Infinity ? res.text ?? '' : ''
   return segments
-    .filter((seg) => !isHallucinatedSegment(seg))
+    .filter((seg) => seg.end <= beforeSec && !isHallucinatedSegment(seg))
     .map((seg) => seg.text.trim())
     .filter(Boolean)
     .join(' ')
@@ -178,8 +184,8 @@ export function trustedChunkText(res: WhisperResponse): string {
 
 /**
  * Transcribe all audio chunks (sequentially: the tail of each chunk's text is
- * passed to the next as a Whisper prompt so terminology stays consistent
- * across boundaries) and stitch the results.
+ * preceding the next file is passed as a Whisper prompt for terminology).
+ * Stitch the results, then check sustained overlap disagreements against audio.
  */
 export async function transcribeChunks(
   apiKey: string,
@@ -200,10 +206,54 @@ export async function transcribeChunks(
       language,
       signal
     })
-    previousTail = trustedChunkText(res).slice(-600)
+    // The prompt describes preceding audio, never the overlapping opening of
+    // the next file: that text has not yet been decoded by the next request.
+    const next = chunks[i + 1]
+    previousTail = trustedChunkText(res, next ? next.offsetSec - chunk.offsetSec : Infinity).slice(-600)
     results.push({ chunk, res })
-    onProgress?.((i + 1) / chunks.length)
+    onProgress?.(((i + 1) / chunks.length) * (chunks.length > 1 ? 0.9 : 1))
   }
 
-  return stitchChunkResults(results)
+  let transcript = stitchChunkResults(results)
+  for (let i = 1; i < results.length; i++) {
+    signal?.throwIfAborted()
+    const left = results[i - 1], right = results[i]
+    const seam = right.chunk.keepFromSec
+    const complete = (r: ChunkResult): Transcript => stitchChunkResults([{
+      ...r, chunk: { ...r.chunk, keepFromSec: 0, keepToSec: Infinity }
+    }])
+    const from = Math.max(left.chunk.offsetSec, seam - 20)
+    const end = Math.min(right.chunk.offsetSec + (right.res.duration ?? 0), seam + 20)
+    if (seam - from >= 16 && end - seam >= 16 && needsSeamRepair(complete(left), complete(right), seam)) {
+      let temporary: string | undefined
+      try {
+        temporary = await mkdtemp(join(tmpdir(), 'clipforge-seam-'))
+        const path = join(temporary, 'audio.wav')
+        // One contiguous source interval, assembled from the already decoded
+        // upload files. Split at the source seam; do not concatenate overlap.
+        await runFfmpeg([
+          '-i', left.chunk.path, '-i', right.chunk.path,
+          '-filter_complex',
+          `[0:a]atrim=start=${from - left.chunk.offsetSec}:end=${seam - left.chunk.offsetSec},asetpts=PTS-STARTPTS[l];` +
+          `[1:a]atrim=start=${seam - right.chunk.offsetSec}:end=${end - right.chunk.offsetSec},asetpts=PTS-STARTPTS[r];` +
+          '[l][r]concat=n=2:v=0:a=1[a]',
+          '-map', '[a]', '-ac', '1', '-ar', '16000', path
+        ], { signal })
+        const response = await transcribeAudioFile(apiKey, path, model, { language, signal })
+        const patch = stitchChunkResults([{
+          chunk: { path, offsetSec: from, keepFromSec: 0, keepToSec: Infinity }, res: response
+        }])
+        const repair = repairTranscriptSeam(transcript, patch, seam)
+        transcript = repair.transcript
+        if (!repair.applied) console.warn(`[clipforge] Transcript join ${seam}s retained: ${repair.reason}`)
+      } catch (error) {
+        signal?.throwIfAborted()
+        console.warn(`[clipforge] Transcript join ${seam}s could not be checked:`, error)
+      } finally {
+        if (temporary) await rm(temporary, { recursive: true, force: true }).catch(() => undefined)
+      }
+    }
+    onProgress?.(0.9 + 0.1 * i / (results.length - 1))
+  }
+  return transcript
 }

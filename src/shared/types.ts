@@ -1,3 +1,4 @@
+import type { SubscriptionSettings } from './subscription'
 /** Shared domain types used across main, preload and renderer. */
 
 export interface VideoInfo {
@@ -13,6 +14,8 @@ export interface VideoInfo {
 
 export interface TranscriptWord {
   text: string
+  /** Original ASR text, preserved on the first caption edit. Never used for display. */
+  sourceText?: string
   start: number
   end: number
 }
@@ -151,12 +154,28 @@ export interface Clip {
   viralityReason: string
   /** One-line LLM assessment of what the visuals add/cost; null until scored. */
   visualSummary: string | null
+  /** Visual action explicitly retained when speech-based tightening removes pauses. */
+  visualStory?: {
+    protectedRanges: Array<{ start: number; end: number }>
+    reason: string
+  }
+  /** Source-frame review; conservative layout constraints for the inspected interval. */
+  visualLayout?: {
+    start: number
+    end: number
+    preserveContext: boolean
+    allowZoom: boolean
+    reason: string
+    shots?: Array<{ start: number; end: number; mode: 'crop' | 'fit'; region?: ContentRegion; overview?: boolean }>
+  }
   hashtags: string[]
   thumbnailPath: string | null
   /** AI face track for auto reframing; null when no usable faces were found. */
   focusTrack: FocusKeyframe[] | null
   /** See ReframeStatus. Undefined means done (older projects). */
   reframeStatus?: ReframeStatus
+  /** Source interval actually analysed; trimming inside it can reuse the result. */
+  reframeAnalysis?: { start: number; end: number; version: number }
   /**
    * Whether the clip is mostly a talking head or a screencast/demo/slides.
    * Set during analysis; null on older projects until re-analysed.
@@ -167,7 +186,12 @@ export interface Clip {
   edit: ClipEditState
 }
 
+/** Normalized source rectangle; fit it intact instead of discarding its edges. */
+export interface ContentRegion { x: number; y: number; width: number; height: number }
+
 export interface Project {
+  /** Increments on relink so in-flight analysis of an older source cannot land. */
+  sourceRevision?: number
   id: string
   createdAt: number
   updatedAt: number
@@ -398,6 +422,7 @@ export interface GpuEncoderStatus {
 }
 
 export interface AppSettings {
+  subscription: SubscriptionSettings
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
   hasApiKey: boolean
@@ -449,6 +474,7 @@ export interface AppSettings {
 }
 
 export interface SettingsUpdate {
+  subscription?: Partial<SubscriptionSettings>
   apiKey?: string
   transcriptionModel?: string
   transcriptionLanguage?: string

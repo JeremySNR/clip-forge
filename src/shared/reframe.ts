@@ -5,8 +5,8 @@ import { initialClipEditForVideoType } from './videoType'
  * Which clips get their reframe analysis during the pipeline, and how a
  * finished analysis is grafted onto a clip that may have been edited since.
  *
- * Reframe analysis (UltraFace + LR-ASD at 25 fps) is by far the slowest
- * per-clip stage: tens of seconds of CPU per clip, against a few seconds for
+ * Reframe analysis (face detection + LR-ASD at 25 fps) is a substantial
+ * per-clip stage: it can take tens of seconds of CPU per clip, against a few seconds for
  * everything else. Running it for every candidate made an hour of source
  * video take most of an hour to come back, most of it spent on clips the
  * user would never open. So the pipeline analyses only the top tier and the
@@ -39,7 +39,22 @@ export function selectEagerReframeIds(ranked: Clip[]): Set<string> {
 
 /** Whether a clip still needs its reframe analysis before it is fully framed. */
 export function needsReframe(clip: Clip): boolean {
-  return clip.reframeStatus === 'pending'
+  const coverage = clip.reframeAnalysis ?? { start: clip.suggestedStart, end: clip.suggestedEnd }
+  return clip.reframeStatus === 'pending' ||
+    clip.edit.start < coverage.start - 0.001 || clip.edit.end > coverage.end + 0.001
+}
+
+/** Record only the interval the analysis actually saw, including no-face results. */
+export function markReframeComplete(clip: Clip): void {
+  clip.reframeStatus = 'done'
+  clip.reframeAnalysis = { start: clip.edit.start, end: clip.edit.end, version: 1 }
+}
+
+/** Main owns analysis metadata, but an ordinary save must preserve chosen layout edits. */
+export function mergeClipSave(incoming: Clip, saved: Clip, videoType: VideoType): Clip {
+  const merged = mergeReframeResult(incoming, saved, videoType)
+  const analysisLanded = incoming.reframeStatus === 'pending' && !needsReframe(saved)
+  return analysisLanded ? merged : { ...merged, edit: incoming.edit }
 }
 
 /** The layout fields the reframe analysis sets defaults for. */
@@ -74,8 +89,13 @@ export function mergeReframeResult(current: Clip, analysed: Clip, videoType: Vid
     ...current,
     focusTrack: analysed.focusTrack,
     contentType: analysed.contentType,
-    reframeStatus: 'done'
+    visualLayout: analysed.visualLayout,
+    reframeAnalysis: analysed.reframeAnalysis ?? {
+      start: analysed.suggestedStart, end: analysed.suggestedEnd, version: 0
+    },
+    reframeStatus: analysed.reframeStatus ?? 'done'
   }
+  if (needsReframe(merged)) merged.reframeStatus = 'pending'
   if (!layoutUntouched(current.edit, videoType)) return merged
   return {
     ...merged,

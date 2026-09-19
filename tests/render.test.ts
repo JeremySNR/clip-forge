@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildFilterGraph } from '../src/main/pipeline/render'
+import { buildFilterGraph, speechSafeFade } from '../src/main/pipeline/render'
+import { makeTranscript } from './helpers'
 import { DEFAULT_BRAND_COLORS, DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import type { BrandingSettings, Clip, VideoInfo } from '@shared/types'
 
@@ -54,9 +55,46 @@ const branding: BrandingSettings = {
 }
 
 describe('buildFilterGraph', () => {
-  it('fades audio out at the clip tail', () => {
-    const graph = buildFilterGraph(makeClip(), source, null, 30, null)
+  it('fits only protected shots in source-relative time and lets manual framing override', () => {
+    const clip = makeClip(100, 130)
+    clip.edit.framing = 'auto'
+    clip.visualLayout = { start: 100, end: 130, preserveContext: true, allowZoom: false, reason: 'puzzle', shots: [
+      { start: 100, end: 110, mode: 'fit' }, { start: 110, end: 130, mode: 'crop' }
+    ] }
+    const graph = buildFilterGraph(clip, source, null, 30, null).filterComplex
+    expect(graph).toContain("enable='gte(t,0.000)*lt(t,10.000)'")
+    expect(graph).toContain('[layoutCrop][layoutFit0]overlay')
+    clip.edit.framing = 'manual'
+    expect(buildFilterGraph(clip, source, null, 30, null).filterComplex).not.toContain('layoutFit')
+  })
+  it('fades only within the available speech-free tail', () => {
+    const graph = buildFilterGraph(makeClip(), source, null, 30, null, { audioTailSec: 0.4 })
     expect(graph.filterComplex).toContain('afade=t=out:st=29.600:d=0.4')
+    const shortTail = buildFilterGraph(makeClip(), source, null, 30, null, { audioTailSec: 0.075 })
+    expect(shortTail.filterComplex).toContain('afade=t=out:st=29.925:d=0.075')
+    expect(buildFilterGraph(makeClip(), source, null, 30, null).filterComplex).not.toContain('afade')
+  })
+
+  it('fits an object region intact and keeps speaker crop commands away from it', () => {
+    const clip = makeClip(0, 100)
+    clip.edit.framing = 'auto'
+    clip.focusTrack = Array.from({ length: 120 }, (_, i) => ({ t: i * .8, x: .3 + (i % 2) * .4, cut: true }))
+    clip.visualLayout = { start: 0, end: 100, preserveContext: true, allowZoom: false, reason: 'mechanism', shots: [
+      { start: 0, end: 50, mode: 'crop' }, { start: 50, end: 100, mode: 'fit', region: { x: .25, y: 0, width: .5, height: 1 } }
+    ] }
+    const graph = buildFilterGraph(clip, source, null, 100, null, { focusCommandsPath: '/tmp/focus.txt' })
+    expect(graph.filterComplex).toContain('crop=960:1080:480:0,scale=1080:1920:force_original_aspect_ratio=decrease')
+    expect(graph.focusCommands).toBeNull()
+    expect(graph.filterComplex).not.toContain('sendcmd')
+  })
+
+  it('does not fade a final spoken word or assume unknown audio is silence', () => {
+    const transcript = makeTranscript(['It worked out.'])
+    const end = transcript.segments[0].end
+    expect(speechSafeFade(transcript, 0, end)).toBe(0)
+    expect(speechSafeFade(transcript, 0, end + 0.15)).toBeCloseTo(0.1)
+    expect(speechSafeFade(transcript, 0, end + 0.6)).toBe(0.4)
+    expect(speechSafeFade(null, 0, 30)).toBe(0)
   })
 
   it('normalises loudness in single-pass mode when the source was not measured', () => {
@@ -72,8 +110,7 @@ describe('buildFilterGraph', () => {
     expect(graph.filterComplex).toContain(
       'loudnorm=I=-14:TP=-1.5:LRA=11.00:measured_I=-23.40:measured_TP=-12.10:measured_LRA=9.20:measured_thresh=-33.70:offset=0.30:linear=true,aresample=48000'
     )
-    // The tail fade still follows the master chain.
-    expect(graph.filterComplex).toContain('linear=true,aresample=48000,afade=t=out')
+    expect(graph.filterComplex).toContain('linear=true,aresample=48000')
   })
 
   it('gains into a limiter when a linear gain would clip the true peak', () => {

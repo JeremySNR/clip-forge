@@ -79,6 +79,22 @@ describe('detectHighlights end to end (scripted model)', () => {
     expect(lines[3]).toBe(`[${sentences[3].start.toFixed(1)}s - ${sentences[3].end.toFixed(1)}s] ${sentences[3].text}`)
   })
 
+  it('keeps the duration cap after both ending review and sentence completion', async () => {
+    const longTranscript = makeTranscript(
+      Array.from({ length: 40 }, (_, i) => `sentence ${i} word three four five.`),
+      { wordSec: 0.3, gapSec: 0.1, sentenceGapSec: 0.4 }
+    )
+    answers = {
+      viral_clips: () => ({ clips: [raw(0, 44, 80)] }),
+      clip_endings: () => ({ endings: [{ index: 0, ends_with_payoff: false, better_end: 80, reason: 'later payoff' }] })
+    }
+    const clips = await detectHighlights('key', 'model', longTranscript,
+      { prompt: '', clipLength: 'short', broll: false, hookFirst: false, videoType: 'auto' }, longTranscript.durationSec)
+    expect(clips).toHaveLength(1)
+    expect(clips[0].edit.end - clips[0].edit.start).toBeLessThanOrEqual(45)
+    expect(analyzeClipBoundaries(longTranscript, clips[0].edit.start, clips[0].edit.end).endsMidSentence).toBe(false)
+  })
+
   it('lands mid-sentence model boundaries on sentence boundaries with pre- and post-roll', async () => {
     answers = {
       viral_clips: () => ({
@@ -89,7 +105,8 @@ describe('detectHighlights end to end (scripted model)', () => {
     }
     const [clip] = await detectHighlights('key', 'model', transcript, { prompt: '', clipLength: 'auto', broll: false, hookFirst: false, videoType: 'auto' }, VIDEO)
     expect(clip.suggestedStart).toBeCloseTo(sentences[1].start - 0.25, 5)
-    expect(clip.suggestedEnd).toBeCloseTo(sentences[5].end + 0.6, 5)
+    // Half of the 0.5 s gap is available; the next sentence must stay out.
+    expect(clip.suggestedEnd).toBeCloseTo(sentences[5].end + 0.25, 5)
     const report = analyzeClipBoundaries(transcript, clip.edit.start, clip.edit.end)
     expect(report.startsMidSentence).toBe(false)
     expect(report.endsMidSentence).toBe(false)
@@ -105,7 +122,7 @@ describe('detectHighlights end to end (scripted model)', () => {
       })
     }
     const [clip] = await detectHighlights('key', 'model', transcript, { prompt: '', clipLength: 'auto', broll: false, hookFirst: false, videoType: 'auto' }, VIDEO)
-    expect(clip.suggestedEnd).toBeCloseTo(sentences[7].end + 0.6, 5)
+    expect(clip.suggestedEnd).toBeCloseTo(sentences[7].end + 0.25, 5)
     // The review saw the closing sentences tagged with their real end times.
     const review = captured.find((c) => c.schema === 'clip_endings')!
     expect(review.user).toContain(`[ends ${sentences[6].end.toFixed(1)}s] ${sentences[6].text}`)

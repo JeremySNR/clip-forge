@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "reviewMethod": "Assistant inspection of six synchronized source/export frame pairs plus timed transcript and surrounding source transcript. Full exported files decoded and audio levels measured. Six panel/Wozniak exports also retranscribed with the same Whisper model as a spot check, not independent ground truth. Boundary timestamp overlaps indicate risks, not proof of audible chopped words. No subjective listening, full-motion playback, human gold labels, or OpusClip comparison.",
+  "reviews": [
+    {
+      "source": "tears-of-steel", "rank": 1,
+      "verdict": "Reject: scene spillover, caption errors and aggressive crop",
+      "notes": "The breakup has an understandable conflict, but the selection continues after 'We're done' into a different scene and ends mid-thought. The transcript contains suspicious 'giant robotic glass' and duplicated 'done', requiring source-audio correction. The vertical crop loses cinematic context, including part of the robot hand, and crowds later close-ups. Title quality does not rescue the actual edit.",
+      "speakerAccuracy": "Some sampled switches plausible; not independently labelled"
+    },
+    {
+      "source": "tears-of-steel", "rank": 2,
+      "verdict": "Potential comic payoff, scene boundary needs repair",
+      "notes": "The bad-boyfriend/world-destruction line is a usable comic payoff. The export appends another scene's commentary, weakening a natural ending. Some close-up samples crowd faces and remove scene context. The actual opening repeats the robot-hand conflict already covered by rank 1, reducing diversity.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "tears-of-steel", "rank": 3,
+      "verdict": "Reject aggressive framing; preserve dramatic context",
+      "notes": "The accusation/threat has expressive delivery, but the crop cuts into the woman's face and later produces extreme partial-face close-ups. The final 'good ad-lib / not my fault' exchange depends on the film's surrounding setup. Speech-only selection and automatic tightening need a separate policy for dramatic reaction/action beats; the sampled review does not establish whether their timing survives well in motion.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "narrated-screen-demo", "rank": 1,
+      "verdict": "Coherent takeaway, destructive screen crop",
+      "notes": "The explanation that translations can evolve independently is understandable, but this export crops deeply into the browser page, removing the right-hand content and demonstrated interaction. Captions overlap dense page text. The transcript ends with duplicated 'time', which needs an audio check. Other clips from the same source use fit framing, so layout consistency needs investigation.",
+      "speakerAccuracy": "No visible speaker; preserve the demonstrated UI"
+    },
+    {
+      "source": "narrated-screen-demo", "rank": 2,
+      "verdict": "Complete tutorial tip, poor mobile readability",
+      "notes": "The excerpt gives a complete instruction to review machine translation and reset an unhelpful paragraph. Fit framing preserves the whole UI, but it occupies a narrow horizontal strip on a mostly black vertical canvas, making the demonstrated controls difficult to read on a phone. Captions are legible. A region-aware crop or staged detail view is needed.",
+      "speakerAccuracy": "No visible speaker"
+    },
+    {
+      "source": "narrated-screen-demo", "rank": 3,
+      "verdict": "Complete useful tip, poor mobile readability",
+      "notes": "Automatic draft saving and resuming later form a coherent standalone tip with a clean ending. The UI remains intact but too small within the vertical canvas; the dashboard controls need a deliberate detail view. This is a usable selection needing presentation work, not evidence of measured engagement.",
+      "speakerAccuracy": "No visible speaker"
+    },
+    {
+      "source": "gilly-forrester-interview", "rank": 1,
+      "verdict": "Reject: essential puzzle cropped out and incomplete ending",
+      "notes": "The timed puzzle has a clear competitive payoff, but face-centered crops remove most of the puzzle during the action. The opening omits the rules/countdown; the ending continues beyond the under-20-second result into a qualification and stops on 'I'm not sure'. Preserve the puzzle and hands, include enough setup, and select a complete ending. The transcript also renders 'great eight cousins', which needs correction against the source.",
+      "speakerAccuracy": "Face identity alone is insufficient: the task object must remain visible"
+    },
+    {
+      "source": "gilly-forrester-interview", "rank": 2,
+      "verdict": "Strong concise idea, reject appended question",
+      "notes": "Learning how apes communicate instead of teaching them our language is a clear, interesting reversal. The actual clip starts 'But likewise' and appends the host's unrelated question about the ultimate research goal without an answer. End after 'humans today'. Sampled framing tracks the visible guest and subsequent host reasonably, with tight headroom in close-up.",
+      "speakerAccuracy": "Sampled handoff looks plausible; not independently labelled"
+    },
+    {
+      "source": "gilly-forrester-interview", "rank": 3,
+      "verdict": "Useful explanation, repair ending and wide shot",
+      "notes": "The possible link between ordered hand actions and language syntax is coherent, though the plain-language explanation of syntax falls just after the selected span. A stray 'so' appears at the end. The late wide production shot is cropped toward the listener, with studio equipment prominent while the guest's explanation continues. Close-up headroom is tight, and 'pre -linguistic' is split awkwardly in captions.",
+      "speakerAccuracy": "Wide-shot framing needs independent turn verification"
+    },
+    {
+      "source": "automation-empathy-talk", "rank": 1,
+      "verdict": "Memorable payoff, weak opening and stray ending",
+      "notes": "The late-night workshop story earns its robots-doing-our-jobs joke. It begins with a rambling 'And so when...' setup and ends with the next sentence's 'But' visible in captions. The final sample also clips the speaker at the left edge, suggesting tracking lag or insufficient crop margin. Finish on the joke and verify continuous motion before release.",
+      "speakerAccuracy": "Single speaker; crop containment still fails in a sample"
+    },
+    {
+      "source": "automation-empathy-talk", "rank": 2,
+      "verdict": "Reject: promised demonstration removed",
+      "notes": "The popcorn-controlled drum kit is a distinctive visual subject, but the crop follows the tiny presenter inset and removes the central installation image. The selection ends at the verbal introduction rather than including the subsequent non-speech demonstration. This needs shot-level layout and multimodal selection that can retain meaningful action without dialogue.",
+      "speakerAccuracy": "Speaker tracking is the wrong composition objective for the demonstration"
+    },
+    {
+      "source": "automation-empathy-talk", "rank": 3,
+      "verdict": "Complete joke, dependent on omitted demonstration",
+      "notes": "The calorie joke gets a complete response and the sampled speaker change is plausible. However, 'the last performance' refers to an unseen popcorn drum demonstration. Without that visual context the opening is weak; selecting the demonstration with the joke would make the payoff understandable. This and rank 2 are closely related, reducing top-three topic diversity.",
+      "speakerAccuracy": "Plausible sampled handoff; not independently labelled"
+    },
+    {
+      "source": "hannah-cloke-interview", "rank": 1,
+      "verdict": "Usable core, weak visual speaker choice in wide shots",
+      "notes": "The appeal of waterside living versus flood danger is understandable as a standalone observation. It closes before the practical modelling solution, so it favors the alarming setup. Some sampled wide-shot crops show the host or excessive set while the guest's explanation continues. Caption placement overlaps lettering on the guest's shirt. The topic is usable, but the export needs framing work.",
+      "speakerAccuracy": "Wide-shot choices need independent turn verification"
+    },
+    {
+      "source": "hannah-cloke-interview", "rank": 2,
+      "verdict": "Reject current ending",
+      "notes": "The heat-health explanation contains a concrete example and a clear conclusion. The export then appends the host's thanks and stops on 'It's been', turning a completed point into an incomplete outro. The relative 'last summer' wording needs source-date context. Sampled captions overlap shirt lettering, and wide shots need more deliberate framing.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "hannah-cloke-interview", "rank": 3,
+      "verdict": "Strongest complete explanation of these three; improve framing",
+      "notes": "The excerpt preserves the distinction between an event existing before human influence and its likelihood or intensity changing. It has a complete takeaway and avoids the follow-on conversational handoff. The opening is less immediate than the title, and the wide-shot portion leaves the guest small with much empty set. Captions overlap existing shirt text in close-ups. Preference here concerns coherence, not measured engagement.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "wozniak-interview", "rank": 1,
+      "verdict": "Strong story, reject current ending",
+      "notes": "The fake-name diploma anecdote is memorable and has a natural payoff at 'So I got mine, finally.' The export then includes the next interview question and stops on 'You'd already', leaving a broken ending. During Wozniak's interjection ('I'm the only one who actually went back'), a sampled two-shot crop still shows the interviewer. Close-ups are frequently too tight around hair/head edges. Captions are readable.",
+      "speakerAccuracy": "Sample suggests late handoff; requires independent audio/turn labels"
+    },
+    {
+      "source": "wozniak-interview", "rank": 2,
+      "verdict": "Reject current boundaries",
+      "notes": "The privacy opinion has a clear central claim, but the exported transcript starts with the tail word 'done?' from the interviewer's preceding question and ends on 'He's even' before the rest of Wozniak's sentence. The proposed quote is an attributed opinion, not a verified product/privacy claim. Crops and captions are broadly readable, with some tight headroom.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "wozniak-interview", "rank": 3,
+      "verdict": "Interesting anecdote, reject current ending",
+      "notes": "The unexpected computer-budget bill is an engaging story, but the start omits some of what he ran and the ending appends a new question about his children, then only the opening 'I' of the response. The selected span loses its natural narrative ending. Several sampled close-ups are overly tight. Caption fragments and duplicate words should be checked against the audio.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "godot-panel", "rank": 1,
+      "verdict": "Needs editorial and composition work",
+      "notes": "The contrast between a hit game and many unsuccessful copies is a usable standalone takeaway. The opening begins 'But, well' with a long ROI setup, so the generated title promises a stronger hook than the actual first sentence. Subjects occupy little of the vertical canvas; wall and foreground audience dominate. Title/caption spelling differs for Suika/Suica and needs source verification. The sampled captions are readable.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "godot-panel", "rank": 2,
+      "verdict": "Reject current export",
+      "notes": "A potentially interesting publisher-conflict story, but the beginning depends on previous conversation and does not name the game. The final caption visibly changes to 'BECAUSE' in the last 0.3 seconds. The source word interval overlaps the export end, although round-trip ASR ends at 'It worked out' and does not recover this possible audio fragment. Several sampled crops change between separated panelists despite the continuous story; independent audio review is needed to identify the correct speaker. Empty wall and audience remain prominent.",
+      "speakerAccuracy": "Suspicious switches; not independently labelled"
+    },
+    {
+      "source": "godot-panel", "rank": 3,
+      "verdict": "Reject current ending",
+      "notes": "The Steam claim is topical and understandable, but the selected range appends the moderator's question to a named panelist and stops before his answer. The next source sentence starts a disagreement with the claim. This is an internal conversational handoff, not a complete response or a clean audience-facing closing question. Consider ending before the handoff or selecting a longer claim-and-rebuttal exchange. Composition again spends too much space on wall and foreground audience.",
+      "speakerAccuracy": "Not independently established"
+    },
+    {
+      "source": "nasa-static-interview", "rank": 1,
+      "verdict": "Usable explanatory selection; improve opening and headroom",
+      "notes": "A complete explanation of Webb's relationship to Hubble and its infrared capabilities. The first-stars hook arrives after introductory explanation. Face tracking stays on the only visible speaker, but some zoomed samples crowd the top of his head. Captions are readable. This selected range avoids the cropped question slates seen in the separate diagnostic.",
+      "speakerAccuracy": "Single visible speaker; no identity-switch challenge"
+    },
+    {
+      "source": "nasa-static-interview", "rank": 2,
+      "verdict": "Needs a more accurate title and stronger payoff",
+      "notes": "The excerpt coherently says scientists intend to study TRAPPIST-1 and are excited about exoplanets. The title promises why, but the clip offers little scientific explanation of why that system matters. Framing is consistent, although headroom becomes tight. The historical future-tense source also needs its original context when assessing publication readiness.",
+      "speakerAccuracy": "Single visible speaker; no identity-switch challenge"
+    },
+    {
+      "source": "nasa-static-interview", "rank": 3,
+      "verdict": "Usable explanatory core; weak standalone opening",
+      "notes": "The list of launch, cold and deployment tests leads to a clear optical-testing conclusion. It begins with generic 'So you want to test' language rather than identifying the telescope or opening on the extreme-temperature fact. Captions remain readable, with similarly tight headroom in zoomed samples.",
+      "speakerAccuracy": "Single visible speaker; no identity-switch challenge"
+    }
+  ]
+}

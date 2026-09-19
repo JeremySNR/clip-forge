@@ -3,6 +3,25 @@ import { computeKeptSegments, remapTranscript, TimeMap } from '@shared/tighten'
 import { makeTranscript } from './helpers'
 
 describe('computeKeptSegments', () => {
+  it.each(['', 'um', 'different caption'])('caption edit %j cannot change speech cuts', (text) => {
+    const transcript = makeTranscript(['first thought ends here', 'important', 'and the point lands'], {
+      sentenceGapSec: 1.2, wordSec: 0.8
+    })
+    const before = computeKeptSegments(transcript, 0, transcript.durationSec)
+    const word = transcript.segments[1].words[0]
+    word.sourceText = word.text
+    word.text = text
+    expect(computeKeptSegments(transcript, 0, transcript.durationSec)).toEqual(before)
+  })
+
+  it('conservatively preserves timed speech hidden in older projects', () => {
+    const transcript = makeTranscript(['first thought ends here', 'important', 'and the point lands'], {
+      sentenceGapSec: 1.2, wordSec: 0.8
+    })
+    const before = computeKeptSegments(transcript, 0, transcript.durationSec)
+    transcript.segments[1].words[0].text = ''
+    expect(computeKeptSegments(transcript, 0, transcript.durationSec)).toEqual(before)
+  })
   it('returns null when there is nothing worth cutting', () => {
     const transcript = makeTranscript(['a steady stream of words with no real pauses'], {
       gapSec: 0.05,

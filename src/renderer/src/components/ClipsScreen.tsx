@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Download,
   Pencil,
@@ -18,6 +18,7 @@ import ScoreBadge from './ScoreBadge'
 import MissingSourceBanner from './MissingSourceBanner'
 import type { Clip } from '@shared/types'
 import { findWholeVideoClip, highlightClips } from '@shared/wholeVideo'
+import { editedClipDuration } from '@shared/tighten'
 
 export default function ClipsScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
@@ -135,7 +136,8 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
   const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
   const entry = exports[clip.id]
-  const duration = clip.edit.end - clip.edit.start
+  const transcript = useStore((s) => s.project?.transcript ?? null)
+  const duration = useMemo(() => editedClipDuration(clip, transcript), [clip, transcript])
 
   return (
     <div className="group overflow-hidden rounded-2xl border border-surface-700 bg-surface-900 transition hover:border-surface-600">

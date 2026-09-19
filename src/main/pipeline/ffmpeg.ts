@@ -120,7 +120,22 @@ export function runFfmpegWith(bin: string, args: string[], opts: RunOptions = {}
   return runBinary(bin, fullArgs, opts)
 }
 
-export async function probeVideo(filePath: string): Promise<VideoInfo> {
+interface ProbedStream {
+  codec_type?: string
+  width?: number
+  height?: number
+  avg_frame_rate?: string
+  duration?: string
+  tags?: { rotate?: string }
+  side_data_list?: Array<{ rotation?: number }>
+}
+
+interface ProbedMedia {
+  format?: { duration?: string; size?: string }
+  streams?: ProbedStream[]
+}
+
+async function probeMedia(filePath: string): Promise<ProbedMedia> {
   if (!existsSync(filePath)) throw new Error(`File not found: ${filePath}`)
   const out = await runBinary(FFPROBE_PATH, [
     '-v', 'error',
@@ -129,16 +144,19 @@ export async function probeVideo(filePath: string): Promise<VideoInfo> {
     '-show_streams',
     filePath
   ])
-  const data = JSON.parse(out) as {
-    format?: { duration?: string; size?: string }
-    streams?: Array<{
-      codec_type?: string
-      width?: number
-      height?: number
-      avg_frame_rate?: string
-      duration?: string
-    }>
-  }
+  return JSON.parse(out) as ProbedMedia
+}
+
+/** Still images have dimensions but no duration, so they cannot use probeVideo. */
+export async function probeImageDimensions(filePath: string): Promise<{ width: number; height: number }> {
+  const data = await probeMedia(filePath)
+  const image = data.streams?.find((s) => s.codec_type === 'video')
+  if (!image || !image.width || !image.height) throw new Error('Could not determine image dimensions')
+  return { width: image.width, height: image.height }
+}
+
+export async function probeVideo(filePath: string): Promise<VideoInfo> {
+  const data = await probeMedia(filePath)
   const video = data.streams?.find((s) => s.codec_type === 'video')
   if (!video) throw new Error('No video stream found in file')
   const hasAudio = data.streams?.some((s) => s.codec_type === 'audio') ?? false
@@ -147,12 +165,18 @@ export async function probeVideo(filePath: string): Promise<VideoInfo> {
   const fps = den > 0 ? num / den : 30
   const durationSec = Number(data.format?.duration ?? video.duration ?? 0)
   if (!durationSec || durationSec <= 0) throw new Error('Could not determine video duration')
+  // FFmpeg autorotates decoded frames by default. The layout, face detection,
+  // and region filters all operate on those displayed frames, not coded pixels.
+  const rotation = Number(video.side_data_list?.find((item) => Number.isFinite(item.rotation))?.rotation ?? video.tags?.rotate ?? 0)
+  const quarterTurn = Number.isFinite(rotation) && Math.abs(Math.abs(rotation % 180) - 90) < 0.5
+  const width = quarterTurn ? video.height ?? 0 : video.width ?? 0
+  const height = quarterTurn ? video.width ?? 0 : video.height ?? 0
   return {
     path: filePath,
     fileName: filePath.split(/[\\/]/).pop() ?? filePath,
     durationSec,
-    width: video.width ?? 0,
-    height: video.height ?? 0,
+    width,
+    height,
     fps: Math.round(fps * 100) / 100,
     sizeBytes: Number(data.format?.size ?? 0),
     hasAudio
@@ -165,9 +189,9 @@ export interface AudioChunk {
   offsetSec: number
   /**
    * The half-open window [keepFromSec, keepToSec) of source time this chunk is
-   * responsible for when stitching transcripts. Chunks overlap so words near a
-   * boundary are transcribed with full context; the windows tile exactly, so
-   * every word belongs to exactly one chunk.
+   * responsible for when stitching transcripts. Chunks overlap to supply
+   * context; these windows tile source time, while disagreements between the
+   * independently decoded word sequences require a separate join check.
    */
   keepFromSec: number
   keepToSec: number
