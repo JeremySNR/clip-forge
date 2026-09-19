@@ -1,9 +1,10 @@
 import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { accessSync, constants, existsSync } from 'node:fs'
 import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises'
 import { delimiter, dirname, join, resolve } from 'node:path'
+import { homedir } from 'node:os'
 import { DEFAULT_SUBSCRIPTION, type SubscriptionSettings } from '@shared/subscription'
 import type { ChatMessage, TranscribeFileOptions, WhisperResponse } from './pipeline/openai'
 
@@ -35,6 +36,20 @@ export function codexArguments(model: string, dir: string, images: string[]): st
     ...images.flatMap(path => ['--image', path]), '-']
 }
 
+export function resolveCodexExecutable(executable: string, searchPath = process.env.PATH ?? '', home = homedir(), platform = process.platform): string {
+  if (platform === 'win32' || executable !== 'codex') return executable
+  const candidates = [
+    ...searchPath.split(delimiter).filter(Boolean).map(dir => join(dir, 'codex')),
+    // The official standalone installer uses ~/.local/bin, which macOS GUI
+    // applications often cannot see because they do not inherit the shell PATH.
+    join(home, '.local', 'bin', 'codex'),
+    ...(platform === 'darwin' ? ['/opt/homebrew/bin/codex', '/usr/local/bin/codex'] : [])
+  ]
+  return candidates.find(path => {
+    try { accessSync(path, constants.X_OK); return true } catch { return false }
+  }) ?? executable
+}
+
 function commandFor(executable: string): { command: string; prefix: string[]; node: boolean } {
   // npm installs a .cmd shim on Windows; run its JS entry directly, never via a shell.
   if (process.platform === 'win32') {
@@ -48,7 +63,7 @@ function commandFor(executable: string): { command: string; prefix: string[]; no
     }
     if (found) return { command: found, prefix: [], node: false }
   }
-  return { command: executable, prefix: [], node: false }
+  return { command: resolveCodexExecutable(executable), prefix: [], node: false }
 }
 
 async function run(executable: string, args: string[], input: string, signal: AbortSignal): Promise<string> {
@@ -82,7 +97,13 @@ async function run(executable: string, args: string[], input: string, signal: Ab
       if (stdout.length > 16_000_000) { stop(); reject(new Error('Local provider exceeded its output limit.')) }
     })
     child.stderr.on('data', data => { stderr = (stderr + String(data)).slice(-4000) })
-    child.on('error', error => { cleanup(); reject(new Error(`Could not run ${executable}. Check its path in Settings. ${error.message}`)) })
+    child.on('error', error => {
+      cleanup()
+      const hint = executable === 'codex'
+        ? ' If Codex works in Terminal, paste the full path from "command -v codex" into Codex executable.'
+        : ''
+      reject(new Error(`Could not run ${executable}. Check its path in Settings.${hint} ${error.message}`))
+    })
     child.on('close', code => { cleanup(); return code === 0 && !signal.aborted ? accept(stdout || stderr) : reject(new Error(
       signal.aborted ? 'Local provider cancelled or timed out.' :
         `Local provider exited (${code}). Check setup, sign-in and subscription limits. ${stderr.replace(/(?:sk-|Bearer\s+)\S+/gi, '[redacted]')}`

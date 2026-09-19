@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { DEFAULT_SUBSCRIPTION, normalizeSubscription } from '../src/shared/subscription'
@@ -8,7 +8,7 @@ import { DEFAULT_SUBSCRIPTION, normalizeSubscription } from '../src/shared/subsc
 const mock = vi.hoisted(() => ({ root: '', spawn: vi.fn(), login: 'Logged in using ChatGPT', fail: false }))
 vi.mock('electron', () => ({ app: { getPath: () => mock.root, getAppPath: () => mock.root, isPackaged: false, once: vi.fn(), removeListener: vi.fn() } }))
 vi.mock('node:child_process', () => ({ spawn: mock.spawn }))
-import { configureSubscription, subscriptionJSON, subscriptionEnvironment, codexArguments, SubscriptionError, usesLocalTranscription } from '../src/main/subscription'
+import { configureSubscription, subscriptionJSON, subscriptionEnvironment, codexArguments, resolveCodexExecutable, SubscriptionError, usesLocalTranscription } from '../src/main/subscription'
 
 const messages = [{ role: 'user' as const, content: 'Pick a complete moment.' }]
 const schema = { type: 'object', properties: { title: { type: 'string' } }, required: ['title'], additionalProperties: false }
@@ -40,6 +40,15 @@ it('can transcribe locally while analysis remains on the API route', () => {
   expect(usesLocalTranscription()).toBe(true)
   configureSubscription(DEFAULT_SUBSCRIPTION)
   expect(usesLocalTranscription()).toBe(false)
+})
+it('finds the standalone Codex install when a GUI process has a limited PATH', async () => {
+  const installDir = join(mock.root, '.local', 'bin')
+  await mkdir(installDir, { recursive: true })
+  const executable = join(installDir, 'codex')
+  await writeFile(executable, '')
+  await chmod(executable, 0o755)
+  expect(resolveCodexExecutable('codex', '/usr/bin', mock.root, 'darwin')).toBe(executable)
+  expect(resolveCodexExecutable('/custom/codex', '/usr/bin', mock.root, 'darwin')).toBe('/custom/codex')
 })
 it('pins the requested model and low reasoning and removes API billing credentials', () => {
   const args = codexArguments('gpt-5.6-luna', '/job', [])

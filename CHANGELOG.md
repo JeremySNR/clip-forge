@@ -6,6 +6,13 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.10.2] - 2026-09-19
+
+### Fixed
+
+- Detect the Codex CLI in the standalone install location on macOS/Linux even when the desktop app does not inherit the terminal's `PATH`; show an actionable path hint if it still cannot be launched.
+- Preserve the first-run setup choice across refreshes and check saved local Whisper files so an existing installation is shown as ready instead of appearing to need another download.
+
 ## [0.10.1] - 2026-09-19
 
 ### Fixed

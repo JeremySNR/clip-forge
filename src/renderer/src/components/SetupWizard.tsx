@@ -4,17 +4,31 @@ import { useStore } from '../store'
 import LocalWhisperSetup from './LocalWhisperSetup'
 
 type Route = 'api' | 'chatgpt' | 'local' | 'claude'
+const SETUP_ROUTE_KEY = 'cutawan.setupRoute.v1'
 
 export default function SetupWizard(): React.JSX.Element {
   const settings = useStore(s => s.settings)
   const saveSettings = useStore(s => s.saveSettings)
-  const [route, setRoute] = useState<Route | null>(null)
+  const [route, setRoute] = useState<Route | null>(() => {
+    const saved = window.localStorage.getItem(SETUP_ROUTE_KEY)
+    if (saved === 'api' || saved === 'chatgpt' || saved === 'local' || saved === 'claude') return saved
+    if (settings?.subscription.provider === 'chatgpt') return 'chatgpt'
+    if (settings?.hasApiKey) return 'api'
+    if (settings?.subscription.whisperModelPath) return 'local'
+    return null
+  })
   const [subscription, setSubscription] = useState<SubscriptionSettings>(settings?.subscription ?? DEFAULT_SUBSCRIPTION)
   const [apiKey, setApiKey] = useState('')
   const [verified, setVerified] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
+  const chooseRoute = (next: Route): void => {
+    window.localStorage.setItem(SETUP_ROUTE_KEY, next)
+    setRoute(next)
+    setVerified(false)
+    setMessage('')
+  }
   const updateSubscription = (patch: Partial<SubscriptionSettings>): void => {
     setSubscription(current => ({ ...current, ...patch }))
     setVerified(false)
@@ -58,6 +72,7 @@ export default function SetupWizard(): React.JSX.Element {
             ? { subscription: { ...subscription, provider: 'api' as const, localTranscription: true } }
           : { subscription: { ...subscription, provider: 'api' as const }, ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) })
       })
+      window.localStorage.removeItem(SETUP_ROUTE_KEY)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
     } finally { setBusy(false) }
@@ -74,22 +89,22 @@ export default function SetupWizard(): React.JSX.Element {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <button type="button" onClick={() => { setRoute('chatgpt'); setVerified(false); setMessage('') }}
+        <button type="button" onClick={() => chooseRoute('chatgpt')}
           className={`rounded-xl border p-4 text-left ${route === 'chatgpt' ? 'border-accent-400 bg-accent-400/10' : 'border-surface-600 bg-surface-900 hover:border-zinc-500'}`}>
           <span className="block text-sm font-semibold">ChatGPT sign-in</span>
           <span className="mt-2 block text-xs leading-relaxed text-zinc-400">Use Codex for analysis and local Whisper for speech. No OpenAI API key.</span>
         </button>
-        <button type="button" onClick={() => { setRoute('api'); setVerified(false); setMessage('') }}
+        <button type="button" onClick={() => chooseRoute('api')}
           className={`rounded-xl border p-4 text-left ${route === 'api' ? 'border-accent-400 bg-accent-400/10' : 'border-surface-600 bg-surface-900 hover:border-zinc-500'}`}>
           <span className="block text-sm font-semibold">OpenAI-compatible API</span>
           <span className="mt-2 block text-xs leading-relaxed text-zinc-400">Use an API key and a supported endpoint. API usage is billed separately.</span>
         </button>
-        <button type="button" onClick={() => { setRoute('local'); setMessage(''); setVerified(false) }}
+        <button type="button" onClick={() => chooseRoute('local')}
           className={`rounded-xl border p-4 text-left ${route === 'local' ? 'border-accent-400 bg-accent-400/10' : 'border-surface-600 bg-surface-900 hover:border-zinc-500'}`}>
           <span className="block text-sm font-semibold">Local captions only</span>
           <span className="mt-2 block text-xs leading-relaxed text-zinc-400">Transcribe and caption full videos without an AI service. Clip finding needs a connection later.</span>
         </button>
-        <button type="button" onClick={() => { setRoute('claude'); setVerified(false); setMessage('') }}
+        <button type="button" onClick={() => chooseRoute('claude')}
           className={`rounded-xl border p-4 text-left ${route === 'claude' ? 'border-amber-500/60 bg-amber-500/10' : 'border-surface-600 bg-surface-900 hover:border-zinc-500'}`}>
           <span className="block text-sm font-semibold">Claude subscription</span>
           <span className="mt-2 block text-xs leading-relaxed text-zinc-400">Not available for Cutawan; see why below.</span>
