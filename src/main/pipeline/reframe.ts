@@ -3,7 +3,7 @@ import { markReframeComplete, mergeReframeResult, needsReframe } from '@shared/r
 import { shouldAnalyzeFaces } from '@shared/videoType'
 import { analyzeClipFocus, applyFocusAnalysis, type ClipFocusAnalysis } from './faces'
 import { loadProject, updateProject } from '../projects'
-import { getApiKey, getModelPreferences } from '../settings'
+import { getAnalysisCredential, getModelPreferences } from '../settings'
 import { refineComposition } from './composition'
 
 /**
@@ -114,7 +114,7 @@ async function analyseAndPersist(
   // Apply onto a copy: the saved clip may have moved on while the analysis
   // ran, and mergeReframeResult grafts only the analysis-owned fields.
   const analysed: Clip = { ...clip, edit: { ...clip.edit } }
-  const apiKey = clip.visualLayout?.preserveContext ? getApiKey() : ''
+  const apiKey = clip.visualLayout?.preserveContext ? getAnalysisCredential() : ''
   if (apiKey && project.videoType !== 'talking-head') {
     await refineComposition(apiKey, getModelPreferences().analysisModel, project.video.path, analysed, analysis.sceneCuts, signal, analysis.focusTrack, analysis.sceneTransitions, project.transcript ?? undefined)
   }

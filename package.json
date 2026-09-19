@@ -69,6 +69,7 @@
       "node_modules/onnxruntime-node/**"
     ],
     "extraResources": [
+      { "from": "resources/local-whisper", "to": "local-whisper" },
       {
         "from": "build/icon.png",
         "to": "icon.png"

@@ -1,3 +1,4 @@
+import { throwIfSubscriptionError } from '../subscription'
 import { mkdir, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -28,7 +29,7 @@ import {
   YtDlpError,
   type CookieAuthOptions
 } from './ytdlp'
-import { getApiKey, getImportPreferences, getModelPreferences } from '../settings'
+import { getAnalysisCredential, getImportPreferences, getModelPreferences } from '../settings'
 import { projectDir, saveProject, updateProject } from '../projects'
 
 export async function createProject(videoPath: string): Promise<Project> {
@@ -139,7 +140,7 @@ export async function analyzeProject(
   onProgress: ProgressFn,
   signal?: AbortSignal
 ): Promise<Project> {
-  const apiKey = getApiKey()
+  const apiKey = getAnalysisCredential()
   if (!apiKey) {
     throw new Error('No API key configured. Add one in Settings before generating clips.')
   }
@@ -270,6 +271,7 @@ export async function analyzeProject(
         try {
           await attachBroll(apiKey, settings.analysisModel, transcript, project.id, clip, signal)
         } catch (err) {
+          throwIfSubscriptionError(err)
           if (signal?.aborted) throw err
           console.error(`B-roll failed for clip ${clip.id}:`, err)
           clip.broll = []

@@ -1,3 +1,4 @@
+import { throwIfSubscriptionError } from '../subscription'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Clip, ContentRegion, Transcript } from '@shared/types'
@@ -72,6 +73,7 @@ export async function refineScreenDetails(
     }
     return shots.some(s => s.overview) ? shots : null
   } catch (error) {
+    throwIfSubscriptionError(error)
     if (signal?.aborted) throw error
     console.error('Screen detail review failed; keeping the full source:', error)
     return null

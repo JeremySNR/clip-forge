@@ -15,7 +15,7 @@ import { findWholeVideoClip, wholeVideoEdit } from '@shared/wholeVideo'
 import { extractThumbnail } from './ffmpeg'
 import { analyzeClipFocus } from './faces'
 import { ensureTranscript } from './projectTranscript'
-import { getApiKey, getModelPreferences } from '../settings'
+import { getAnalysisCredential, getModelPreferences } from '../settings'
 import { projectDir, updateProject } from '../projects'
 
 /**
@@ -44,7 +44,7 @@ export async function captionWholeVideo(
   // The key only pays for transcription. With a transcript already saved this
   // run makes no API calls at all, so redoing the crop or the speaker track
   // offline is allowed.
-  const apiKey = getApiKey()
+  const apiKey = getAnalysisCredential()
   if (!apiKey && !project.transcript) {
     throw new Error('No API key configured. Add one in Settings before transcribing.')
   }

@@ -1,3 +1,5 @@
+import { DEFAULT_SUBSCRIPTION, normalizeSubscription, type SubscriptionSettings } from '@shared/subscription'
+import { configureSubscription } from './subscription'
 import { app, safeStorage } from 'electron'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,6 +20,7 @@ import { configureOpenAiEndpoints } from './pipeline/openai'
 
 
 interface StoredSettings {
+  subscription: SubscriptionSettings
   /** Base64 of safeStorage-encrypted key, or plain 'plain:'-prefixed fallback. */
   apiKeyEncrypted: string
   transcriptionModel: string
@@ -52,6 +55,7 @@ const DEFAULT_BRAND_VOICE: BrandVoiceSettings = {
 }
 
 const DEFAULTS: StoredSettings = {
+  subscription: { ...DEFAULT_SUBSCRIPTION },
   apiKeyEncrypted: '',
   transcriptionModel: 'whisper-1',
   // Default to English rather than Whisper's auto-detect: the app is
@@ -77,6 +81,7 @@ function settingsPath(): string {
 let cache: StoredSettings | null = null
 
 function applyEndpoints(s: StoredSettings): void {
+  configureSubscription(s.subscription)
   configureOpenAiEndpoints({
     chatBase: s.openaiBaseUrl,
     transcriptionBase: s.transcriptionBaseUrl
@@ -96,6 +101,7 @@ function load(): StoredSettings {
       cache = {
         ...DEFAULTS,
         ...parsed,
+        subscription: normalizeSubscription(parsed.subscription),
         openaiBaseUrl: storedBaseUrl(parsed.openaiBaseUrl),
         transcriptionBaseUrl: storedBaseUrl(parsed.transcriptionBaseUrl),
         // Nested objects: merge so settings saved before new fields stay valid.
@@ -152,11 +158,16 @@ export function getApiKey(): string {
   return stored || envKey || ''
 }
 
+export function getAnalysisCredential(): string {
+  return load().subscription.provider === 'chatgpt' ? 'local-codex-subscription' : getApiKey()
+}
+
 export async function getSettings(): Promise<AppSettings> {
   const s = load()
   applyEndpoints(s)
   const key = getApiKey()
   return {
+    subscription: { ...s.subscription },
     hasApiKey: key.length > 0,
     apiKeyMasked: key.length > 8 ? `${key.slice(0, 5)}…${key.slice(-4)}` : key ? '•••' : '',
     keyStorageSecure: safeStorage.isEncryptionAvailable(),
@@ -225,6 +236,7 @@ export function getModelPreferences(): {
 
 export async function updateSettings(update: SettingsUpdate): Promise<AppSettings> {
   const s = { ...load() }
+  if (update.subscription !== undefined) s.subscription = normalizeSubscription({ ...s.subscription, ...update.subscription })
   if (update.apiKey !== undefined) s.apiKeyEncrypted = encryptKey(update.apiKey.trim())
   if (update.transcriptionModel !== undefined && update.transcriptionModel.trim()) {
     s.transcriptionModel = update.transcriptionModel.trim()

@@ -300,7 +300,7 @@ function SetupPanel(): React.JSX.Element {
   // need a key; clip finding always does.
   const needsKey =
     settings !== null &&
-    !settings.hasApiKey &&
+    !settings.hasApiKey && settings.subscription.provider !== 'chatgpt' &&
     !(mode === 'whole-video' && project.transcript !== null)
   const highlights = highlightClips(project)
 

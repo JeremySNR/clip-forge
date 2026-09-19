@@ -1,3 +1,4 @@
+import type { SubscriptionSettings } from './subscription'
 /** Shared domain types used across main, preload and renderer. */
 
 export interface VideoInfo {
@@ -421,6 +422,7 @@ export interface GpuEncoderStatus {
 }
 
 export interface AppSettings {
+  subscription: SubscriptionSettings
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
   hasApiKey: boolean
@@ -472,6 +474,7 @@ export interface AppSettings {
 }
 
 export interface SettingsUpdate {
+  subscription?: Partial<SubscriptionSettings>
   apiKey?: string
   transcriptionModel?: string
   transcriptionLanguage?: string

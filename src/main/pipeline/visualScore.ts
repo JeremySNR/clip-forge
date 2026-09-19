@@ -1,3 +1,4 @@
+import { throwIfSubscriptionError } from '../subscription'
 import { readFile, rm, mkdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -124,6 +125,7 @@ export async function extractFramesAtTimes(videoPath: string, times: number[], s
       paths.push(out)
     }
   } catch (error) {
+    throwIfSubscriptionError(error)
     await rm(dir, { recursive: true, force: true }).catch(() => undefined)
     throw error
   }
@@ -230,6 +232,7 @@ export async function assessClipVisuals(
       }
     }
   } catch (err) {
+    throwIfSubscriptionError(err)
     if (signal?.aborted) throw err
     console.error('Visual scoring failed for clip (keeping text score):', err)
     return null

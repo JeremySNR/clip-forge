@@ -1,3 +1,4 @@
+import { throwIfSubscriptionError } from '../subscription'
 import { randomUUID } from 'node:crypto'
 import type {
   AnalyzeOptions,
@@ -443,6 +444,7 @@ async function refineClipEndings(
     }
     return refined.map((c) => withNormalizedEnd(c, transcript, videoDurationSec, maxDuration))
   } catch (err) {
+    throwIfSubscriptionError(err)
     if (signal?.aborted) throw err
     // The candidates are still usable without the ending review.
     console.error('Clip ending review failed; keeping original endings:', err)
@@ -570,6 +572,7 @@ async function refineClipStarts(
     }
     return refined
   } catch (err) {
+    throwIfSubscriptionError(err)
     if (signal?.aborted) throw err
     // The candidates are still usable without the opening review.
     console.error('Clip opening review failed; keeping original starts:', err)

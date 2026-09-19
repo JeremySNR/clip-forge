@@ -1,3 +1,4 @@
+import { usesSubscription, subscriptionJSON, transcribeLocally } from '../subscription'
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -215,6 +216,7 @@ export async function transcribeAudioFile(
   model: string,
   opts: TranscribeFileOptions = {}
 ): Promise<WhisperResponse> {
+  if (usesSubscription()) return transcribeLocally(filePath, opts)
   const bytes = await readFile(filePath)
   return withRetries(
     async () => {
@@ -257,6 +259,7 @@ export async function chatJSON<T>(
   schema: Record<string, unknown>,
   signal?: AbortSignal
 ): Promise<T> {
+  if (usesSubscription()) return subscriptionJSON<T>(messages, schema, signal)
   return withRetries(
     async () => {
       const content = await completeChatContent(

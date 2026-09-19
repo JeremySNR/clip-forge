@@ -1,3 +1,4 @@
+import { checkSubscriptionSetup } from './subscription'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { copyFile, mkdir, rm } from 'node:fs/promises'
@@ -28,7 +29,7 @@ import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, updateProject } from './projects'
 import {
-  getApiKey,
+  getAnalysisCredential,
   getBrandingSettings,
   getBrandVoiceSettings,
   getExportPreferences,
@@ -298,7 +299,7 @@ export function registerIpcHandlers(): void {
     const project = await loadProject(projectId)
     const clip = project.clips.find((c) => c.id === clipId)
     if (!clip) throw new Error('Clip not found')
-    const apiKey = getApiKey()
+    const apiKey = getAnalysisCredential()
     if (!apiKey) throw new Error('Add your OpenAI API key in Settings first.')
     const caption = await generateSocialCaption(
       apiKey,
@@ -328,6 +329,7 @@ export function registerIpcHandlers(): void {
     })
   })
 
+  ipcMain.handle('settings:checkSubscription', () => checkSubscriptionSetup())
   ipcMain.handle('settings:get', async () => getSettings())
   ipcMain.handle('settings:update', async (_e, update: SettingsUpdate) => updateSettings(update))
 

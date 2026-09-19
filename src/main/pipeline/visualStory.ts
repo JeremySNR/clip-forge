@@ -1,3 +1,4 @@
+import { throwIfSubscriptionError } from '../subscription'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Clip, Transcript } from '@shared/types'
@@ -100,6 +101,7 @@ export async function completeVisualStory(
     const proposal = await chatJSON<StoryProposal>(apiKey, model, [{ role: 'user', content: parts }], 'visual_story_completion', SCHEMA, signal)
     return applyVisualStoryProposal(clip, transcript, times, proposal, maxDuration, videoDuration)
   } catch (error) {
+    throwIfSubscriptionError(error)
     if (signal?.aborted) throw error
     console.error('Visual story completion failed:', error)
     return null

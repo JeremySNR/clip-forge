@@ -1,3 +1,4 @@
+import { throwIfSubscriptionError } from '../subscription'
 import { readFile, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { Clip, FocusKeyframe, Transcript } from '@shared/types'
@@ -76,6 +77,7 @@ export async function refineComposition(
         if (details) detailPlans.set(shot, details)
       }
     } catch (error) {
+      throwIfSubscriptionError(error)
       if (signal?.aborted) throw error
       console.error('Shot composition review failed; preserving the full shot:', error)
     } finally {
