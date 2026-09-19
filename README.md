@@ -2,9 +2,9 @@
   <img src=".github/assets/cutawan-hero.png" alt="Cutawan: turn long videos into viral clips on your desktop" width="100%" />
 </p>
 
-<h3 align="center">The open-source Opus Clip alternative that runs on your desktop.</h3>
+<h3 align="center">Turn long videos into captioned shorts on your desktop.</h3>
 
-<p align="center"><a href="https://cutawan.xyz"><strong>cutawan.xyz</strong></a> &nbsp;·&nbsp; <a href="https://github.com/JeremySNR/cutawan/releases/latest">download</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
+<p align="center"><a href="#download-and-get-started"><strong>Download for Windows, macOS or Linux</strong></a> &nbsp;·&nbsp; <a href="https://cutawan.xyz">website</a> &nbsp;·&nbsp; <a href="#faq">faq</a></p>
 
 <p align="center">
   Turn podcasts, webinars, streams and interviews into ready-to-post vertical clips.<br/>
@@ -22,6 +22,16 @@
 
 ---
 
+## Download and get started
+
+1. **[Download the latest release](https://github.com/JeremySNR/cutawan/releases/latest).** Choose the Windows `.exe` installer, macOS `.dmg`, or Linux `.AppImage` under **Assets**. You do not need Node.js or a source checkout to use the app.
+2. **Set up your connection.** In v0.10.0 and newer, the first-run wizard offers **ChatGPT sign-in** via Codex for AI clip finding with local transcription, an **OpenAI-compatible API** for separately billed analysis, or **Local captions only** to caption a whole video without an AI connection. [Setup requirements and choices](docs/getting-started.md) are explained step by step. You can also explore the editor before setting up a connection.
+3. **Import a video or paste a supported URL.** Choose **Find viral clips** to review suggested moments, or **Caption whole video** to make one captioned edit. Adjust the trim, captions and framing, then export an MP4.
+
+The ChatGPT/Codex option is a beta integration with your plan's Codex allowance, not an included OpenAI API. It needs the Codex CLI signed in with ChatGPT and Python 3.10+; the wizard can install local faster-whisper and a speech model after you choose it. AI clip finding still needs either Codex or an API connection. Builds before v0.10.0 do not show the wizard; configure the connection in **Settings → General → AI connection** instead.
+
+The macOS build is currently unsigned, so first launch may require right-clicking the app and choosing **Open**. [Platform-specific install notes](docs/getting-started.md#install-the-app) cover that and the Windows/Linux paths.
+
 ## Why Cutawan instead of Opus Clip?
 
 Opus Clip is great, but it costs a subscription, runs in the cloud, and uploads your footage. Cutawan is a free desktop app: connect an OpenAI-compatible API, use ChatGPT sign-in through Codex with local Whisper, or caption whole videos entirely locally.
@@ -38,6 +48,12 @@ Opus Clip is great, but it costs a subscription, runs in the cloud, and uploads 
 On the default API route, a typical estimate is **~$0.36/hour of video** for Whisper transcription plus a few cents of LLM analysis with `gpt-5.4-mini`; actual API charges depend on usage and current pricing. The ChatGPT/Codex route uses plan allowance and local speech transcription instead.
 
 ## What it looks like
+
+<p align="center">
+  <img src=".github/assets/cutawan-screenshot-wizard.png" alt="Cutawan first-run wizard with ChatGPT sign-in, API and local captions choices" width="75%" />
+</p>
+
+<p align="center"><em>Pick how you want to work on first launch. Local captions do not need an AI connection.</em></p>
 
 <p align="center">
   <img src=".github/assets/cutawan-screenshot-clips.png" alt="Cutawan: AI-found clips ranked by virality score" width="49%" />
@@ -84,7 +100,9 @@ On the default API route, a typical estimate is **~$0.36/hour of video** for Whi
 
 The marketing website is [cutawan.xyz](https://cutawan.xyz). Its source lives in the separate private [cutawan-website](https://github.com/JeremySNR/cutawan-website) repository. App releases and documentation remain here.
 
-## Quick start
+## Build from source
+
+For contributors and developers; everyone else can use the [prebuilt downloads](#download-and-get-started).
 
 ```bash
 git clone https://github.com/JeremySNR/cutawan.git
@@ -107,7 +125,7 @@ Windows packages can also be listed on [winget](docs/winget.md) after a one-off 
 
 Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
 
-Building from source needs **Node.js 20+**. On first launch, the setup wizard offers an [OpenAI API key](https://platform.openai.com/api-keys), [ChatGPT sign-in via Codex](docs/chatgpt-subscription.md), or local-only full-video captioning. The local speech routes need Python 3.10+; the wizard can install faster-whisper and a speech model into Cutawan's app-data folder. FFmpeg is bundled. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/cutawan/releases/latest). On Windows, `winget install JeremySNR.Cutawan` will work once the [winget package](docs/winget.md) is listed.
+Building from source needs **Node.js 20+**. The local speech routes need Python 3.10+; the wizard can install faster-whisper and a speech model into Cutawan's app-data folder. FFmpeg is bundled. On Windows, `winget install JeremySNR.Cutawan` will work once the [winget package](docs/winget.md) is listed.
 
 Rendering, face tracking, editing, zoom and export run locally. Speech can also run locally with faster-whisper. For API transcription, extracted audio goes to the configured endpoint; analysis sends transcript text and sampled frames through the selected connection. The full video is never uploaded.
 
@@ -293,6 +311,7 @@ Verify with `npx electron --version` (should print the Electron version, e.g. `v
 
 ## Screenshots and brand assets
 
-Run `npm run screenshots` to build Cutawan and capture eight real app views with
-an isolated offline demo profile. See [rename notes](docs/rename-plan.md) for
-existing-install compatibility and screenshot details.
+Run `npm run screenshots` to build Cutawan and capture the first-run wizard plus
+eight app views with isolated offline demo profiles. See
+[rename notes](docs/rename-plan.md) for existing-install compatibility and
+screenshot details.

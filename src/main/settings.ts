@@ -171,7 +171,7 @@ export async function getSettings(): Promise<AppSettings> {
   applyEndpoints(s)
   const key = getApiKey()
   return {
-    setupComplete: s.setupComplete || Boolean(process.env.CUTAWAN_SMOKE),
+    setupComplete: s.setupComplete || Boolean(process.env.CUTAWAN_SMOKE && !process.env.CUTAWAN_SMOKE_WIZARD),
     subscription: { ...s.subscription },
     hasApiKey: key.length > 0,
     apiKeyMasked: key.length > 8 ? `${key.slice(0, 5)}…${key.slice(-4)}` : key ? '•••' : '',

@@ -16,10 +16,12 @@ npm install
 npm run dev
 ```
 
-Most of the app works without an API key. Transcription and clip analysis need
-an [OpenAI API key](https://platform.openai.com/api-keys), entered in Settings
-and stored encrypted with Electron `safeStorage`. If you want to explore the UI
-without spending anything, seed a demo project instead:
+Most of the app works without an API key. Clip analysis can use an
+[OpenAI-compatible API](https://platform.openai.com/api-keys) or the optional
+[ChatGPT/Codex connection](docs/chatgpt-subscription.md); whole-video captions
+can run with local Whisper and no AI connection. See the
+[getting-started guide](docs/getting-started.md) for the three first-run paths.
+If you want to explore the UI without spending anything, seed a demo project instead:
 
 ```bash
 npx tsx --tsconfig tsconfig.node.json scripts/seed-demo.ts
@@ -31,7 +33,7 @@ These three must pass, and CI enforces all of them plus an offline render test
 and a UI smoke test:
 
 ```bash
-npm test          # vitest, currently 254 tests
+npm test          # vitest
 npm run typecheck # both tsconfigs, node and web
 npm run lint      # eslint
 ```

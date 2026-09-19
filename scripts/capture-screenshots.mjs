@@ -7,6 +7,7 @@ import { resolve } from 'node:path'
 const require = createRequire(import.meta.url)
 const output = resolve(process.argv[2] ?? '.tmp/cutawan-screenshots')
 const profile = resolve(output, 'profile')
+const wizardProfile = resolve(output, 'wizard-profile')
 mkdirSync(output, { recursive: true })
 const env = {
   ...process.env, CUTAWAN_USER_DATA: profile,
@@ -25,6 +26,11 @@ function run(command, args, extraEnv = {}) {
 }
 
 run(process.execPath, ['node_modules/electron-vite/bin/electron-vite.js', 'build'])
+run(require('electron'), ['.', '--disable-gpu'], {
+  CUTAWAN_SMOKE: output,
+  CUTAWAN_SMOKE_WIZARD: '1',
+  CUTAWAN_USER_DATA: wizardProfile
+})
 run(process.execPath, ['node_modules/tsx/dist/cli.mjs', '--tsconfig', 'tsconfig.node.json', 'scripts/seed-demo.ts'])
 run(require('electron'), ['.', '--disable-gpu'], { CUTAWAN_SMOKE: output })
 console.log(`Cutawan screenshots saved to ${output}`)

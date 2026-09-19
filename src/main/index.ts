@@ -60,6 +60,11 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   }
 
   await sleep(2500)
+  if (process.env.CUTAWAN_SMOKE_WIZARD) {
+    await shot('setup-wizard')
+    app.quit()
+    return
+  }
   await shot('home')
   await click('[data-testid="project-card"]')
   await shot('clips')
@@ -107,8 +112,10 @@ function applyAppIcon(): void {
 function createWindow(): void {
   // A floating window with margin around it, never edge-to-edge (and never
   // larger than the work area on small laptop displays).
-  const { width, height } = process.env.CUTAWAN_SMOKE
-    ? { width: 1600, height: 1000 }
+  const { width, height } = process.env.CUTAWAN_SMOKE_WIZARD
+    ? { width: 1100, height: 680 }
+    : process.env.CUTAWAN_SMOKE
+      ? { width: 1600, height: 1000 }
     : initialWindowSize(screen.getPrimaryDisplay().workAreaSize)
   const isMac = process.platform === 'darwin'
   const win = new BrowserWindow({
