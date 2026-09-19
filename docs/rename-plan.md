@@ -29,7 +29,7 @@ GitHub Pages must deploy the updated `docs/` tree to serve the new branding.
 ## Artwork and screenshots
 
 New generated icon: `build/Cutawan.png`; derived sizes feed the app, installer,
-website icons and favicon. New marketing hero: `.github/assets/hero.png`.
+website icons and favicon. New marketing hero: `.github/assets/cutawan-hero.png`.
 New social artwork: `docs/assets/social-preview.png` and `social-card.jpg`.
 The website navigation and browser icons use the same generated app icon.
 

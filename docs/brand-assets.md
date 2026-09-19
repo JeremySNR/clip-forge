@@ -17,7 +17,7 @@ Prompt:
 
 ## README hero
 
-Output: `.github/assets/hero.png`.
+Output: `.github/assets/cutawan-hero.png`.
 
 Prompt:
 

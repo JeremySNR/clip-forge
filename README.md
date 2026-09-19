@@ -1,5 +1,5 @@
 <p align="center">
-  <img src=".github/assets/hero.png" alt="Cutawan: turn long videos into viral clips on your desktop" width="100%" />
+  <img src=".github/assets/cutawan-hero.png" alt="Cutawan: turn long videos into viral clips on your desktop" width="100%" />
 </p>
 
 <h3 align="center">The open-source Opus Clip alternative that runs on your desktop.</h3>
@@ -40,12 +40,12 @@ Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cent
 ## What it looks like
 
 <p align="center">
-  <img src=".github/assets/screenshot-clips.png" alt="AI-found clips ranked by virality score" width="49%" />
-  <img src=".github/assets/screenshot-editor.png" alt="Clip editor with live preview, caption styles and branding watermark" width="49%" />
+  <img src=".github/assets/cutawan-screenshot-clips.png" alt="Cutawan: AI-found clips ranked by virality score" width="49%" />
+  <img src=".github/assets/cutawan-screenshot-editor.png" alt="Cutawan clip editor with live preview, caption styles and branding watermark" width="49%" />
 </p>
 
 <p align="center">
-  <img src=".github/assets/screenshot-caption-video.png" alt="Choosing between finding viral clips and captioning the whole video, with output shape, speaker tracking and auto zoom options" width="80%" />
+  <img src=".github/assets/cutawan-screenshot-caption-video.png" alt="Cutawan: choosing between finding viral clips and captioning the whole video, with output shape, speaker tracking and auto zoom options" width="80%" />
 </p>
 
 <p align="center"><em>Pick a mode at setup: let the AI find clips, or caption the whole video end to end.</em></p>
