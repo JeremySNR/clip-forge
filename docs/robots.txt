@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://jeremysnr.github.io/cutawan/sitemap.xml
