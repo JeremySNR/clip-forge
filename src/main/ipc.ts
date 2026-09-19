@@ -1,4 +1,5 @@
-import { checkSubscriptionSetup } from './subscription'
+import { checkLocalWhisperSetup, checkSubscriptionSetup } from './subscription'
+import { cancelLocalWhisperInstall, installLocalWhisper, type LocalWhisperModel } from './localWhisper'
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { copyFile, mkdir, rm } from 'node:fs/promises'
@@ -330,6 +331,15 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('settings:checkSubscription', () => checkSubscriptionSetup())
+  ipcMain.handle('settings:checkLocalWhisper', () => checkLocalWhisperSetup())
+  ipcMain.handle('settings:installLocalWhisper', async (event, model: LocalWhisperModel, pythonPath: string) => {
+    const result = await installLocalWhisper(model, pythonPath, progress => {
+      if (!event.sender.isDestroyed()) event.sender.send('whisper:installProgress', progress)
+    })
+    await updateSettings({ subscription: { pythonPath: result.pythonPath, whisperModelPath: result.modelPath } })
+    return result
+  })
+  ipcMain.handle('settings:cancelLocalWhisperInstall', () => cancelLocalWhisperInstall())
   ipcMain.handle('settings:get', async () => getSettings())
   ipcMain.handle('settings:update', async (_e, update: SettingsUpdate) => updateSettings(update))
 

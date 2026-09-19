@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { SubscriptionSettings as Preferences } from '@shared/subscription'
+import LocalWhisperSetup from './LocalWhisperSetup'
 
 export default function SubscriptionSettings({ value, onChange, onSave }: {
   value: Preferences
@@ -21,6 +22,15 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
     } catch (error) { setMessage(error instanceof Error ? error.message : String(error)) }
     finally { setChecking(false) }
   }
+  const checkLocal = async (): Promise<void> => {
+    setChecking(true)
+    try {
+      await onSave()
+      const result = await window.cutawan.checkLocalWhisperSetup()
+      setMessage(result.message)
+    } catch (error) { setMessage(error instanceof Error ? error.message : String(error)) }
+    finally { setChecking(false) }
+  }
   const inputClass = 'mt-1 w-full rounded-lg border border-surface-600 bg-surface-850 px-3 py-2 text-sm'
   return <div className="mb-6 space-y-3">
     <label className="block text-sm font-medium" htmlFor="analysis-provider">AI connection</label>
@@ -28,6 +38,23 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
       <option value="api">OpenAI-compatible API</option>
       <option value="chatgpt">ChatGPT subscription via Codex (beta)</option>
     </select>
+    {value.provider === 'api' && <>
+      <label className="flex items-center gap-2 text-xs text-zinc-300">
+        <input type="checkbox" checked={value.localTranscription} onChange={e => update({ localTranscription: e.target.checked })} />
+        Transcribe speech locally with Whisper (analysis still uses the API)
+      </label>
+      {value.localTranscription && <>
+        <label className="block text-xs" htmlFor="api-python-path">Python executable
+          <input id="api-python-path" className={inputClass} value={value.pythonPath} onChange={e => update({ pythonPath: e.target.value })} />
+        </label>
+        <LocalWhisperSetup pythonPath={value.pythonPath} onConfigured={(pythonPath, whisperModelPath) => update({ pythonPath, whisperModelPath })} />
+        <label className="block text-xs" htmlFor="api-whisper-path">Whisper model folder
+          <input id="api-whisper-path" className={inputClass} value={value.whisperModelPath} onChange={e => update({ whisperModelPath: e.target.value })} placeholder="Folder containing model.bin" />
+        </label>
+        <button type="button" onClick={() => void checkLocal()} disabled={checking} className="rounded-lg border border-surface-600 px-3 py-2 text-sm disabled:opacity-50">{checking ? 'Checking…' : 'Save and check local Whisper'}</button>
+        {message && <p role="status" className="text-xs leading-relaxed text-zinc-300">{message}</p>}
+      </>}
+    </>}
     {value.provider === 'chatgpt' && <>
       <p className="text-xs leading-relaxed text-zinc-400">Use your existing ChatGPT sign-in for analysis, with local Whisper for transcription. Requires Codex CLI, Python with faster-whisper, and a downloaded speech model. Subscription limits apply; no API key is required.</p>
       <p className="text-xs leading-relaxed text-zinc-400">Install Codex CLI and run <code>codex login</code> once to sign in with ChatGPT. Cutawan never reads or stores your login tokens. Transcript text and selected video frames are sent to Codex; audio is transcribed on this computer.</p>
@@ -47,6 +74,7 @@ export default function SubscriptionSettings({ value, onChange, onSave }: {
       <label className="block text-xs" htmlFor="python-path">Python executable with faster-whisper installed
         <input id="python-path" className={inputClass} value={value.pythonPath} onChange={e => update({ pythonPath: e.target.value })} />
       </label>
+      <LocalWhisperSetup pythonPath={value.pythonPath} onConfigured={(pythonPath, whisperModelPath) => update({ pythonPath, whisperModelPath })} />
       <label className="block text-xs" htmlFor="whisper-path">Downloaded faster-whisper model folder
         <input id="whisper-path" className={inputClass} value={value.whisperModelPath} onChange={e => update({ whisperModelPath: e.target.value })} placeholder="Folder containing model.bin" />
       </label>

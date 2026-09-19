@@ -16,6 +16,7 @@ import { extractThumbnail } from './ffmpeg'
 import { analyzeClipFocus } from './faces'
 import { ensureTranscript } from './projectTranscript'
 import { getAnalysisCredential, getModelPreferences } from '../settings'
+import { usesLocalTranscription } from '../subscription'
 import { projectDir, updateProject } from '../projects'
 
 /**
@@ -45,8 +46,8 @@ export async function captionWholeVideo(
   // run makes no API calls at all, so redoing the crop or the speaker track
   // offline is allowed.
   const apiKey = getAnalysisCredential()
-  if (!apiKey && !project.transcript) {
-    throw new Error('No API key configured. Add one in Settings before transcribing.')
+  if (!apiKey && !project.transcript && !usesLocalTranscription()) {
+    throw new Error('No transcription connection configured. Add an API key or set up local Whisper in Settings.')
   }
   const settings = getModelPreferences()
   const workDir = join(tmpdir(), 'cutawan', `caption-${project.id}`)

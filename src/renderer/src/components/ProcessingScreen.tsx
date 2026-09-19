@@ -33,6 +33,7 @@ export default function ProcessingScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
   const mode = useStore((s) => s.pipelineMode)
   const followSpeaker = useStore((s) => s.pipelineFollowSpeaker)
+  const settings = useStore((s) => s.settings)
   const cancelAnalyze = useStore((s) => s.cancelAnalyze)
   const [cancelling, setCancelling] = useState(false)
 
@@ -112,17 +113,22 @@ export default function ProcessingScreen(): React.JSX.Element {
         <p className="mt-6 text-center text-xs leading-relaxed text-zinc-600">
           {mode === 'whole-video' ? (
             <>
-              Only the audio leaves your machine, for Whisper transcription. Long videos are
+              {settings?.subscription.provider === 'chatgpt' || settings?.subscription.localTranscription
+                ? 'Speech is transcribed locally. '
+                : 'Only the audio leaves your machine, for Whisper transcription. '}Long videos are
               transcribed in chunks and the transcript is saved as soon as it lands, so redoing
               this skips straight past it.
               {followSpeaker && ' Speaker tracking runs locally and is the slow part.'}
             </>
           ) : (
             <>
-              Transcription and analysis run on the OpenAI API. Long videos are transcribed in
-              chunks — an hour of footage typically takes a couple of minutes. The transcript is
-              saved as soon as it completes, so retries and regenerations skip straight to
-              analysis.
+              {settings?.subscription.provider === 'chatgpt'
+                ? 'Speech is transcribed locally; transcript text and sampled frames go to Codex for analysis. '
+                : settings?.subscription.localTranscription
+                  ? 'Speech is transcribed locally; analysis uses your configured API. '
+                  : 'Transcription and analysis use your configured API. '}Long videos are transcribed in
+              chunks. Local speech recognition can take longer on a CPU. The transcript is saved
+              as soon as it completes, so retries and regenerations skip straight to analysis.
             </>
           )}
         </p>

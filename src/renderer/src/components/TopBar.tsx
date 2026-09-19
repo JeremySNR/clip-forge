@@ -76,12 +76,12 @@ export default function TopBar(): React.JSX.Element {
             Update available
           </button>
         )}
-        {settings && !settings.hasApiKey && (
+        {settings && settings.subscription.provider === 'api' && !settings.hasApiKey && (
           <button
             onClick={() => setSettingsOpen(true)}
             className="rounded-lg bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-400 transition hover:bg-amber-500/25"
           >
-            Add OpenAI API key to get started
+            {settings.subscription.localTranscription ? 'Add an API key to find clips' : 'Add OpenAI API key to get started'}
           </button>
         )}
         <button

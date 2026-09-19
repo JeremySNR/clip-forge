@@ -184,7 +184,7 @@ export default function SettingsModal(): React.JSX.Element {
                   OpenAI API key
                 </label>
           <p className="mt-1 text-xs leading-relaxed text-zinc-500">
-            Used for Whisper transcription and clip analysis. Stored encrypted on this machine
+            Used for {subscription.localTranscription ? 'clip analysis' : 'Whisper transcription and clip analysis'}. Stored encrypted on this machine
             and never sent anywhere except the API base below (OpenAI by default).
           </p>
           {settings !== null && !settings.keyStorageSecure && (

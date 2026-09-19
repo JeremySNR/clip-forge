@@ -8,7 +8,7 @@ import { DEFAULT_SUBSCRIPTION, normalizeSubscription } from '../src/shared/subsc
 const mock = vi.hoisted(() => ({ root: '', spawn: vi.fn(), login: 'Logged in using ChatGPT', fail: false }))
 vi.mock('electron', () => ({ app: { getPath: () => mock.root, getAppPath: () => mock.root, isPackaged: false, once: vi.fn(), removeListener: vi.fn() } }))
 vi.mock('node:child_process', () => ({ spawn: mock.spawn }))
-import { configureSubscription, subscriptionJSON, subscriptionEnvironment, codexArguments, SubscriptionError } from '../src/main/subscription'
+import { configureSubscription, subscriptionJSON, subscriptionEnvironment, codexArguments, SubscriptionError, usesLocalTranscription } from '../src/main/subscription'
 
 const messages = [{ role: 'user' as const, content: 'Pick a complete moment.' }]
 const schema = { type: 'object', properties: { title: { type: 'string' } }, required: ['title'], additionalProperties: false }
@@ -31,8 +31,15 @@ afterEach(async () => { await rm(mock.root, { recursive: true, force: true }); c
 
 it('keeps legacy settings on API and normalizes request limits', () => {
   expect(normalizeSubscription().provider).toBe('api')
+  expect(normalizeSubscription().localTranscription).toBe(false)
   expect(normalizeSubscription({ dailyRequestLimit: -1 }).dailyRequestLimit).toBe(0)
   expect(normalizeSubscription({ dailyRequestLimit: NaN }).dailyRequestLimit).toBe(10)
+})
+it('can transcribe locally while analysis remains on the API route', () => {
+  configureSubscription({ ...DEFAULT_SUBSCRIPTION, provider: 'api', localTranscription: true })
+  expect(usesLocalTranscription()).toBe(true)
+  configureSubscription(DEFAULT_SUBSCRIPTION)
+  expect(usesLocalTranscription()).toBe(false)
 })
 it('pins the requested model and low reasoning and removes API billing credentials', () => {
   const args = codexArguments('gpt-5.6-luna', '/job', [])

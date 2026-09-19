@@ -21,6 +21,15 @@ import type {
 
 const api = {
   checkSubscriptionSetup: (): Promise<{ message: string; requestsToday: number }> => ipcRenderer.invoke('settings:checkSubscription'),
+  checkLocalWhisperSetup: (): Promise<{ message: string }> => ipcRenderer.invoke('settings:checkLocalWhisper'),
+  installLocalWhisper: (model: 'small' | 'large-v3', pythonPath: string): Promise<{ pythonPath: string; modelPath: string }> =>
+    ipcRenderer.invoke('settings:installLocalWhisper', model, pythonPath),
+  cancelLocalWhisperInstall: (): Promise<void> => ipcRenderer.invoke('settings:cancelLocalWhisperInstall'),
+  onLocalWhisperInstallProgress: (cb: (p: ImportProgress) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: ImportProgress): void => cb(p)
+    ipcRenderer.on('whisper:installProgress', listener)
+    return () => ipcRenderer.removeListener('whisper:installProgress', listener)
+  },
   selectVideo: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectVideo'),
   selectDirectory: (): Promise<string | null> => ipcRenderer.invoke('dialog:selectDirectory'),
 

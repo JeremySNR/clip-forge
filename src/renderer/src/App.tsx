@@ -6,6 +6,7 @@ import ClipsScreen from './components/ClipsScreen'
 import EditorScreen from './components/EditorScreen'
 import SettingsModal from './components/SettingsModal'
 import TopBar from './components/TopBar'
+import SetupWizard from './components/SetupWizard'
 
 function ScreenView({ screen }: { screen: Screen }): React.JSX.Element {
   switch (screen) {
@@ -27,6 +28,7 @@ function ScreenView({ screen }: { screen: Screen }): React.JSX.Element {
 export default function App(): React.JSX.Element {
   const screen = useStore((s) => s.screen)
   const settingsOpen = useStore((s) => s.settingsOpen)
+  const settings = useStore((s) => s.settings)
   const init = useStore((s) => s.init)
 
   useEffect(() => {
@@ -53,6 +55,7 @@ export default function App(): React.JSX.Element {
         <ScreenView screen={screen} />
       </main>
       {settingsOpen && <SettingsModal />}
+      {settings && !settings.setupComplete && <SetupWizard />}
     </div>
   )
 }

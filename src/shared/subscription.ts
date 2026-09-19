@@ -5,6 +5,8 @@ export interface SubscriptionSettings {
   dailyRequestLimit: number
   pythonPath: string
   whisperModelPath: string
+  /** Use local faster-whisper even when analysis uses an API. */
+  localTranscription: boolean
 }
 
 export const DEFAULT_SUBSCRIPTION: SubscriptionSettings = {
@@ -13,7 +15,8 @@ export const DEFAULT_SUBSCRIPTION: SubscriptionSettings = {
   codexModel: 'gpt-5.6-luna',
   dailyRequestLimit: 10,
   pythonPath: 'python',
-  whisperModelPath: ''
+  whisperModelPath: '',
+  localTranscription: false
 }
 
 export function normalizeSubscription(value?: Partial<SubscriptionSettings>): SubscriptionSettings {
@@ -25,6 +28,7 @@ export function normalizeSubscription(value?: Partial<SubscriptionSettings>): Su
     dailyRequestLimit: typeof limit === 'number' && Number.isFinite(limit)
       ? Math.min(500, Math.max(0, Math.floor(limit))) : DEFAULT_SUBSCRIPTION.dailyRequestLimit,
     pythonPath: value?.pythonPath?.trim() || DEFAULT_SUBSCRIPTION.pythonPath,
-    whisperModelPath: value?.whisperModelPath?.trim() || ''
+    whisperModelPath: value?.whisperModelPath?.trim() || '',
+    localTranscription: value?.localTranscription === true
   }
 }

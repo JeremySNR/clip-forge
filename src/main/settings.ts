@@ -20,6 +20,7 @@ import { configureOpenAiEndpoints } from './pipeline/openai'
 
 
 interface StoredSettings {
+  setupComplete: boolean
   subscription: SubscriptionSettings
   /** Base64 of safeStorage-encrypted key, or plain 'plain:'-prefixed fallback. */
   apiKeyEncrypted: string
@@ -55,6 +56,7 @@ const DEFAULT_BRAND_VOICE: BrandVoiceSettings = {
 }
 
 const DEFAULTS: StoredSettings = {
+  setupComplete: false,
   subscription: { ...DEFAULT_SUBSCRIPTION },
   apiKeyEncrypted: '',
   transcriptionModel: 'whisper-1',
@@ -101,6 +103,8 @@ function load(): StoredSettings {
       cache = {
         ...DEFAULTS,
         ...parsed,
+        // Existing installations should not be interrupted by a new wizard.
+        setupComplete: parsed.setupComplete !== false,
         subscription: normalizeSubscription(parsed.subscription),
         openaiBaseUrl: storedBaseUrl(parsed.openaiBaseUrl),
         transcriptionBaseUrl: storedBaseUrl(parsed.transcriptionBaseUrl),
@@ -167,6 +171,7 @@ export async function getSettings(): Promise<AppSettings> {
   applyEndpoints(s)
   const key = getApiKey()
   return {
+    setupComplete: s.setupComplete || Boolean(process.env.CUTAWAN_SMOKE),
     subscription: { ...s.subscription },
     hasApiKey: key.length > 0,
     apiKeyMasked: key.length > 8 ? `${key.slice(0, 5)}…${key.slice(-4)}` : key ? '•••' : '',
@@ -236,6 +241,7 @@ export function getModelPreferences(): {
 
 export async function updateSettings(update: SettingsUpdate): Promise<AppSettings> {
   const s = { ...load() }
+  if (update.setupComplete !== undefined) s.setupComplete = update.setupComplete
   if (update.subscription !== undefined) s.subscription = normalizeSubscription({ ...s.subscription, ...update.subscription })
   if (update.apiKey !== undefined) s.apiKeyEncrypted = encryptKey(update.apiKey.trim())
   if (update.transcriptionModel !== undefined && update.transcriptionModel.trim()) {

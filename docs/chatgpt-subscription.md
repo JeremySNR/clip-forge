@@ -7,21 +7,23 @@ Audio transcription runs locally with faster-whisper. Rendering and speaker trac
 ## One-time setup
 
 1. Install the current [Codex CLI](https://developers.openai.com/codex/cli), run `codex login`, and choose ChatGPT sign-in. `codex login status` should report ChatGPT, not API-key authentication.
-2. Install Python 3.10+ and create a dedicated environment:
+2. Install Python 3.10+. On first launch, choose **ChatGPT sign-in** in the setup wizard, enter your Python executable if it is not on `PATH`, and click **Install local Whisper**. Cutawan creates a private environment in its app-data folder, installs `faster-whisper`, and downloads your chosen model from Hugging Face only after you click the button. Choose **Small** for a lighter download or **Large v3** for more accuracy and a multi-GB download. The installer can be cancelled and retried.
+
+   If you prefer to set up Python and the model yourself, create a dedicated environment:
 
    ```sh
    python -m venv cutawan-whisper
    ```
 
    On Windows, install using `cutawan-whisper\Scripts\python.exe -m pip install faster-whisper huggingface-hub`. On macOS/Linux, use `cutawan-whisper/bin/python -m pip install faster-whisper huggingface-hub`.
-3. Explicitly download a compatible model. For the large-v3 model used in our quality experiments, run this with that environment's Python (requires several GB of download and storage):
+3. For manual setup, explicitly download a compatible model. For the large-v3 model used in our quality experiments, run this with that environment's Python (requires several GB of download and storage):
 
    ```sh
    python -c "from huggingface_hub import snapshot_download; snapshot_download('Systran/faster-whisper-large-v3', local_dir='whisper-large-v3')"
    ```
 
-   CPU transcription works but can be slow. A compatible NVIDIA CUDA installation enables faster GPU transcription; see [faster-whisper's installation requirements](https://github.com/SYSTRAN/faster-whisper#requirements). Cutawan does not automatically download Python, models or GPU libraries. A smaller compatible model is possible, with a transcription-quality tradeoff.
-4. In **Settings → General → AI connection**, choose **ChatGPT subscription via Codex (beta)**. Set the Python executable to the environment's full executable path and the speech model folder to the downloaded folder containing `model.bin`. If Codex is not on PATH, set its executable path too.
+   CPU transcription works but can be slow. A compatible NVIDIA CUDA installation enables faster GPU transcription; see [faster-whisper's installation requirements](https://github.com/SYSTRAN/faster-whisper#requirements). Cutawan does not install Python or GPU libraries. A smaller compatible model is possible, with a transcription-quality tradeoff.
+4. The first-run wizard saves the installed Python and model paths for you. For manual setup, in **Settings → General → AI connection**, choose **ChatGPT subscription via Codex (beta)**. Set the Python executable to the environment's full executable path and the speech model folder to the downloaded folder containing `model.bin`. If Codex is not on PATH, set its executable path too.
 5. Choose **Save and check setup**. This checks CLI authentication, Python dependencies and model files without making a model request. The first real transcription verifies runtime/GPU compatibility.
 
 ## Control usage

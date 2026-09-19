@@ -24,18 +24,18 @@
 
 ## Why Cutawan instead of Opus Clip?
 
-Opus Clip is great, but it costs a subscription, runs in the cloud, and uploads your footage. Cutawan does the same job as a free desktop app. You bring an OpenAI API key and pay **cents per video** instead of dollars per month.
+Opus Clip is great, but it costs a subscription, runs in the cloud, and uploads your footage. Cutawan is a free desktop app: connect an OpenAI-compatible API, use ChatGPT sign-in through Codex with local Whisper, or caption whole videos entirely locally.
 
 |                          | **Cutawan**                                   | Opus Clip (and similar SaaS)      |
 | ------------------------ | ----------------------------------------------- | --------------------------------- |
-| Price                    | Free and open source (MIT). Pay only OpenAI API cents | Monthly subscription          |
-| Your footage             | Stays on your machine. Only audio, transcripts and a few frames go to the API | Uploaded to their cloud |
+| Price                    | Free and open source (MIT). Bring an API key or eligible ChatGPT/Codex access | Monthly subscription          |
+| Your footage             | Stays on your machine. Speech can run locally; analysis sends transcripts and sampled frames to your chosen connection | Uploaded to their cloud |
 | Processing minutes       | Unlimited                                       | Capped per plan                   |
 | Watermark                | Your own logo, or none                          | Removed on paid tiers             |
 | Models                   | Your choice (GPT-5 series, or the budget legacy option) | Theirs                    |
 | Extensible               | Fork it, script it, PR it                       | Closed                            |
 
-Typical cost: **~$0.36/hour of video** for Whisper transcription plus a few cents of LLM analysis with the default `gpt-5.4-mini`.
+On the default API route, a typical estimate is **~$0.36/hour of video** for Whisper transcription plus a few cents of LLM analysis with `gpt-5.4-mini`; actual API charges depend on usage and current pricing. The ChatGPT/Codex route uses plan allowance and local speech transcription instead.
 
 ## What it looks like
 
@@ -107,9 +107,9 @@ Windows packages can also be listed on [winget](docs/winget.md) after a one-off 
 
 Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
 
-You need **Node.js 20+** and an [OpenAI API key](https://platform.openai.com/api-keys). Enter it in the app and it gets stored encrypted with Electron `safeStorage`. FFmpeg is bundled, so there is nothing else to install. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/cutawan/releases/latest). On Windows, `winget install JeremySNR.Cutawan` will work once the [winget package](docs/winget.md) is listed.
+Building from source needs **Node.js 20+**. On first launch, the setup wizard offers an [OpenAI API key](https://platform.openai.com/api-keys), [ChatGPT sign-in via Codex](docs/chatgpt-subscription.md), or local-only full-video captioning. The local speech routes need Python 3.10+; the wizard can install faster-whisper and a speech model into Cutawan's app-data folder. FFmpeg is bundled. Prebuilt Linux AppImages are on the [releases page](https://github.com/JeremySNR/cutawan/releases/latest). On Windows, `winget install JeremySNR.Cutawan` will work once the [winget package](docs/winget.md) is listed.
 
-Everything except transcription and analysis runs locally. Rendering, face tracking, editing, zoom and export never leave your machine. Only extracted audio, transcripts and a few sampled frames go to the OpenAI API. Never the full video.
+Rendering, face tracking, editing, zoom and export run locally. Speech can also run locally with faster-whisper. For API transcription, extracted audio goes to the configured endpoint; analysis sends transcript text and sampled frames through the selected connection. The full video is never uploaded.
 
 ## Architecture
 
@@ -169,22 +169,30 @@ The bundled active-speaker model (`resources/models/lr-asd-*.onnx`) is exported 
 ## FAQ
 
 **Is it actually free?**
-The app is free and MIT licensed, forever. You pay OpenAI directly for
-transcription and analysis, which works out at roughly **$0.36 per hour of
-video**. There is no subscription, no account, no processing-minute cap and no
-paid tier holding features back.
+The app is free and MIT licensed. The API route incurs separate provider charges;
+the ChatGPT/Codex route uses your existing plan allowance and local Whisper.
+Neither route adds a Cutawan subscription or paid feature tier. Provider limits
+and charges still apply.
 
 **Do I need an OpenAI API key?**
-For finding clips and captioning, yes, because that is what does the
-transcription and the analysis. Everything else runs locally without one: the
+No. The first-run wizard also offers ChatGPT sign-in via Codex for analysis,
+paired with local Whisper transcription, and a local-only route for whole-video
+captions (without AI clip finding). ChatGPT's subscription is separate
+from OpenAI API billing, and Codex plan limits apply. Everything else runs locally without an API key: the
 editor, trimming, caption styling, auto zoom, speaker reframing, watermarks and
 export. If you already have a transcript from a previous run, you can keep
 editing and exporting offline.
 
 **Does my video get uploaded anywhere?**
-No. Only extracted audio, the transcript and a handful of sampled frames go to
-the OpenAI API. The full video never leaves your machine, and rendering, face
-tracking, zoom and export are entirely local.
+The full video is not uploaded. On the API route, extracted audio, transcript text
+and sampled frames are sent to the configured endpoint. On the ChatGPT/Codex route,
+speech is transcribed locally and only transcript text and sampled frames are sent
+for analysis. Rendering, face tracking, zoom and export are local.
+
+**Can I use my Claude subscription?**
+Not as Cutawan's AI connection. [Anthropic's guidance](https://support.claude.com/en/articles/13189465-log-in-to-your-claude-account)
+directs developers of third-party apps, including open-source apps, to use API-key
+authentication. Cutawan will not route automated requests through a personal Claude login.
 
 **How is this different from Opus Clip's free tier?**
 Free SaaS tiers cap your processing minutes and usually watermark the output.
@@ -233,8 +241,8 @@ Yes, if it speaks the OpenAI REST shape. Set the API base URL in Settings
 or anything else with `/v1/chat/completions`. Transcription can point at a
 separate local Whisper server (faster-whisper, whisper.cpp’s compatible
 endpoint) — it must return **word-level timestamps**, because captions and
-tighten-cuts depend on them. Bundled in-process Whisper (no server at all)
-is still on the roadmap.
+tighten-cuts depend on them. The ChatGPT/Codex route instead uses local
+faster-whisper directly, with an in-app installer and no server.
 
 ## Roadmap
 
@@ -242,7 +250,7 @@ Each of these is an open issue, so the discussion and the detail live there. Con
 
 - [Multi-language caption translation](https://github.com/JeremySNR/cutawan/issues/49)
 - [Manual zoom keyframes on the timeline](https://github.com/JeremySNR/cutawan/issues/50)
-- Bundled on-device Whisper, so transcription needs no server at all
+- Easier fully bundled on-device Whisper, without requiring a separate Python installation
 - Direct publishing and scheduling to socials (needs an audited TikTok/YouTube app)
 
 Looking for somewhere to start? The [good first issues](https://github.com/JeremySNR/cutawan/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) need no deep knowledge of the pipeline.

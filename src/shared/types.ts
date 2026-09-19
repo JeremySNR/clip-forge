@@ -422,6 +422,8 @@ export interface GpuEncoderStatus {
 }
 
 export interface AppSettings {
+  /** False only on a fresh installation until onboarding is finished or skipped. */
+  setupComplete: boolean
   subscription: SubscriptionSettings
   /** Masked key for display, e.g. "sk-...abcd". Empty string when unset. */
   apiKeyMasked: string
@@ -474,6 +476,7 @@ export interface AppSettings {
 }
 
 export interface SettingsUpdate {
+  setupComplete?: boolean
   subscription?: Partial<SubscriptionSettings>
   apiKey?: string
   transcriptionModel?: string

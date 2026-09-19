@@ -16,6 +16,7 @@ let preferences = { ...DEFAULT_SUBSCRIPTION }
 let queue: Promise<unknown> = Promise.resolve()
 export function configureSubscription(value: SubscriptionSettings): void { preferences = { ...value } }
 export function usesSubscription(): boolean { return preferences.provider === 'chatgpt' }
+export function usesLocalTranscription(): boolean { return usesSubscription() || preferences.localTranscription }
 
 /** Never let a subscription run inherit an API billing credential/endpoint. */
 export function subscriptionEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -104,8 +105,15 @@ async function assertChatGptLogin(config: SubscriptionSettings, signal: AbortSig
 export async function checkSubscriptionSetup(): Promise<{ message: string; requestsToday: number }> {
   const config = { ...preferences }
   await assertChatGptLogin(config, AbortSignal.timeout(15_000))
-  await run(config.pythonPath, [scriptPath(), '--check'], JSON.stringify({ modelPath: config.whisperModelPath }), AbortSignal.timeout(30_000))
+  await checkLocalWhisperSetup()
   return { message: 'ChatGPT sign-in and local transcription setup are ready. No model request was made.', requestsToday: await requestsToday() }
+}
+
+export async function checkLocalWhisperSetup(): Promise<{ message: string }> {
+  const config = { ...preferences }
+  if (!config.whisperModelPath) throw new Error('Install local Whisper or choose a model folder first.')
+  await run(config.pythonPath, [scriptPath(), '--check'], JSON.stringify({ modelPath: config.whisperModelPath }), AbortSignal.timeout(30_000))
+  return { message: 'Local Whisper dependencies and model files are ready. No transcription was run.' }
 }
 
 async function requestsToday(): Promise<number> {
@@ -188,7 +196,7 @@ export async function subscriptionJSON<T>(messages: ChatMessage[], schema: Recor
 
 export async function transcribeLocally(filePath: string, opts: TranscribeFileOptions): Promise<WhisperResponse> {
   const config = { ...preferences }
-  if (!config.whisperModelPath) throw new Error('Choose a downloaded faster-whisper model folder in Settings. See the ChatGPT setup guide.')
+  if (!config.whisperModelPath) throw new Error('Install local Whisper or choose a model folder in Settings before transcribing.')
   const timeout = AbortSignal.timeout(30 * 60_000)
   const signal = opts.signal ? AbortSignal.any([opts.signal, timeout]) : timeout
   const output = await run(config.pythonPath, [scriptPath()], JSON.stringify({

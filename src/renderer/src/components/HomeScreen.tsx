@@ -301,7 +301,7 @@ function SetupPanel(): React.JSX.Element {
   const needsKey =
     settings !== null &&
     !settings.hasApiKey && settings.subscription.provider !== 'chatgpt' &&
-    !(mode === 'whole-video' && project.transcript !== null)
+    !(mode === 'whole-video' && (project.transcript !== null || settings.subscription.localTranscription))
   const highlights = highlightClips(project)
 
   return (
