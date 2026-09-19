@@ -6,6 +6,27 @@ the [releases page](https://github.com/JeremySNR/clip-forge/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.9.0] - 2026-09-19
+
+### Improved
+
+- Preserve speech endings and visual demonstration payoffs, and recover omitted speech at long-video transcription joins.
+- Improve small-face detection and speaker framing, with conservative layouts when tracking evidence is weak.
+- Add shot-specific framing and enlarged screen-detail layouts with consistent preview/export timing.
+- Reject incomplete or incoherent clip candidates based on retained content.
+- Fix composition analysis for still frames and rotated video.
+
+### Added
+
+- Optional **ChatGPT subscription via Codex (beta)** for analysis, with local Whisper transcription. Requires an installed, signed-in Codex CLI, Python with faster-whisper, and a downloaded speech model; see [setup instructions](https://github.com/JeremySNR/clip-forge/blob/main/docs/chatgpt-subscription.md).
+- Luna with low reasoning as the subscription default, cached analysis, configurable daily request limits, and no automatic paid-API fallback.
+
+### Validation and known limitations
+
+- 430 tests and CI checks pass. The resumed public-corpus run produced 23 exports; packaged Windows export and copied-project compatibility checks passed.
+- Existing projects remain usable. Saved transcripts and completed framing are not automatically regenerated.
+- Some slides remain too small, moving speakers can reach crop edges, repeated selections and caption errors remain possible. Review clips before publishing. This release does not claim OpusClip parity.
+
 ## [0.8.0] - 2026-09-06
 
 ### Changed
