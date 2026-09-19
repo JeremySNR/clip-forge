@@ -18,7 +18,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Added
 
-- Optional **ChatGPT subscription via Codex (beta)** for analysis, with local Whisper transcription. Requires an installed, signed-in Codex CLI, Python with faster-whisper, and a downloaded speech model; see [setup instructions](https://github.com/JeremySNR/clip-forge/blob/main/docs/chatgpt-subscription.md).
+- Optional **ChatGPT subscription via Codex (beta)** for analysis, with local Whisper transcription. Requires an installed, signed-in Codex CLI, Python with faster-whisper, and a downloaded speech model; see [setup instructions](https://github.com/JeremySNR/cutawan/blob/main/docs/chatgpt-subscription.md).
 - Luna with low reasoning as the subscription default, cached analysis, configurable daily request limits, and no automatic paid-API fallback.
 
 ### Validation and known limitations
