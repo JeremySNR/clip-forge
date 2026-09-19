@@ -6,11 +6,13 @@ import type { AnalyzeOptions, BrowserCookieSource, ImportProgress, PipelineProgr
 import { mapLimit } from './concurrency'
 import { extractThumbnail, probeVideo } from './ffmpeg'
 import { ensureTranscript } from './projectTranscript'
-import { detectHighlights } from './highlights'
-import { analyzeClipFocus, applyFocusAnalysis } from './faces'
+import { detectHighlights, maxDurationFor } from './highlights'
+import { analyzeClipFocus, applyFocusAnalysis, type ClipFocusAnalysis } from './faces'
 import { shouldAnalyzeFaces } from '@shared/videoType'
-import { selectEagerReframeIds } from '@shared/reframe'
+import { markReframeComplete, selectEagerReframeIds } from '@shared/reframe'
 import { assessClipVisuals, ensembleScore } from './visualScore'
+import { refineComposition } from './composition'
+import { completeVisualStory } from './visualStory'
 import { attachBroll } from './broll'
 import {
   assertCookieAuthSupported,
@@ -161,7 +163,7 @@ export async function analyzeProject(
     )
 
     onProgress({ stage: 'analyze', progress: 0.58, message: 'Finding viral moments…' })
-    const clips = await detectHighlights(
+    let clips = await detectHighlights(
       apiKey,
       settings.analysisModel,
       transcript,
@@ -173,13 +175,14 @@ export async function analyzeProject(
       throw new Error('The AI could not find any clip-worthy moments in this video.')
     }
 
-    // Visual rescoring (Kayal et al., ACL 2025): sample frames per clip, let
-    // the LLM judge visual engagement, and ensemble with the text score.
+    // Review the actual planned edit and repair explicitly missing visual payoffs.
     onProgress({ stage: 'analyze', progress: 0.64, message: 'Scoring visuals…' })
     let scored = 0
+    const incomplete = new Set<string>()
+    const incoherent = new Set<string>()
     await mapLimit(clips, 3, async (clip) => {
       signal?.throwIfAborted()
-      const visual = await assessClipVisuals(
+      let visual = await assessClipVisuals(
         apiKey,
         settings.analysisModel,
         project.video.path,
@@ -187,9 +190,21 @@ export async function analyzeProject(
         clip,
         signal
       )
+      if (visual?.needsVisualPayoff) {
+        const repaired = await completeVisualStory(apiKey, settings.analysisModel, project.video.path,
+          transcript, clip, project.video.durationSec, maxDurationFor(options.clipLength), signal)
+        if (repaired) {
+          Object.assign(clip, repaired)
+          visual = await assessClipVisuals(apiKey, settings.analysisModel, project.video.path, transcript, clip, signal)
+        }
+        // A known incomplete demonstration needs a verified repair before recommendation.
+        if (!repaired || !visual || visual.needsVisualPayoff) incomplete.add(clip.id)
+      }
       if (visual) {
+        if (visual.storyIssue) incoherent.add(clip.id)
         clip.viralityScore = ensembleScore(clip.viralityScore, visual.visualScore)
         clip.visualSummary = visual.visualSummary
+        clip.visualLayout = visual.visualLayout
       }
       scored++
       onProgress({
@@ -198,6 +213,10 @@ export async function analyzeProject(
         message: 'Scoring visuals…'
       })
     })
+    clips = clips.filter(clip => !incomplete.has(clip.id))
+    if (!clips.length) throw new Error('The candidate clips promised demonstrations whose payoffs could not be included. Try a longer clip length.')
+    clips = clips.filter(clip => !incoherent.has(clip.id))
+    if (!clips.length) throw new Error('The candidate clips did not form complete, self-contained stories. Try a longer clip length or a different source.')
     clips.sort((a, b) => b.viralityScore - a.viralityScore)
 
     project.clips = clips
@@ -210,15 +229,8 @@ export async function analyzeProject(
     })
 
     onProgress({ stage: 'reframe', progress: 0.72, message: 'Analysing layout (faces vs screen share)…' })
-    if (!shouldAnalyzeFaces(options.videoType)) {
-      // No face tracking for this video type: the layout is a cheap default,
-      // so every clip gets it now.
-      for (const clip of clips) {
-        applyFocusAnalysis(clip, { focusTrack: null, contentType: 'screencast' }, options.videoType)
-        clip.reframeStatus = 'done'
-      }
-    } else {
-      // Face tracking is the slow stage (tens of seconds of CPU per clip), so
+    {
+      // Face tracking and visual composition are substantial stages, so
       // only the top tier is analysed here. The rest stay 'pending' and are
       // analysed when opened or exported (see pipeline/reframe.ts).
       const eager = selectEagerReframeIds(clips)
@@ -227,14 +239,17 @@ export async function analyzeProject(
       let reframed = 0
       await mapLimit(eagerClips, 2, async (clip) => {
         signal?.throwIfAborted()
-        const analysis = await analyzeClipFocus(
+        const analysis: ClipFocusAnalysis = shouldAnalyzeFaces(options.videoType) ? await analyzeClipFocus(
           project.video.path,
           clip.suggestedStart,
           clip.suggestedEnd,
           signal
-        )
+        ) : { focusTrack: null, contentType: 'screencast' }
+        if (options.videoType !== 'talking-head') {
+          await refineComposition(apiKey, settings.analysisModel, project.video.path, clip, analysis.sceneCuts, signal, analysis.focusTrack, analysis.sceneTransitions, transcript)
+        }
         applyFocusAnalysis(clip, analysis, options.videoType)
-        clip.reframeStatus = 'done'
+        markReframeComplete(clip)
         reframed++
         onProgress({
           stage: 'reframe',

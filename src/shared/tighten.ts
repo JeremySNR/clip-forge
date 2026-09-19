@@ -1,5 +1,4 @@
-import type { Transcript } from './types'
-import { wordsInRange } from './captionLayout'
+import type { Clip, Transcript } from './types'
 
 /**
  * "Tighten cuts": compute which sub-segments of a clip to keep so that long
@@ -14,17 +13,23 @@ export interface KeptSegment {
   end: number
 }
 
+/** Actual playback length, including protected visual footage and removed pauses. */
+export function editedClipDuration(clip: Clip, transcript: Transcript | null): number {
+  const kept = transcript && clip.edit.tightenCuts
+    ? computeKeptSegments(transcript, clip.edit.start, clip.edit.end, clip.visualStory?.protectedRanges)
+    : null
+  return kept ? kept.reduce((sum, range) => sum + range.end - range.start, 0) : clip.edit.end - clip.edit.start
+}
+
 /** Pause longer than this (between words) gets cut down. */
 const MAX_PAUSE_SEC = 0.7
 /** Breathing room kept around speech when a pause is trimmed. */
 const PRE_ROLL_SEC = 0.18
 const POST_ROLL_SEC = 0.3
 /**
- * Room kept before the first word and after the last one. The clip's own
- * boundaries already sit a little outside the speech (0.25 s pre-roll, 0.6 s
- * post-roll from the highlight pass); tightening must not trim that away:
- * the export's 0.4 s audio fade lives in the tail, and eating into it ducks
- * the last syllable of every tightened clip.
+ * Room kept before the first word and after the last one. This preserves
+ * breathing space where the selected clip boundaries permit it. The export
+ * separately limits any audio fade to the available speech-free tail.
  */
 const HEAD_ROLL_SEC = 0.3
 const TAIL_ROLL_SEC = 0.7
@@ -58,16 +63,35 @@ function isFiller(text: string): boolean {
 export function computeKeptSegments(
   transcript: Transcript,
   clipStart: number,
-  clipEnd: number
+  clipEnd: number,
+  protectedRanges: KeptSegment[] = []
 ): KeptSegment[] | null {
-  const words = wordsInRange(transcript, clipStart, clipEnd).filter((w) => !isFiller(w.text))
-  if (words.length < 3) return null
+  // Caption edits change presentation, not what was spoken. Keep legacy blank
+  // words too: their original text is unknown, but their speech timing is not.
+  const words = transcript.segments.flatMap((s) => s.words)
+    .filter((w) => {
+      const mid = (w.start + w.end) / 2
+      return mid >= clipStart && mid <= clipEnd && !isFiller(w.sourceText ?? w.text)
+    })
+    .sort((a, b) => a.start - b.start)
+  const protectedIntervals = protectedRanges.filter(r => Number.isFinite(r.start) && Number.isFinite(r.end) &&
+    r.end > r.start && r.start < clipEnd && r.end > clipStart)
+    .map(r => ({ start: Math.max(clipStart, r.start), end: Math.min(clipEnd, r.end) }))
+  if (words.length < 3 && !protectedIntervals.length) return null
 
   // Build keep-intervals around each retained word, then merge.
   const intervals: KeptSegment[] = words.map((w) => ({
     start: Math.max(clipStart, w.start - PRE_ROLL_SEC),
     end: Math.min(clipEnd, w.end + POST_ROLL_SEC)
   }))
+  if (words.length) {
+    intervals[0].start = Math.max(clipStart, words[0].start - HEAD_ROLL_SEC)
+    intervals[intervals.length - 1].end = Math.min(clipEnd, words[words.length - 1].end + TAIL_ROLL_SEC)
+  }
+  // Protected visual intervals participate in the same time map as speech.
+  // In particular, a wordless payoff must survive after the last spoken word.
+  intervals.push(...protectedIntervals)
+  intervals.sort((a, b) => a.start - b.start)
   const merged: KeptSegment[] = []
   for (const iv of intervals) {
     const last = merged[merged.length - 1]
@@ -93,14 +117,9 @@ export function computeKeptSegments(
     }
   }
 
-  const kept = spaced.filter((s) => s.end - s.start >= MIN_SEGMENT_SEC)
+  const kept = spaced.filter((s) => s.end - s.start >= MIN_SEGMENT_SEC ||
+    protectedIntervals.some(r => r.start < s.end && r.end > s.start))
   if (kept.length === 0) return null
-
-  // Breathing room at both ends of the clip (see HEAD_ROLL_SEC).
-  kept[0].start = Math.max(clipStart, Math.min(kept[0].start, words[0].start - HEAD_ROLL_SEC))
-  const lastWord = words[words.length - 1]
-  const tail = kept[kept.length - 1]
-  tail.end = Math.min(clipEnd, Math.max(tail.end, lastWord.end + TAIL_ROLL_SEC))
 
   const keptDuration = kept.reduce((sum, s) => sum + (s.end - s.start), 0)
   const removed = clipEnd - clipStart - keptDuration
@@ -134,6 +153,17 @@ export class TimeMap {
       if (t <= seg.end) return this.offsets[i] + (t - seg.start)
     }
     return this.outputDuration
+  }
+
+  /** Invert an output timestamp; at a cut, select the following kept frame. */
+  toSource(t: number): number {
+    for (let i = 0; i < this.segments.length; i++) {
+      const segment = this.segments[i]
+      if (t < this.offsets[i] + segment.end - segment.start) {
+        return segment.start + Math.max(0, t - this.offsets[i])
+      }
+    }
+    return this.segments.at(-1)?.end ?? 0
   }
 
   /** True when the source time falls inside a removed span. */

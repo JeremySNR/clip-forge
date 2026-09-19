@@ -1,0 +1,126 @@
+{
+  "date": "2026-09-12",
+  "method": "Editorial notes from sampled synchronized source/export frames and timed transcripts; full-file decode and audio measurements. No subjective listening, continuous-motion review or independent speaker labels.",
+  "reviews": [
+    {
+      "source": "wozniak-interview",
+      "rank": 1,
+      "notes": "Ends on 'So I got mine, finally', excluding the following question. Opening still spends time on the host's setup. Framing during handoff needs labelled review."
+    },
+    {
+      "source": "wozniak-interview",
+      "rank": 2,
+      "notes": "Removes the preceding word fragment and ends on 'I'm very proud of that', excluding the next Tim Cook question. Tight face framing remains."
+    },
+    {
+      "source": "wozniak-interview",
+      "rank": 3,
+      "notes": "Complete self-education conclusion without the next question about children. Opening still relies on omitted context about the school programme."
+    },
+    {
+      "source": "hannah-cloke-interview",
+      "rank": 1,
+      "notes": "Coherent observation about living near water; final wide-shot samples now retain Hannah rather than the listener. The following solution is omitted, and captions still collide with shirt lettering."
+    },
+    {
+      "source": "hannah-cloke-interview",
+      "rank": 2,
+      "notes": "Ends on the climate-health connection instead of the host thanks. Final samples follow Hannah through the wide shot. Duplicated So So, date-dependent context and caption collisions remain."
+    },
+    {
+      "source": "hannah-cloke-interview",
+      "rank": 3,
+      "notes": "Removes overlap with the preceding flooded word and retains the qualified flood-risk explanation. Caption placement and source-context clarity still need work."
+    },
+    {
+      "source": "gilly-forrester-interview",
+      "rank": 1,
+      "notes": "Puzzle and hands remain visible through the timed attempt; ends on 'That is amazing'. Fit is much smaller than a useful object-focused layout. Missing rules/countdown weaken the setup."
+    },
+    {
+      "source": "gilly-forrester-interview",
+      "rank": 2,
+      "notes": "Ape-language reversal ends on 'humans today', excluding the next question. Additional zoom is disabled; conventional interview crop remains."
+    },
+    {
+      "source": "gilly-forrester-interview",
+      "rank": 3,
+      "notes": "Final detector/mouth-detail revision follows Gilly during the explanation and in the final production-wide shot, where the old pipeline selected the listener. Complete ending; the wide shot wastes space, and split compounds/shirt-text collision remain."
+    },
+    {
+      "source": "godot-panel",
+      "rank": 1,
+      "notes": "Publisher anecdote ends before the stray 'Because'. Low-detail fallback retains the panel instead of unstable tiny-face crops. Duplicated 'out out' and small subjects remain."
+    },
+    {
+      "source": "godot-panel",
+      "rank": 2,
+      "notes": "New selection about an estimate expanding from months to a year and a half. Final crop is more stable around the central participant, but leaves substantial wall/audience space. Opening references Miguel and a project without context."
+    },
+    {
+      "source": "godot-panel",
+      "rank": 3,
+      "notes": "New top-three selection has a humorous contractor handoff and a complete mobile-expertise conclusion. Full-panel fit avoids speculative speaker crops; a useful group/detail layout is still needed."
+    },
+    {
+      "source": "nasa-static-interview",
+      "rank": 1,
+      "notes": "Static-shot crop review restores a useful close view of the scientist; background monitors no longer force whole-clip letterboxing. Complete explanation, but archive date and limited headroom still matter."
+    },
+    {
+      "source": "nasa-static-interview",
+      "rank": 2,
+      "notes": "Close framing replaces unnecessary wide fit. Complete answer, but the title promises more explanation of 'why' than the answer supplies; pre-launch language needs archive context."
+    },
+    {
+      "source": "nasa-static-interview",
+      "rank": 3,
+      "notes": "Close framing retains the scientist's explanation; completed testing sequence. First sentence lacks the preceding general setup, and source transcription around temperature is awkward."
+    },
+    {
+      "source": "automation-empathy-talk",
+      "rank": 1,
+      "notes": "Removes overlap with preceding speech and the next 'But'. Additional zoom disabled; speaker movement and hand containment still need continuous review."
+    },
+    {
+      "source": "automation-empathy-talk",
+      "rank": 2,
+      "notes": "Uncanny-valley graph retained, close view for the explanation, graph retained again; dissolve intervals stay wide. Graph labels remain too small and opening starts mid-thought."
+    },
+    {
+      "source": "automation-empathy-talk",
+      "rank": 3,
+      "notes": "Preserves the popcorn apparatus image and presenter inset. Still ends at the spoken introduction and omits the subsequent non-speech demonstration: an unresolved selection failure."
+    },
+    {
+      "source": "narrated-screen-demo",
+      "rank": 1,
+      "notes": "Preserves translation controls that the baseline cropped away. Complete review/reset tip, but full-screen fit leaves controls and text too small on a phone."
+    },
+    {
+      "source": "narrated-screen-demo",
+      "rank": 2,
+      "notes": "Draft-saving and resume workflow remains intact and coherent. Full-screen fit needs relevant-region enlargement; captions are large relative to the useful UI."
+    },
+    {
+      "source": "narrated-screen-demo",
+      "rank": 3,
+      "notes": "Complete principle that translated articles can diverge, but the UI offers weak visual support. Duplicate trailing 'time' in source ASR suggests alignment/correction work remains."
+    },
+    {
+      "source": "tears-of-steel",
+      "rank": 1,
+      "notes": "Retains the robot hand and two-person composition. Very small letterboxed film; suspicious caption timing across scene transitions and 'robotic glass' transcription require audio/alignment review."
+    },
+    {
+      "source": "tears-of-steel",
+      "rank": 2,
+      "notes": "Mixes closer portrait shots with preserved wide compositions. Selection still crosses into another scene and repeats the robot-hand conflict. Story coherence and transcription remain weak; close-up containment needs more review."
+    },
+    {
+      "source": "tears-of-steel",
+      "rank": 3,
+      "notes": "Retains playback apparatus, faces and robot hand. Opening depends on film context and ending includes an awkward isolated 'good'; word-safe boundaries alone do not produce a complete story."
+    }
+  ]
+}

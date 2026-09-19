@@ -164,6 +164,27 @@ export interface NormalizeClipEndOptions {
   maxExtendSec?: number
 }
 
+/** Padding may use silence, never a neighbouring spoken word (even a hidden caption). */
+export function padSpeechStart(start: number, transcript: Transcript, preRollSec = 0.25): number {
+  let previousEnd = 0
+  for (const segment of transcript.segments) {
+    for (const word of segment.words) {
+      if (word.start < start - 0.001) previousEnd = Math.max(previousEnd, Math.min(start, word.end))
+    }
+  }
+  return Math.max(0, start - Math.min(preRollSec, Math.max(0, start - previousEnd) / 2))
+}
+
+export function padSpeechEnd(end: number, transcript: Transcript, videoDurationSec: number, postRollSec = 0.6): number {
+  let nextStart = Infinity
+  for (const segment of transcript.segments) {
+    for (const word of segment.words) {
+      if (word.end > end + 0.001) nextStart = Math.min(nextStart, Math.max(end, word.start))
+    }
+  }
+  return Math.min(videoDurationSec, end + Math.min(postRollSec, Math.max(0, nextStart - end) / 2))
+}
+
 /**
  * Move a clip end forward when needed so the last spoken word completes a
  * sentence. Returns the input end unchanged when already on a sentence end or
@@ -183,7 +204,7 @@ export function normalizeClipEnd(
 
   const lastWord = words[words.length - 1]
   if (endsSentence(lastWord.text)) {
-    const snapped = Math.min(videoDurationSec, lastWord.end + postRollSec)
+    const snapped = padSpeechEnd(lastWord.end, transcript, videoDurationSec, postRollSec)
     return snapped >= clipStart + 1 ? snapped : clipEnd
   }
 
@@ -191,7 +212,7 @@ export function normalizeClipEnd(
   const next = sentenceEnds.find((t) => t >= lastWord.end - 0.05)
   if (!next || next - clipEnd > maxExtendSec) return clipEnd
 
-  const normalized = Math.min(videoDurationSec, next + postRollSec)
+  const normalized = padSpeechEnd(next, transcript, videoDurationSec, postRollSec)
   return normalized >= clipStart + 1 ? normalized : clipEnd
 }
 

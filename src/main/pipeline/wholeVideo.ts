@@ -34,8 +34,6 @@ import { projectDir, updateProject } from '../projects'
  * keeps memory flat regardless of how long the video is.
  */
 const FOCUS_WINDOW_SEC = 120
-/** A leftover tail shorter than this is not worth a tracking pass of its own. */
-const MIN_FOCUS_WINDOW_SEC = 2
 
 export async function captionWholeVideo(
   project: Project,
@@ -126,6 +124,7 @@ export async function captionWholeVideo(
       thumbnailPath,
       focusTrack,
       reframeStatus: 'done',
+      reframeAnalysis: { start: 0, end: project.video.durationSec, version: 1 },
       contentType,
       broll: [],
       edit: wholeVideoEdit({
@@ -176,7 +175,8 @@ async function trackSpeakerAcrossVideo(
   const windows: Array<[number, number]> = []
   for (let start = 0; start < durationSec; start += FOCUS_WINDOW_SEC) {
     const end = Math.min(durationSec, start + FOCUS_WINDOW_SEC)
-    if (end - start >= MIN_FOCUS_WINDOW_SEC || windows.length === 0) windows.push([start, end])
+    // Include the tail: analysis provenance must cover the range we claim.
+    windows.push([start, end])
   }
 
   const keyframes: FocusKeyframe[] = []

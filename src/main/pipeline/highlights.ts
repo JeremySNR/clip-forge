@@ -9,6 +9,8 @@ import { DEFAULT_CAPTION_STYLE_ID } from '@shared/captionStyles'
 import { initialClipEditForVideoType } from '@shared/videoType'
 import {
   normalizeClipEnd,
+  padSpeechStart,
+  padSpeechEnd,
   sentenceAt,
   sentencesInRange,
   transcriptSentences,
@@ -114,7 +116,7 @@ function lengthGuidance(pref: ClipLengthPreference): string {
 }
 
 /** Hard upper cap per preference, enforced after the LLM responds. */
-function maxDurationFor(pref: ClipLengthPreference): number {
+export function maxDurationFor(pref: ClipLengthPreference): number {
   switch (pref) {
     case 'short':
       return 45
@@ -284,18 +286,18 @@ const CONTINUATION_SEC = 45
  */
 const MAX_START_ADVANCE_SEC = 20
 
-function withNormalizedEnd(clip: Clip, transcript: Transcript, videoDurationSec: number): Clip {
+function withNormalizedEnd(clip: Clip, transcript: Transcript, videoDurationSec: number, maxDuration: number): Clip {
   const end = normalizeClipEnd(clip.suggestedStart, clip.suggestedEnd, transcript, videoDurationSec, {
     postRollSec: END_POST_ROLL_SEC,
     maxExtendSec: MAX_END_EXTEND_SEC
   })
-  if (end === clip.suggestedEnd) return clip
+  if (end === clip.suggestedEnd || end - clip.suggestedStart > maxDuration) return clip
   return { ...clip, suggestedEnd: end, edit: { ...clip.edit, end } }
 }
 
 const REFINE_SYSTEM_PROMPT = `You quality-check the ENDINGS of short vertical clips cut from a longer video. A good clip has the shape of a complete micro-video — hook, build, and an ending that lands. What "lands" depends on the material: a story lands on its resolution or emotional beat, comedy on the punchline, an argument on its sharpest formulation, a reveal on the answer, practical content on the takeaway, and a provocative clip can land on a pointed question that throws back to the hook. An ending fails when the clip stops on setup, scene-setting context, the middle of a list, or a plain observation that promises more (e.g. ending on "People were experimenting with ChatGPT for the first time" — that sentence exists to set up whatever comes next).
 
-For each clip you receive its transcript and the sentences that follow it in the source video, each tagged with the time it ends. Judge the current ending strictly. A clip whose last spoken word lacks terminal punctuation (. ! ?) has not finished its sentence and must be extended. When an ending fails, pick the tagged sentence end-time where the thought completes — usually extending slightly to include the beat that follows, occasionally trimming back to an earlier, stronger closer. Only use end times that appear in the tags.`
+For each clip you receive its transcript and the sentences that follow it in the source video, each tagged with the time it ends. Judge the current ending strictly. Punctuation is not proof that a thought is complete. Prefer trimming to an existing payoff over extending into a new topic. A host's next interview question, thanks, or conversational handoff is NOT a closing payoff: end before it unless its complete answer belongs to this same story and fits the limit. A rhetorical question addressed to the audience can work, but do not confuse it with a question addressed to another participant. If a fragment follows a complete ending, trim the fragment; do not automatically extend it. Never append a new scene merely to finish its sentence. Only use end times that appear in the tags.`
 
 interface RefinedEnding {
   index: number
@@ -343,16 +345,21 @@ export function applyRefinedEnding(
   clip: Clip,
   betterEnd: number,
   sentenceEnds: number[],
-  videoDurationSec: number
+  videoDurationSec: number,
+  maxDuration: number = Infinity,
+  transcript?: Transcript
 ): Clip {
   if (!Number.isFinite(betterEnd)) return clip
   const snapped = snap(betterEnd, sentenceEnds, SENTENCE_SNAP_SEC)
-  const newEnd = Math.min(videoDurationSec, snapped + END_POST_ROLL_SEC)
+  const newEnd = transcript
+    ? padSpeechEnd(snapped, transcript, videoDurationSec, END_POST_ROLL_SEC)
+    : Math.min(videoDurationSec, snapped + END_POST_ROLL_SEC)
   const current = clip.suggestedEnd
   if (
-    Math.abs(newEnd - current) < 1 ||
+    Math.abs(newEnd - current) < 0.05 ||
     newEnd > current + MAX_END_EXTEND_SEC ||
     newEnd < current - MAX_END_TRIM_SEC ||
+    newEnd - clip.suggestedStart > maxDuration ||
     newEnd - clip.suggestedStart < MIN_CLIP_SEC
   ) {
     return clip
@@ -373,6 +380,7 @@ async function refineClipEndings(
   transcript: Transcript,
   clips: Clip[],
   videoDurationSec: number,
+  maxDuration: number,
   signal?: AbortSignal
 ): Promise<Clip[]> {
   if (clips.length === 0) return clips
@@ -388,15 +396,17 @@ async function refineClipEndings(
       .map((s) => s.text)
       .join(' ')
     const continuation = sentences.filter(
-      (s) => s.start >= clip.suggestedEnd - 0.5 && s.start < clip.suggestedEnd + CONTINUATION_SEC
+      (s) => s.start >= clip.suggestedEnd - 0.5 && s.start < clip.suggestedEnd + CONTINUATION_SEC &&
+        s.end + END_POST_ROLL_SEC <= clip.suggestedStart + maxDuration
     )
     return [
       `Clip ${i} — "${clip.title}" (currently ends at ${clip.suggestedEnd.toFixed(1)}s):`,
+      `  Latest permitted end including tail: ${Math.min(videoDurationSec, clip.suggestedStart + maxDuration).toFixed(1)}s. Preserve a complete thought within this limit.`,
       head ? `  …${head.slice(-500)}` : '',
       ...tail.map((s) => `  [ends ${s.end.toFixed(1)}s] ${s.text}`),
       continuation.length > 0
         ? '  Continues after the current end:'
-        : '  (the video ends here — extending is not possible)',
+        : '  (no continuation fits the video and duration limits)',
       ...continuation.map((s) => `  [ends ${s.end.toFixed(1)}s] ${s.text}`)
     ]
       .filter(Boolean)
@@ -423,7 +433,7 @@ async function refineClipEndings(
     for (const entry of res.endings ?? []) {
       const clip = refined[entry.index]
       if (!clip || entry.ends_with_payoff) continue
-      refined[entry.index] = applyRefinedEnding(clip, entry.better_end, sentenceEnds, videoDurationSec)
+      refined[entry.index] = applyRefinedEnding(clip, entry.better_end, sentenceEnds, videoDurationSec, maxDuration, transcript)
       if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
         console.error(
           `[highlights] ending review moved clip ${entry.index} end ` +
@@ -431,12 +441,12 @@ async function refineClipEndings(
         )
       }
     }
-    return refined.map((c) => withNormalizedEnd(c, transcript, videoDurationSec))
+    return refined.map((c) => withNormalizedEnd(c, transcript, videoDurationSec, maxDuration))
   } catch (err) {
     if (signal?.aborted) throw err
     // The candidates are still usable without the ending review.
     console.error('Clip ending review failed; keeping original endings:', err)
-    return clips.map((c) => withNormalizedEnd(c, transcript, videoDurationSec))
+    return clips.map((c) => withNormalizedEnd(c, transcript, videoDurationSec, maxDuration))
   }
 }
 
@@ -486,10 +496,10 @@ const REFINE_START_SCHEMA = {
  * reaches too far, or would leave too little clip. Only ever advances the
  * start (drops leading setup). Exported for tests.
  */
-export function applyRefinedStart(clip: Clip, betterStart: number, sentenceStarts: number[]): Clip {
+export function applyRefinedStart(clip: Clip, betterStart: number, sentenceStarts: number[], transcript?: Transcript): Clip {
   if (!Number.isFinite(betterStart)) return clip
   const snapped = snap(betterStart, sentenceStarts, START_SNAP_SEC)
-  const newStart = Math.max(0, snapped - START_PRE_ROLL_SEC)
+  const newStart = transcript ? padSpeechStart(snapped, transcript, START_PRE_ROLL_SEC) : Math.max(0, snapped - START_PRE_ROLL_SEC)
   const current = clip.suggestedStart
   if (
     newStart <= current + 0.5 ||
@@ -550,7 +560,7 @@ async function refineClipStarts(
     for (const entry of res.starts ?? []) {
       const clip = refined[entry.index]
       if (!clip || entry.opens_with_hook) continue
-      refined[entry.index] = applyRefinedStart(clip, entry.better_start, sentenceStarts)
+      refined[entry.index] = applyRefinedStart(clip, entry.better_start, sentenceStarts, transcript)
       if (process.env.CLIPFORGE_DEBUG && refined[entry.index] !== clip) {
         console.error(
           `[highlights] opening review moved clip ${entry.index} start ` +
@@ -603,12 +613,17 @@ export async function detectHighlights(
     first.length > 0
       ? first
       : await requestHighlights(apiKey, model, transcript, options, videoDurationSec, true, signal)
-  const refined = await refineClipEndings(apiKey, model, transcript, clips, videoDurationSec, signal)
+  const maxDuration = maxDurationFor(options.clipLength)
+  const refined = await refineClipEndings(apiKey, model, transcript, clips, videoDurationSec, maxDuration, signal)
   const trimmed = options.hookFirst
     ? await refineClipStarts(apiKey, model, transcript, refined, signal)
     : refined
   // Refinement can pull two clips onto the same landing beat; dedupe again.
-  return dedupeClips(trimmed)
+  return dedupeClips(trimmed.filter((c) =>
+    Number.isFinite(c.edit.start) && Number.isFinite(c.edit.end) &&
+    c.edit.start >= 0 && c.edit.end <= videoDurationSec &&
+    c.edit.end > c.edit.start && c.edit.end - c.edit.start <= maxDuration
+  ))
 }
 
 async function requestHighlights(
@@ -677,14 +692,15 @@ async function requestHighlights(
 
   const clips: Clip[] = []
   for (const raw of res.clips ?? []) {
+    if (!Number.isFinite(raw.start) || !Number.isFinite(raw.end)) continue
     let start = Math.max(0, Math.min(raw.start, videoDurationSec - 1))
     let end = Math.max(start + 1, Math.min(raw.end, videoDurationSec))
     // Open on the sentence the model pointed into (plus a little pre-roll)
     // so the clip never starts mid-thought.
-    start = Math.max(0, snapClipStart(start, sentences, wordStarts) - START_PRE_ROLL_SEC)
+    start = padSpeechStart(snapClipStart(start, sentences, wordStarts), transcript, START_PRE_ROLL_SEC)
     // Close on a sentence end, then let normalizeClipEnd complete the thought
     // when the model stopped deep inside a long sentence.
-    end = Math.min(videoDurationSec, snapClipEnd(end, sentences, wordEnds) + END_POST_ROLL_SEC)
+    end = snapClipEnd(end, sentences, wordEnds)
     end = normalizeEnd(start, end)
     // Length is a preference, not a floor: we never pad a complete moment to
     // reach a target length (padding tanks completion rate). We only enforce
@@ -694,11 +710,11 @@ async function requestHighlights(
       const capTarget = start + maxDur
       const lastSentenceEnd = [...sentenceEnds]
         .reverse()
-        .find((e) => e + END_POST_ROLL_SEC <= capTarget && e > start + MIN_CLIP_SEC)
-      end =
-        lastSentenceEnd !== undefined
-          ? Math.min(videoDurationSec, lastSentenceEnd + END_POST_ROLL_SEC)
-          : capTarget
+        .find((e) => padSpeechEnd(e, transcript, videoDurationSec, END_POST_ROLL_SEC) <= capTarget && e > start + MIN_CLIP_SEC)
+      // If no complete sentence fits, reject the candidate instead of cutting
+      // speech at an arbitrary cap to manufacture a short clip.
+      if (lastSentenceEnd === undefined) continue
+      end = padSpeechEnd(lastSentenceEnd, transcript, videoDurationSec, END_POST_ROLL_SEC)
     }
     if (end - start < Math.min(MIN_CLIP_SEC, videoDurationSec * 0.5)) {
       if (process.env.CLIPFORGE_DEBUG) {

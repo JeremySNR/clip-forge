@@ -16,7 +16,8 @@ import type {
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
-import { clipAllowsAutoZoom } from '@shared/contentType'
+import { automaticLayoutShots, clipAllowsAutoZoom, detailCaptionRanges } from '@shared/contentType'
+import { fitRegionGraph } from './layoutFilters'
 import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
@@ -58,11 +59,22 @@ const MAX_EXPRESSION_PIECES = 64
  * measured (see loudness.ts), the single-pass filter otherwise; loudnorm
  * resamples internally, so the rate is pinned back to 48 kHz after it.
  */
-function audioChain(clipDuration: number, loudness: LoudnessStats | null): string {
+export function speechSafeFade(transcript: Transcript | null, start: number, end: number): number {
+  if (!transcript) return 0
+  const words = transcript.segments.flatMap((segment) => segment.words)
+    .filter((word) => word.end > start && word.start < end)
+  if (!words.length) return 0
+  const lastEnd = Math.max(...words.map((word) => word.end))
+  // Leave 50 ms after the aligned speech boundary before fading background audio.
+  return Math.min(END_FADE_SEC, Math.max(0, end - lastEnd - 0.05))
+}
+
+function audioChain(clipDuration: number, loudness: LoudnessStats | null, tailSec = 0): string {
   const master = `${loudnormFilter(loudness)},aresample=48000`
-  if (clipDuration <= END_FADE_SEC * 3) return master
-  const st = (clipDuration - END_FADE_SEC).toFixed(3)
-  return `${master},afade=t=out:st=${st}:d=${END_FADE_SEC}`
+  const fade = Math.min(END_FADE_SEC, Math.max(0, tailSec))
+  if (fade < 0.01 || clipDuration <= fade * 3) return master
+  const st = (clipDuration - fade).toFixed(3)
+  return `${master},afade=t=out:st=${st}:d=${fade.toFixed(3)}`
 }
 
 function targetDims(aspect: AspectRatio, source: VideoInfo): { w: number; h: number } {
@@ -235,6 +247,30 @@ function reframeGraph(
 ): string {
   const { w, h } = targetDims(clip.edit.aspect, source)
   const ratio = (w / h).toFixed(6)
+
+  const fitShots = automaticLayoutShots(clip).filter((shot) => shot.mode === 'fit')
+  if (fitShots.length) {
+    const plain = { ...clip, visualLayout: undefined }
+    const cropped = reframeGraph(plain, source, 'layoutCropInput', focus, focusCommandsPath)
+      .replace('[reframed]', '[layoutCrop]')
+    const groups = new Map<string, typeof fitShots>()
+    for (const shot of fitShots) {
+      const key = JSON.stringify([shot.region ?? null, shot.overview ?? false])
+      groups.set(key, [...(groups.get(key) ?? []), shot])
+    }
+    const parts = [`[${inputLabel}]split=${groups.size + 1}[layoutCropInput]${[...groups.keys()].map((_, i) => `[layoutFitInput${i}]`).join('')}`, cropped]
+    let current = 'layoutCrop'
+    for (const [i, shots] of [...groups.values()].entries()) {
+      const region = shots[0].region
+      parts.push(fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
+      const enabled = shots.map((shot) =>
+        `gte(t,${Math.max(0, shot.start - clip.edit.start).toFixed(3)})*lt(t,${(shot.end - clip.edit.start).toFixed(3)})`).join('+')
+      const output = i === groups.size - 1 ? 'reframed' : `layoutOverlay${i}`
+      parts.push(`[${current}][layoutFit${i}]overlay=0:0:enable='${enabled}':eof_action=pass[${output}]`)
+      current = output
+    }
+    return parts.join(';')
+  }
 
   if (clip.edit.aspect === 'original') {
     return `[${inputLabel}]scale=${w}:${h}:flags=lanczos[reframed]`
@@ -409,6 +445,7 @@ export function buildFilterGraph(
      * absent falls back to single-pass dynamic normalisation.
      */
     loudness?: LoudnessStats | null
+    audioTailSec?: number
   }
 ): FilterGraph {
   const { w, h } = targetDims(clip.edit.aspect, source)
@@ -431,7 +468,8 @@ export function buildFilterGraph(
   // across the ffmpeg versions this ships against), so crop commands are only
   // safe when there is no other crop to hit.
   const allowFocusCommands =
-    Boolean(options?.focusCommandsPath) && !items.some((b) => b.mode === 'fullscreen')
+    Boolean(options?.focusCommandsPath) && !items.some((b) => b.mode === 'fullscreen') &&
+    !automaticLayoutShots(clip).some(shot => shot.region)
   const focus = buildFocusPlan(clip, allowFocusCommands)
   const focusCommandsPath = focus.commands ? options?.focusCommandsPath : undefined
 
@@ -440,13 +478,13 @@ export function buildFilterGraph(
     parts.push(tightenGraph(tighten.segments, tighten.clipStart, source.hasAudio))
     parts.push(reframeGraph(clip, source, 'vcat', focus, focusCommandsPath))
     if (source.hasAudio) {
-      parts.push(`[acat]${audioChain(clipDuration, options?.loudness ?? null)}[aout]`)
+      parts.push(`[acat]${audioChain(clipDuration, options?.loudness ?? null, options?.audioTailSec)}[aout]`)
       audioLabel = 'aout'
     }
   } else {
     parts.push(reframeGraph(clip, source, '0:v', focus, focusCommandsPath))
     if (source.hasAudio) {
-      parts.push(`[0:a]${audioChain(clipDuration, options?.loudness ?? null)}[aout]`)
+      parts.push(`[0:a]${audioChain(clipDuration, options?.loudness ?? null, options?.audioTailSec)}[aout]`)
       audioLabel = 'aout'
     }
   }
@@ -568,7 +606,7 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
   // compacted output timeline.
   const segments =
     clip.edit.tightenCuts && transcript
-      ? computeKeptSegments(transcript, start, clip.edit.end)
+      ? computeKeptSegments(transcript, start, clip.edit.end, clip.visualStory?.protectedRanges)
       : null
   const map = segments ? new TimeMap(segments) : null
   const outputDuration = map ? map.outputDuration : duration
@@ -581,6 +619,13 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
     effectiveClip = {
       ...clip,
       edit: { ...clip.edit, start: 0, end: outputDuration },
+      visualLayout: clip.visualLayout ? {
+        ...clip.visualLayout, start: 0, end: outputDuration,
+        shots: automaticLayoutShots(clip).map((shot) => ({ ...shot,
+          start: map.toOutput(Math.max(start, shot.start)),
+          end: map.toOutput(Math.min(clip.edit.end, shot.end))
+        })).filter((shot) => shot.end > shot.start)
+      } : undefined,
       broll: clip.broll
         .map((b) => ({ ...b, start: map.toOutput(b.start), end: map.toOutput(b.end) }))
         .filter((b) => b.end - b.start > 0.6),
@@ -618,7 +663,8 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
       clipEnd: captionEnd,
       title: clip.edit.showTitle ? clip.hook || clip.title : undefined,
       fontFamily: clip.edit.captionFontFamily ?? undefined,
-      brandColors: job.branding?.colors
+      brandColors: job.branding?.colors,
+      positionRanges: detailCaptionRanges(effectiveClip)
     })
     const dir = join(tmpdir(), 'clipforge')
     await mkdir(dir, { recursive: true })
@@ -629,7 +675,7 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
   // Auto zoom: plan in source time (shared with the preview), then remap to
   // the clip-relative output timeline the filters run on.
   let zoomEvents: ZoomEvent[] | null = null
-  if (clipAllowsAutoZoom(clip.edit)) {
+  if (clipAllowsAutoZoom(clip.edit) && automaticLayoutShots(clip).length === 0) {
     const planned = computeZoomEvents(transcript, start, clip.edit.end, segments)
     zoomEvents = remapZoomEvents(planned, (t) => (map ? map.toOutput(t) : t - start))
     if (zoomEvents.length === 0) zoomEvents = null
@@ -662,7 +708,8 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
       fontsDirPath: job.fontsDirPath,
       zoomEvents,
       focusCommandsPath,
-      loudness
+      loudness,
+      audioTailSec: speechSafeFade(captionTranscript, captionStart, captionEnd)
     }
   )
   if (graph.focusCommands) await writeFile(focusCommandsPath, graph.focusCommands, 'utf8')

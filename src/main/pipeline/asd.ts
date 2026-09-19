@@ -9,18 +9,19 @@ import { computeMfcc, MFCC_COEFFS } from './mfcc'
 import { buildFaceTracks, type FaceTrack } from './facetracks'
 import { detectFaces, frameDifference, modelsDir, MODEL_W, MODEL_H } from './detect'
 import type { FaceBox } from './speaker'
+import { detectFacesYuNet, faceDetectionSize, yunetAvailable } from './yunet'
 
 /**
  * Audio-visual active speaker detection with LR-ASD (Liao et al., IJCV 2025).
  *
  * The model watches each face's mouth region *and listens to the audio at the
  * same time*, scoring every face on every frame as speaking or silent. Unlike
- * the older mouth-motion heuristic it cannot be fooled by someone moving,
- * chewing, or touching their face while another person talks — the visual
- * stream has to correlate with the actual speech in the soundtrack. For
+ * the older mouth-motion heuristic it can use audio correlation to reduce
+ * false switches caused by gestures or unrelated mouth movement. It can
+ * still make mistakes, particularly with overlap or poor face crops. For
  * videos without an audio track the model's visual-only head is used instead.
  *
- * Per clip: sample frames at 25 fps, detect faces (UltraFace), build
+ * Per clip: sample frames at 25 fps, detect faces (YuNet, UltraFace fallback), build
  * per-person tracks, crop each track's mouth-centred square to 112x112
  * grayscale, extract 13-dim MFCC audio features (4 per video frame), then run
  * the two-stage ONNX model. Scores are raw class-1 logits: > 0 means
@@ -28,7 +29,7 @@ import type { FaceBox } from './speaker'
  */
 
 export const ASD_FPS = 25
-/** Run UltraFace on every Nth analysis frame; boxes in between interpolate. */
+/** Detect faces on every Nth analysis frame; boxes in between interpolate. */
 const DETECT_STRIDE = 2
 const CROP_SIZE = 112
 /**
@@ -47,8 +48,8 @@ const CROP_PAD = 110
  * The backend is tiny, so this costs almost nothing on top of the frontend.
  */
 const BACKEND_WINDOWS_SEC = [1, 2, 3, 4, 5, 6]
-/** Width the crop pass decodes at; faces are small fractions of the frame. */
-const CROP_PASS_WIDTH = 640
+/** Preserve source mouth detail up to this long edge, without upscaling. */
+const CROP_PASS_LONG_EDGE = 1920
 /**
  * Consecutive-frame difference that counts as a camera cut. Lower than the
  * legacy 2 fps threshold (34): at 25 fps normal motion barely registers
@@ -58,15 +59,12 @@ const ASD_SCENE_CUT_THRESHOLD = 24
 /** Cuts closer together than this are one transition (dissolves span frames). */
 const CUT_MERGE_SEC = 0.3
 /**
- * Screencasts and slide decks rarely have faces; scanning the whole clip at
- * 25 fps is slow and looks like a hang. After this many seconds, bail out
- * when detections are too sparse to ever produce a focus track.
+ * Switch to sparse scouting during long face-free passages, but always scan
+ * the entire clip: an intro or screen share can be followed by a speaker.
  */
 const FACE_PROBE_SEC = 8
-/** Stop scanning once no face has been seen for this long (e.g. Zoom → screen share). */
-const FACE_ABSENT_ABORT_SEC = 3
-/** Minimum strided detection frames that must contain a face to keep scanning. */
-const MIN_FACE_DETECTIONS = 3
+const FACE_ABSENT_SPARSE_SEC = 3
+const SCOUT_STRIDE = 12 // at most 0.48 seconds to reacquire a returning face
 /**
  * Tracks must cover at least this fraction of analysis frames before we run
  * the heavy crop + LR-ASD passes (buildFocusTrack needs ~30%).
@@ -115,112 +113,123 @@ export interface AsdAnalysis {
   tracks: ScoredFaceTrack[]
   frameCount: number
   sceneCuts: number[]
+  sceneTransitions?: Array<{ start: number; end: number }>
   fps: number
-  /** Share of strided detection frames that contained at least one face. */
+  /** Estimated share of source time with a face, weighted for variable sampling. */
   faceFrameRatio: number
+  /** Actual decoded dimensions used for the mouth crops, for framing safety. */
+  cropSize?: { width: number; height: number }
+  detector?: 'yunet' | 'ultraface'
 }
 
 interface DetectionPass {
   facesPerFrame: Array<FaceBox[] | null>
   sceneCuts: number[]
+  sceneTransitions: Array<{ start: number; end: number }>
   frameCount: number
   faceFrameRatio: number
 }
 
-/** Whether face detection should stop early on sparse / absent faces (unit-tested). */
-export function shouldAbortFaceDetection(
-  frameIndex: number,
-  detectionFrames: number,
-  framesWithFaces: number,
-  lastFaceFrame: number,
-  fps: number = ASD_FPS
-): boolean {
-  const probeEnd = Math.round(FACE_PROBE_SEC * fps)
-  const absentLimit = Math.round(FACE_ABSENT_ABORT_SEC * fps)
-  const probeDetections = Math.ceil(probeEnd / DETECT_STRIDE)
-  if (frameIndex >= probeEnd && detectionFrames >= probeDetections && framesWithFaces < MIN_FACE_DETECTIONS) {
-    return true
+/** Keep dissolve frames separate from stable shots used for layout decisions. */
+export function sceneTransitionRanges(differences: number[], fps = ASD_FPS): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = []
+  const shoulder = ASD_SCENE_CUT_THRESHOLD / 4
+  const reach = Math.ceil(fps * 0.6)
+  for (let i = 1; i < differences.length; i++) {
+    if (differences[i] <= ASD_SCENE_CUT_THRESHOLD) continue
+    let start = i, end = i + 1
+    while (start > Math.max(1, i - reach) && differences[start - 1] > shoulder) start--
+    while (end < Math.min(differences.length, i + reach + 1) && differences[end] > shoulder) end++
+    const previous = ranges.at(-1)
+    if (previous && start <= previous.end) previous.end = Math.max(previous.end, end)
+    else ranges.push({ start, end })
   }
-  if (lastFaceFrame >= 0 && frameIndex - lastFaceFrame >= absentLimit) return true
-  return false
+  return ranges
+}
+
+/** Scene cuts trigger immediate detection; returning faces restore dense sampling. */
+export function shouldDetectFaces(
+  frameIndex: number,
+  lastFaceFrame: number,
+  sceneCut = false
+): boolean {
+  const sparse = lastFaceFrame < 0
+    ? frameIndex >= FACE_PROBE_SEC * ASD_FPS
+    : frameIndex - lastFaceFrame >= FACE_ABSENT_SPARSE_SEC * ASD_FPS
+  return sceneCut || frameIndex % (sparse ? SCOUT_STRIDE : DETECT_STRIDE) === 0
 }
 
 /** Fraction of analysis frames covered by face tracks (unit-tested). */
 export function trackCoverageRatio(tracks: FaceTrack[], frameCount: number): number {
   let covered = 0
-  for (const t of tracks) covered += t.boxes.length
+  let end = 0
+  for (const t of [...tracks].sort((a, b) => a.start - b.start)) {
+    const stop = Math.min(frameCount, t.start + t.boxes.length)
+    covered += Math.max(0, stop - Math.max(end, t.start))
+    end = Math.max(end, stop)
+  }
   return covered / Math.max(1, frameCount)
 }
 
-/** Pass 1: stream small RGB frames; detect scene cuts and faces (strided). */
-async function runDetectionPass(
+/** Pass 1: stream RGB frames; detect scene cuts and faces (strided). */
+export async function runDetectionPass(
   videoPath: string,
   startSec: number,
   duration: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  highResolution?: { width: number; height: number }
 ): Promise<DetectionPass> {
   const facesPerFrame: Array<FaceBox[] | null> = []
   const rawCuts: number[] = []
+  const differences: number[] = []
   let prev: Buffer | null = null
-  let detectionFrames = 0
   let framesWithFaces = 0
   let lastFaceFrame = -1
-  let abortedEarly = false
-  const passAbort = new AbortController()
-  const onParentAbort = (): void => passAbort.abort()
-  signal?.addEventListener('abort', onParentAbort, { once: true })
+  let facePresent = false
+  const width = highResolution?.width ?? MODEL_W
+  const height = highResolution?.height ?? MODEL_H
 
-  try {
-    await streamRawFrames(
-      [
-        '-ss', startSec.toFixed(3),
-        '-t', duration.toFixed(3),
-        '-i', videoPath,
-        '-vf', `fps=${ASD_FPS},scale=${MODEL_W}:${MODEL_H}`,
-        '-f', 'rawvideo',
-        '-pix_fmt', 'rgb24'
-      ],
-      MODEL_W * MODEL_H * 3,
-      async (frame, f) => {
-        signal?.throwIfAborted()
-        if (prev && frameDifference(prev, frame) > ASD_SCENE_CUT_THRESHOLD) rawCuts.push(f)
-        if (f % DETECT_STRIDE === 0) {
-          const faces = await detectFaces(frame)
-          facesPerFrame.push(faces)
-          detectionFrames++
-          if (faces.length > 0) {
-            framesWithFaces++
-            lastFaceFrame = f
-          }
-        } else {
-          facesPerFrame.push(null)
+  signal?.throwIfAborted()
+  await streamRawFrames(
+    [
+      '-ss', startSec.toFixed(3),
+      '-t', duration.toFixed(3),
+      '-i', videoPath,
+      '-vf', `fps=${ASD_FPS},scale=${width}:${height}`,
+      '-f', 'rawvideo',
+      '-pix_fmt', 'rgb24'
+    ],
+    width * height * 3,
+    async (frame, f) => {
+      signal?.throwIfAborted()
+      const difference = prev ? frameDifference(prev, frame) : 0
+      differences.push(difference)
+      const cut = difference > ASD_SCENE_CUT_THRESHOLD
+      if (cut) rawCuts.push(f)
+      if (shouldDetectFaces(f, lastFaceFrame, cut)) {
+        const faces = highResolution ? await detectFacesYuNet(frame, width, height) : await detectFaces(frame)
+        facesPerFrame.push(faces)
+        facePresent = faces.length > 0
+        if (facePresent) {
+          lastFaceFrame = f
         }
-        prev = Buffer.from(frame)
-        if (shouldAbortFaceDetection(f, detectionFrames, framesWithFaces, lastFaceFrame)) {
-          abortedEarly = true
-          passAbort.abort()
-        }
-      },
-      passAbort.signal
-    )
-  } catch (err) {
-    if (!abortedEarly && !signal?.aborted) throw err
-    signal?.throwIfAborted()
-  } finally {
-    signal?.removeEventListener('abort', onParentAbort)
-  }
+      } else {
+        facesPerFrame.push(null)
+      }
+      // Weight by source time, not the denser sampling of talking-head shots.
+      if (facePresent) framesWithFaces++
+      prev = Buffer.from(frame)
+    },
+    signal
+  )
 
-  // Keep the full clip length as the denominator after bailout; the skipped
-  // suffix is effectively "no face", not "not part of the clip".
-  const frameCount = abortedEarly
-    ? Math.max(facesPerFrame.length, Math.round(duration * ASD_FPS))
-    : facesPerFrame.length
-  const faceFrameRatio = detectionFrames > 0 ? framesWithFaces / detectionFrames : 0
+  const frameCount = facesPerFrame.length
+  const faceFrameRatio = frameCount > 0 ? framesWithFaces / frameCount : 0
   // A dissolve registers on several neighbouring frames; keep only the last
   // of each cluster (when the new shot has settled).
   const mergeWindow = Math.max(1, Math.round(CUT_MERGE_SEC * ASD_FPS))
   const sceneCuts = rawCuts.filter((cut, i) => i === rawCuts.length - 1 || rawCuts[i + 1] - cut > mergeWindow)
-  return { facesPerFrame, sceneCuts, frameCount, faceFrameRatio }
+  return { facesPerFrame, sceneCuts, sceneTransitions: sceneTransitionRanges(differences), frameCount, faceFrameRatio }
 }
 
 /** Bilinear sample of a square region into a CROP_SIZE² grayscale patch. */
@@ -436,14 +445,26 @@ export async function analyzeClipASD(
   videoPath: string,
   startSec: number,
   endSec: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  comparison?: { detector?: 'ultraface' | 'yunet'; cropWidth?: number }
 ): Promise<AsdAnalysis | null> {
   const sessions = await getSessions()
   if (!sessions) return null
 
   const duration = Math.max(0.1, endSec - startSec)
   const info = await probeVideo(videoPath)
-  const detection = await runDetectionPass(videoPath, startSec, duration, signal)
+  let useYuNet = comparison?.detector !== 'ultraface' && yunetAvailable()
+  if (comparison?.detector === 'yunet' && !useYuNet) throw new Error('YuNet comparison model is unavailable')
+  let detection: DetectionPass
+  try {
+    detection = await runDetectionPass(videoPath, startSec, duration, signal,
+      useYuNet ? faceDetectionSize(info.width, info.height) : undefined)
+  } catch (error) {
+    if (!useYuNet || signal?.aborted || comparison?.detector === 'yunet') throw error
+    console.error('High-resolution face detection failed; retrying with UltraFace:', error)
+    useYuNet = false
+    detection = await runDetectionPass(videoPath, startSec, duration, signal)
+  }
   if (detection.frameCount === 0) return null
 
   const tracks = buildFaceTracks(detection.facesPerFrame, detection.sceneCuts, ASD_FPS)
@@ -455,12 +476,15 @@ export async function analyzeClipASD(
       tracks: [],
       frameCount: detection.frameCount,
       sceneCuts: detection.sceneCuts,
+      sceneTransitions: detection.sceneTransitions,
       fps: ASD_FPS,
       faceFrameRatio: detection.faceFrameRatio
     }
   }
 
-  const cropW = Math.min(CROP_PASS_WIDTH, info.width || CROP_PASS_WIDTH)
+  const nativeWidth = info.width || 640
+  const cropW = Math.max(2, 2 * Math.floor(Math.min(nativeWidth, comparison?.cropWidth ??
+    CROP_PASS_LONG_EDGE * nativeWidth / Math.max(nativeWidth, info.height || nativeWidth)) / 2))
   const cropH = Math.max(
     2,
     2 * Math.round((cropW * (info.height || cropW)) / Math.max(1, info.width || cropW) / 2)
@@ -494,7 +518,10 @@ export async function analyzeClipASD(
     tracks: scored,
     frameCount: detection.frameCount,
     sceneCuts: detection.sceneCuts,
+    sceneTransitions: detection.sceneTransitions,
     fps: ASD_FPS,
-    faceFrameRatio: detection.faceFrameRatio
+    faceFrameRatio: detection.faceFrameRatio,
+    cropSize: { width: cropW, height: cropH },
+    detector: useYuNet ? 'yunet' : 'ultraface'
   }
 }

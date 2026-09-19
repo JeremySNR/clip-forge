@@ -43,6 +43,10 @@ export async function ensureTranscript(
     return project.transcript
   }
 
+  if (!project.video.hasAudio) {
+    throw new Error('This video has no audio track. Speech-based clip selection needs a video with spoken audio.')
+  }
+
   onProgress({ stage: 'audio', progress: at(0), message: 'Extracting audio…' })
   const chunks = await extractAudioChunks(
     project.video.path,

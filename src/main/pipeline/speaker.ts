@@ -259,6 +259,53 @@ export interface SpeakerCandidate {
   scores: number[]
 }
 
+/**
+ * Conservative composition guard for shots dominated by tiny or missing faces.
+ * Area 0.0025 is about a 14px square in the 320x240 detection image. It is a
+ * provisional detail threshold, not a calibrated speaking-confidence score.
+ * Small faces can qualify with >=32px equivalent face size in the actual crop
+ * decode, a speaking logit >1 and a >1 margin over every rival. This combines
+ * detail with evidence of one speaker instead of trusting a positive score on
+ * an upscaled tiny patch. A shot needs usable evidence in 30% of its frames.
+ */
+export function lowDetailShotRanges(
+  tracks: SpeakerCandidate[], frameCount: number, sceneCuts: number[], fps: number,
+  cropSize?: { width: number; height: number }
+): Array<{ start: number; end: number }> {
+  if (frameCount <= 0 || fps <= 0) return []
+  const detail = new Uint8Array(frameCount)
+  const best = new Float32Array(frameCount).fill(-Infinity)
+  const second = new Float32Array(frameCount).fill(-Infinity)
+  const bestArea = new Float32Array(frameCount)
+  for (const track of tracks) {
+    for (let i = 0; i < track.areas.length; i++) {
+      const frame = track.start + i
+      if (frame >= 0 && frame < frameCount && track.areas[i] >= 0.0025) detail[frame] = 1
+      if (frame < 0 || frame >= frameCount || !Number.isFinite(track.scores[i])) continue
+      if (track.scores[i] > best[frame]) {
+        second[frame] = best[frame]
+        best[frame] = track.scores[i]
+        bestArea[frame] = track.areas[i]
+      } else if (track.scores[i] > second[frame]) second[frame] = track.scores[i]
+    }
+  }
+  if (cropSize) {
+    for (let frame = 0; frame < frameCount; frame++) {
+      const facePixels = Math.sqrt(bestArea[frame] * cropSize.width * cropSize.height)
+      if (facePixels >= 32 && best[frame] > 1 && best[frame] - second[frame] > 1) detail[frame] = 1
+    }
+  }
+  const bounds = [0, ...new Set(sceneCuts.filter(f => Number.isInteger(f) && f > 0 && f < frameCount))]
+    .sort((a, b) => a - b)
+  bounds.push(frameCount)
+  return bounds.slice(0, -1).flatMap((start, i) => {
+    const end = bounds[i + 1]
+    let usable = 0
+    for (let f = start; f < end; f++) usable += detail[f]
+    return usable / (end - start) < 0.3 ? [{ start: start / fps, end: end / fps }] : []
+  })
+}
+
 /** Logit above which a face counts as actively speaking. */
 const SPEAK_ON = 0
 /** A speaking rival must persist this long before focus cuts to them. */

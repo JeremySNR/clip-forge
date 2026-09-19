@@ -1,0 +1,624 @@
+{
+  "schemaVersion": 1,
+  "acquiredOn": "2026-09-12",
+  "pathBase": "repository root",
+  "videoCount": 9,
+  "durationSec": 10174.712,
+  "splitStatus": "Provisional development/test grouping; no human gold labels or model evaluation results yet.",
+  "sources": [
+    {
+      "id": "godot-panel",
+      "title": "Shipping Godot: From Build to Player",
+      "sourcePage": "https://media.ccc.de/v/godotfest2025-shipping-godot-from-build-to-player",
+      "creator": "Ben Vehling, Paul Lawitzki, Pablo Navarro, Dom Harris, Joseph Hill; GodotFest / CCC VOC recording",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "split": "development",
+      "sourceGroup": "godot-panel",
+      "path": ".tmp/quality-corpus/ready/godot-panel.mp4",
+      "originalPath": ".tmp/quality-corpus/originals/godot-panel.mp4",
+      "sourceSha256": "f70301c42fe1aeeeb031f74b615eb811a652c954027d3404cf19638fc5b679b9",
+      "originalSha256": "600ed015eeb9d216e35608958422674fb69a48d9647e29fb74876f50cf326d78",
+      "bytes": 468544719,
+      "downloadedBytes": 482906789,
+      "durationSec": 3108.658,
+      "width": 1920,
+      "height": 1080,
+      "fps": "25/1",
+      "videoCodec": "h264",
+      "audioStreams": [
+        {
+          "codec": "aac",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Remuxed without re-encoding: first video stream and first audio stream; removed extra black video stream.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-18.3"
+          },
+          {
+            "start": 1554.329,
+            "duration": 5,
+            "meanVolumeDb": "-21.1"
+          },
+          {
+            "start": 3100.658,
+            "duration": 5,
+            "meanVolumeDb": "-16.6"
+          }
+        ],
+        "contactSheetTimes": [
+          31,
+          310,
+          777,
+          1243,
+          1709,
+          2176,
+          2642,
+          2953
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/godot-panel-contact.jpg"
+      },
+      "candidateTags": [
+        "panel",
+        "multiple-speakers",
+        "long-form",
+        "1080p"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Fixed wide view of five seated panelists, with audience silhouettes in the foreground.",
+      "evaluationUse": "Active speaker selection among visible listeners; stable framing; long-form highlight selection."
+    },
+    {
+      "id": "nasa-static-interview",
+      "title": "James Webb Space Telescope — Eric Smith fixed-camera interview with slates",
+      "sourcePage": "https://svs.gsfc.nasa.gov/12548/",
+      "creator": "NASA's Goddard Space Flight Center; Eric Smith",
+      "license": "NASA public-use media; retain NASA/GSFC credit and check item-specific credits before redistribution",
+      "licenseUrl": "https://svs.gsfc.nasa.gov/help/",
+      "split": "development",
+      "sourceGroup": "nasa-static-interview",
+      "path": ".tmp/quality-corpus/ready/nasa-eric-smith-static-interview.webm",
+      "originalPath": ".tmp/quality-corpus/originals/nasa-eric-smith-static-interview.webm",
+      "sourceSha256": "b5817cb50416b40d97d726f85567beaf5694d0639cc72c7c785251eb0005de96",
+      "originalSha256": "b5817cb50416b40d97d726f85567beaf5694d0639cc72c7c785251eb0005de96",
+      "bytes": 25496089,
+      "downloadedBytes": 25496089,
+      "durationSec": 199.402,
+      "width": 1280,
+      "height": 720,
+      "fps": "19001/317",
+      "videoCodec": "vp8",
+      "audioStreams": [
+        {
+          "codec": "vorbis",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Unchanged original; hard link shares the original file data.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-91.0"
+          },
+          {
+            "start": 99.701,
+            "duration": 5,
+            "meanVolumeDb": "-29.2"
+          },
+          {
+            "start": 191.402,
+            "duration": 5,
+            "meanVolumeDb": "-30.8"
+          }
+        ],
+        "contactSheetTimes": [
+          1,
+          19,
+          49,
+          79,
+          109,
+          139,
+          169,
+          189
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/nasa-static-interview-contact.jpg"
+      },
+      "candidateTags": [
+        "static-camera",
+        "single-speaker",
+        "title-slates",
+        "speaker-return"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Single speaker filmed with a stationary camera; black question/title slates interrupt the interview.",
+      "evaluationUse": "Speaker reacquisition after slates; silence handling; consistent single-person framing."
+    },
+    {
+      "id": "wozniak-interview",
+      "title": "Interview with Steve Wozniak",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Interview_with_Steve_Wozniak.webm",
+      "creator": "ConversationEDU / The Conversation",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "split": "development",
+      "sourceGroup": "wozniak-interview",
+      "path": ".tmp/quality-corpus/ready/wozniak-interview.webm",
+      "originalPath": ".tmp/quality-corpus/originals/wozniak-interview.webm",
+      "sourceSha256": "c808d0ab73bc3482c444e1463dda1c463215590effdb98d3d68fcdbab9493dc4",
+      "originalSha256": "c808d0ab73bc3482c444e1463dda1c463215590effdb98d3d68fcdbab9493dc4",
+      "bytes": 167884645,
+      "downloadedBytes": 167884645,
+      "durationSec": 887.656,
+      "width": 1920,
+      "height": 1080,
+      "fps": "25/1",
+      "videoCodec": "vp8",
+      "audioStreams": [
+        {
+          "codec": "vorbis",
+          "channels": 2,
+          "language": "unlabelled"
+        }
+      ],
+      "changes": "Unchanged original; hard link shares the original file data.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-22.6"
+          },
+          {
+            "start": 443.828,
+            "duration": 5,
+            "meanVolumeDb": "-24.4"
+          },
+          {
+            "start": 879.656,
+            "duration": 5,
+            "meanVolumeDb": "-26.4"
+          }
+        ],
+        "contactSheetTimes": [
+          8,
+          88,
+          221,
+          355,
+          488,
+          621,
+          754,
+          843
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/wozniak-interview-contact.jpg"
+      },
+      "candidateTags": [
+        "interview",
+        "conversational-speech",
+        "1080p"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Two-person sofa interview alternating a fixed two-shot and close-ups.",
+      "evaluationUse": "Speaker changes, off-screen interviewer, listener gestures and conversational clip boundaries."
+    },
+    {
+      "id": "hannah-cloke-interview",
+      "title": "Extreme weather with Hannah Cloke",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Interview_on_extreme_weather_with_physical_geographer_Hannah_Cloke_%E2%80%93_The_Royal_Society.webm",
+      "creator": "The Royal Society; Roma Agrawal and Hannah Cloke",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "split": "test",
+      "sourceGroup": "royal-society-interviews",
+      "path": ".tmp/quality-corpus/ready/hannah-cloke-interview.webm",
+      "originalPath": ".tmp/quality-corpus/originals/hannah-cloke-interview.webm",
+      "sourceSha256": "245ca7c6e7a99dc86a5183650cb297b7a97c222f78784b3efacfbdc872ee45ce",
+      "originalSha256": "245ca7c6e7a99dc86a5183650cb297b7a97c222f78784b3efacfbdc872ee45ce",
+      "bytes": 85493260,
+      "downloadedBytes": 85493260,
+      "durationSec": 626.017,
+      "width": 1920,
+      "height": 1080,
+      "fps": "25/1",
+      "videoCodec": "vp9",
+      "audioStreams": [
+        {
+          "codec": "opus",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Unchanged original; hard link shares the original file data.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-17.6"
+          },
+          {
+            "start": 313.0085,
+            "duration": 5,
+            "meanVolumeDb": "-17.7"
+          },
+          {
+            "start": 618.017,
+            "duration": 5,
+            "meanVolumeDb": "-17.5"
+          }
+        ],
+        "contactSheetTimes": [
+          6,
+          62,
+          156,
+          250,
+          344,
+          438,
+          532,
+          594
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/hannah-cloke-interview-contact.jpg"
+      },
+      "candidateTags": [
+        "two-person-interview",
+        "science",
+        "1080p"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Studio science interview alternating two-shots and close-ups.",
+      "evaluationUse": "Complete explanations, clean hooks, speaker continuity across camera cuts."
+    },
+    {
+      "id": "gilly-forrester-interview",
+      "title": "What Great Apes can tell us about language",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Interview_with_human_and_animal_psychologist_Gilly_Forrester_-_What_Great_Apes_can_tell_us_about_language_%E2%80%93_The_Royal_Society.webm",
+      "creator": "The Royal Society; Roma Agrawal and Gilly Forrester",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "split": "test",
+      "sourceGroup": "royal-society-interviews",
+      "path": ".tmp/quality-corpus/ready/gilly-forrester-interview.webm",
+      "originalPath": ".tmp/quality-corpus/originals/gilly-forrester-interview.webm",
+      "sourceSha256": "e3e5fbbc23cfc87b8aa2c3944bfdcf7efc5bc105d2cb443fd4be629803131419",
+      "originalSha256": "e3e5fbbc23cfc87b8aa2c3944bfdcf7efc5bc105d2cb443fd4be629803131419",
+      "bytes": 69871902,
+      "downloadedBytes": 69871902,
+      "durationSec": 528.648,
+      "width": 1920,
+      "height": 1080,
+      "fps": "25/1",
+      "videoCodec": "vp9",
+      "audioStreams": [
+        {
+          "codec": "opus",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Unchanged original; hard link shares the original file data.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-20.8"
+          },
+          {
+            "start": 264.324,
+            "duration": 5,
+            "meanVolumeDb": "-21.5"
+          },
+          {
+            "start": 520.648,
+            "duration": 5,
+            "meanVolumeDb": "-22.7"
+          }
+        ],
+        "contactSheetTimes": [
+          5,
+          52,
+          132,
+          211,
+          290,
+          370,
+          449,
+          502
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/gilly-forrester-interview-contact.jpg"
+      },
+      "candidateTags": [
+        "two-person-interview",
+        "science",
+        "1080p"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Studio interview including a handheld puzzle-board demonstration.",
+      "evaluationUse": "Keep meaningful props visible; preserve explanation and payoff; distinguish listener from speaker."
+    },
+    {
+      "id": "automation-empathy-talk",
+      "title": "Automation and Empathy: Can We Finally Replace All Artistic Performers with Machines?",
+      "sourcePage": "https://media.ccc.de/v/38c3-automation-and-empathy-can-we-finally-replace-all-artistic-performers-with-machines",
+      "creator": "Moritz Simon Geist; CCC VOC recording",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+      "split": "development",
+      "sourceGroup": "automation-empathy-talk",
+      "path": ".tmp/quality-corpus/ready/automation-empathy-talk.webm",
+      "originalPath": ".tmp/quality-corpus/originals/automation-empathy-talk.webm",
+      "sourceSha256": "5e2e64d35e18b40cab22e503c240cfeb5dc59b65400a6926bd6bd7a33edf31e2",
+      "originalSha256": "3364c4600e60d47df5a37014f8453843dca2413907e96b387fcb6abcbfd0560e",
+      "bytes": 290557524,
+      "downloadedBytes": 427985169,
+      "durationSec": 2464.547,
+      "width": 1920,
+      "height": 1080,
+      "fps": "25/1",
+      "videoCodec": "vp9",
+      "audioStreams": [
+        {
+          "codec": "opus",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Remuxed without re-encoding: main programme video and English audio; removed separate slides stream and German translation.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-18.8"
+          },
+          {
+            "start": 1232.2735,
+            "duration": 5,
+            "meanVolumeDb": "-24.9"
+          },
+          {
+            "start": 2456.547,
+            "duration": 5,
+            "meanVolumeDb": "-20.5"
+          }
+        ],
+        "contactSheetTimes": [
+          24,
+          246,
+          616,
+          985,
+          1355,
+          1725,
+          2094,
+          2341
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/automation-empathy-talk-contact.jpg"
+      },
+      "candidateTags": [
+        "presentation",
+        "slides",
+        "music",
+        "visual-demonstrations",
+        "multiple-audio-tracks"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Stage presentation with slides, a small presenter inset and visual demonstrations.",
+      "evaluationUse": "Layout selection, small faces, slides and demonstrations that must remain intelligible."
+    },
+    {
+      "id": "narrated-screen-demo",
+      "title": "Content Translation Screencast (English)",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Content_Translation_Screencast_(English).webm",
+      "creator": "Pau Giner",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "split": "test",
+      "sourceGroup": "narrated-screen-demo",
+      "path": ".tmp/quality-corpus/ready/narrated-screen-demo.webm",
+      "originalPath": ".tmp/quality-corpus/originals/narrated-screen-demo.webm",
+      "sourceSha256": "58906f24d811494cabd724f4d60994fe7bf6f0f8e075ed8269a1eaff74a8a179",
+      "originalSha256": "58906f24d811494cabd724f4d60994fe7bf6f0f8e075ed8269a1eaff74a8a179",
+      "bytes": 16599498,
+      "downloadedBytes": 16599498,
+      "durationSec": 255.983,
+      "width": 1280,
+      "height": 720,
+      "fps": "25/1",
+      "videoCodec": "vp8",
+      "audioStreams": [
+        {
+          "codec": "vorbis",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Unchanged original; hard link shares the original file data.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-26.2"
+          },
+          {
+            "start": 127.9915,
+            "duration": 5,
+            "meanVolumeDb": "-22.3"
+          },
+          {
+            "start": 247.983,
+            "duration": 5,
+            "meanVolumeDb": "-33.0"
+          }
+        ],
+        "contactSheetTimes": [
+          2,
+          25,
+          63,
+          102,
+          140,
+          179,
+          217,
+          243
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/narrated-screen-demo-contact.jpg"
+      },
+      "candidateTags": [
+        "narrated-screen-recording",
+        "no-visible-speaker",
+        "small-ui-text",
+        "720p"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Narrated Wikipedia translation screen recording with no visible speaker.",
+      "evaluationUse": "Preserve UI text; avoid invented face tracks; align narration with demonstrated actions."
+    },
+    {
+      "id": "blender-screen-tutorial",
+      "title": "Blender Tutorial. A cup of tea.",
+      "sourcePage": "https://commons.wikimedia.org/wiki/File:Blender_Tutorial._A_cup_of_tea..webm",
+      "creator": "Fun with Open Source",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "split": "development",
+      "sourceGroup": "blender-screen-tutorial",
+      "path": ".tmp/quality-corpus/ready/blender-screen-tutorial.webm",
+      "originalPath": ".tmp/quality-corpus/originals/blender-screen-tutorial.webm",
+      "sourceSha256": "cc77b4254e8a98724a6b882482b9a6d4bf0eaf9e61cd65641a2133d1f9245aee",
+      "originalSha256": "cc77b4254e8a98724a6b882482b9a6d4bf0eaf9e61cd65641a2133d1f9245aee",
+      "bytes": 439295727,
+      "downloadedBytes": 439295727,
+      "durationSec": 1369.634,
+      "width": 1920,
+      "height": 1080,
+      "fps": "60/1",
+      "videoCodec": "vp8",
+      "audioStreams": [],
+      "changes": "Unchanged original; hard link shares the original file data.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": null
+          },
+          {
+            "start": 684.817,
+            "duration": 5,
+            "meanVolumeDb": null
+          },
+          {
+            "start": 1361.634,
+            "duration": 5,
+            "meanVolumeDb": null
+          }
+        ],
+        "contactSheetTimes": [
+          13,
+          136,
+          342,
+          547,
+          753,
+          958,
+          1164,
+          1301
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/blender-screen-tutorial-contact.jpg"
+      },
+      "candidateTags": [
+        "screen-recording",
+        "software-demo",
+        "small-ui-text",
+        "no-visible-speaker"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Blender modelling screen recording with no audio track.",
+      "evaluationUse": "Intentional negative control: no hallucinated speech or speakers; visual-only content handling."
+    },
+    {
+      "id": "tears-of-steel",
+      "title": "Tears of Steel",
+      "sourcePage": "https://mango.blender.org/download/",
+      "creator": "Blender Foundation / Mango Open Movie Project",
+      "license": "CC BY 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
+      "split": "test",
+      "sourceGroup": "tears-of-steel",
+      "path": ".tmp/quality-corpus/ready/tears-of-steel.mp4",
+      "originalPath": ".tmp/quality-corpus/originals/tears-of-steel-720p.mov",
+      "sourceSha256": "26769bdafb5326adc08a203cadc802d94f25cccc655b52ab73ce079d401ced8b",
+      "originalSha256": "efa9062d9cdb7a338e40ad530dfdf234806743f29ae6a1a136b97ece4e588e8f",
+      "bytes": 372376041,
+      "downloadedBytes": 372178639,
+      "durationSec": 734.167,
+      "width": 1280,
+      "height": 534,
+      "fps": "24/1",
+      "videoCodec": "h264",
+      "audioStreams": [
+        {
+          "codec": "aac",
+          "channels": 2,
+          "language": "eng"
+        }
+      ],
+      "changes": "Original H.264 video copied without re-encoding into MP4; MP3 audio converted to AAC 192 kbps for playback compatibility.",
+      "validation": {
+        "method": "ffprobe plus 5-second audio/video decode windows near start, middle, and end; not a full-file decode",
+        "sampledWindows": [
+          {
+            "start": 5,
+            "duration": 5,
+            "meanVolumeDb": "-15.4"
+          },
+          {
+            "start": 367.0835,
+            "duration": 5,
+            "meanVolumeDb": "-14.8"
+          },
+          {
+            "start": 726.167,
+            "duration": 5,
+            "meanVolumeDb": "-32.3"
+          }
+        ],
+        "contactSheetTimes": [
+          7,
+          73,
+          183,
+          293,
+          403,
+          513,
+          624,
+          697
+        ],
+        "contactSheet": ".tmp/quality-corpus/previews/tears-of-steel-contact.jpg"
+      },
+      "candidateTags": [
+        "cinematic-dialogue",
+        "music",
+        "action",
+        "rapid-cuts",
+        "720p"
+      ],
+      "annotationStatus": "not yet human labelled",
+      "observedContent": "Cinematic dialogue, action, effects, music, rapid cuts and a credits tail.",
+      "evaluationUse": "Shot boundaries, non-speech audio, dialogue context, credits exclusion and cinematic reframing."
+    }
+  ]
+}

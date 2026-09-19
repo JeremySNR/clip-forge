@@ -19,6 +19,16 @@ describe('buildAss', () => {
     expect(events.length).toBe(4)
   })
 
+  it('splits a caption event at a layout boundary to keep preview and export positions aligned', () => {
+    const ass = buildAss(transcript, { ...base, positionRanges: [{ start: .25, end: .4, positionY: .38 }] })
+    const events = ass.split('\n').filter(l => l.startsWith('Dialogue: 0,'))
+    expect(events).toHaveLength(6)
+    expect(events[0]).toContain('0:00:00.00,0:00:00.25')
+    expect(events[1]).toContain('0:00:00.25,0:00:00.40')
+    expect(events[1]).toContain('\\pos(540,730)')
+    expect(events[2]).toContain('\\pos(540,1382)')
+  })
+
   it('centres every caption block on the style anchor line, matching the preview', () => {
     const ass = buildAss(transcript, base)
     // Beast anchors at 72% of the frame height; \\an5 centres the block there.

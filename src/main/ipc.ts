@@ -12,7 +12,7 @@ import type {
 } from '@shared/types'
 import { VIDEO_EXTENSIONS } from '@shared/video'
 import { sizeTargetBytesFromMb } from '@shared/uploadBudget'
-import { mergeReframeResult, needsReframe } from '@shared/reframe'
+import { mergeClipSave, needsReframe } from '@shared/reframe'
 import { analyzeProject, createProject, createProjectFromUrl } from './pipeline'
 import { captionWholeVideo } from './pipeline/wholeVideo'
 import { downloadGpuFfmpeg } from './pipeline/encoders'
@@ -166,10 +166,7 @@ export function registerIpcHandlers(): void {
       // The renderer may save a copy it took before a lazy reframe analysis
       // landed on disk. The analysis result belongs to main: keep it rather
       // than letting the stale copy erase the focus track.
-      project.clips[idx] =
-        needsReframe(clip) && !needsReframe(saved)
-          ? mergeReframeResult(clip, saved, project.videoType)
-          : clip
+      project.clips[idx] = mergeClipSave(clip, saved, project.videoType)
     })
   })
 
@@ -190,6 +187,7 @@ export function registerIpcHandlers(): void {
         const segment = project.transcript?.segments.find((s) => s.id === segmentId)
         const word = segment?.words[wordIndex]
         if (!segment || !word) throw new Error('Transcript word not found')
+        word.sourceText ??= word.text
         word.text = text.trim()
         segment.text = segment.words
           .map((w) => w.text)
@@ -215,6 +213,9 @@ export function registerIpcHandlers(): void {
     return updateProject(projectId, (fresh) => {
       fresh.video = video
       fresh.sourceMissing = false
+      fresh.sourceRevision = (fresh.sourceRevision ?? 0) + 1
+      // Matching duration does not prove identical pictures or speakers.
+      for (const clip of fresh.clips) clip.reframeStatus = 'pending'
     })
   })
 
@@ -254,10 +255,10 @@ export function registerIpcHandlers(): void {
         encoder: prefs.encoder,
         quality: prefs.quality,
         sizeTargetBytes,
-        branding:
-          branding.enabled && branding.imagePath && existsSync(branding.imagePath)
-            ? branding
-            : null,
+        branding: {
+          ...branding,
+          imagePath: branding.imagePath && existsSync(branding.imagePath) ? branding.imagePath : null
+        },
         fontsDirPath: await renderFontsDir(),
         signal: controller.signal,
         onProgress: (fraction) => {

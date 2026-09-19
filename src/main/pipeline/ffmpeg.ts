@@ -165,9 +165,9 @@ export interface AudioChunk {
   offsetSec: number
   /**
    * The half-open window [keepFromSec, keepToSec) of source time this chunk is
-   * responsible for when stitching transcripts. Chunks overlap so words near a
-   * boundary are transcribed with full context; the windows tile exactly, so
-   * every word belongs to exactly one chunk.
+   * responsible for when stitching transcripts. Chunks overlap to supply
+   * context; these windows tile source time, while disagreements between the
+   * independently decoded word sequences require a separate join check.
    */
   keepFromSec: number
   keepToSec: number

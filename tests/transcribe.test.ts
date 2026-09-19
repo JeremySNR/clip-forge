@@ -200,6 +200,16 @@ describe('stitchChunkResults hallucination filtering', () => {
   it('falls back to the plain text when a response has no segments', () => {
     expect(trustedChunkText({ language: 'english', duration: 1, text: 'hi there' })).toBe('hi there')
   })
+
+  it('never primes a new chunk with text from its overlapping opening', () => {
+    const res = response(1200, [], [
+      ['Earlier terminology.', 1170, 1180],
+      ['This straddles the next file start.', 1190, 1194],
+      ['This is in the next file already.', 1194, 1200]
+    ])
+    expect(trustedChunkText(res,1192)).toBe('Earlier terminology.')
+    expect(trustedChunkText({language:'english',duration:1200,text:'Cannot locate this text in time.'},1192)).toBe('')
+  })
 })
 
 describe('normalizeWordTimings', () => {

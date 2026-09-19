@@ -1,0 +1,7281 @@
+[
+  {
+    "source": "godot-panel.mp4",
+    "seam": 1196,
+    "left": {
+      "language": "en",
+      "durationSec": 1200,
+      "segments": [
+        {
+          "id": 310,
+          "text": "the Switch is because they know it from Steam. That would be our point of view. And we were",
+          "start": 1172.94,
+          "end": 1179.8,
+          "words": [
+            {
+              "text": "the",
+              "start": 1172.94,
+              "end": 1173.04
+            },
+            {
+              "text": "Switch",
+              "start": 1173.04,
+              "end": 1173.28
+            },
+            {
+              "text": "is",
+              "start": 1173.28,
+              "end": 1174.04
+            },
+            {
+              "text": "because",
+              "start": 1174.04,
+              "end": 1174.28
+            },
+            {
+              "text": "they",
+              "start": 1174.28,
+              "end": 1174.54
+            },
+            {
+              "text": "know",
+              "start": 1174.54,
+              "end": 1174.76
+            },
+            {
+              "text": "it",
+              "start": 1174.76,
+              "end": 1174.94
+            },
+            {
+              "text": "from",
+              "start": 1174.94,
+              "end": 1175.12
+            },
+            {
+              "text": "Steam.",
+              "start": 1175.12,
+              "end": 1175.46
+            },
+            {
+              "text": "That",
+              "start": 1175.7,
+              "end": 1176.2
+            },
+            {
+              "text": "would",
+              "start": 1176.2,
+              "end": 1176.58
+            },
+            {
+              "text": "be",
+              "start": 1176.58,
+              "end": 1177.16
+            },
+            {
+              "text": "our",
+              "start": 1177.16,
+              "end": 1177.46
+            },
+            {
+              "text": "point",
+              "start": 1177.46,
+              "end": 1178.04
+            },
+            {
+              "text": "of",
+              "start": 1178.04,
+              "end": 1178.24
+            },
+            {
+              "text": "view.",
+              "start": 1178.24,
+              "end": 1178.46
+            },
+            {
+              "text": "And",
+              "start": 1178.6,
+              "end": 1178.74
+            },
+            {
+              "text": "we",
+              "start": 1178.74,
+              "end": 1178.98
+            },
+            {
+              "text": "were",
+              "start": 1178.98,
+              "end": 1179.8
+            }
+          ]
+        },
+        {
+          "id": 311,
+          "text": "kind of stumped how to approach this. Obviously that kind of problem solved itself when we",
+          "start": 1179.8,
+          "end": 1187.22,
+          "words": [
+            {
+              "text": "kind",
+              "start": 1179.8,
+              "end": 1180.22
+            },
+            {
+              "text": "of",
+              "start": 1180.22,
+              "end": 1180.58
+            },
+            {
+              "text": "stumped",
+              "start": 1180.58,
+              "end": 1181.06
+            },
+            {
+              "text": "how",
+              "start": 1181.06,
+              "end": 1181.74
+            },
+            {
+              "text": "to",
+              "start": 1181.74,
+              "end": 1181.94
+            },
+            {
+              "text": "approach",
+              "start": 1181.94,
+              "end": 1182.26
+            },
+            {
+              "text": "this.",
+              "start": 1182.26,
+              "end": 1182.82
+            },
+            {
+              "text": "Obviously",
+              "start": 1183.18,
+              "end": 1183.8
+            },
+            {
+              "text": "that",
+              "start": 1183.8,
+              "end": 1184.12
+            },
+            {
+              "text": "kind",
+              "start": 1184.12,
+              "end": 1184.44
+            },
+            {
+              "text": "of",
+              "start": 1184.44,
+              "end": 1184.66
+            },
+            {
+              "text": "problem",
+              "start": 1184.66,
+              "end": 1185.4
+            },
+            {
+              "text": "solved",
+              "start": 1185.4,
+              "end": 1186.22
+            },
+            {
+              "text": "itself",
+              "start": 1186.22,
+              "end": 1186.6
+            },
+            {
+              "text": "when",
+              "start": 1186.6,
+              "end": 1186.98
+            },
+            {
+              "text": "we",
+              "start": 1186.98,
+              "end": 1187.22
+            }
+          ]
+        },
+        {
+          "id": 312,
+          "text": "kind of put our porting switch on ice because of technical issues. But other than that,",
+          "start": 1187.22,
+          "end": 1194.66,
+          "words": [
+            {
+              "text": "kind",
+              "start": 1187.22,
+              "end": 1187.42
+            },
+            {
+              "text": "of",
+              "start": 1187.42,
+              "end": 1187.68
+            },
+            {
+              "text": "put",
+              "start": 1187.68,
+              "end": 1189.06
+            },
+            {
+              "text": "our",
+              "start": 1189.06,
+              "end": 1189.36
+            },
+            {
+              "text": "porting",
+              "start": 1189.36,
+              "end": 1189.98
+            },
+            {
+              "text": "switch",
+              "start": 1189.98,
+              "end": 1190.24
+            },
+            {
+              "text": "on",
+              "start": 1190.24,
+              "end": 1190.54
+            },
+            {
+              "text": "ice",
+              "start": 1190.54,
+              "end": 1190.82
+            },
+            {
+              "text": "because",
+              "start": 1190.82,
+              "end": 1191.14
+            },
+            {
+              "text": "of",
+              "start": 1191.14,
+              "end": 1191.34
+            },
+            {
+              "text": "technical",
+              "start": 1191.34,
+              "end": 1191.72
+            },
+            {
+              "text": "issues.",
+              "start": 1191.72,
+              "end": 1192.1
+            },
+            {
+              "text": "But",
+              "start": 1193,
+              "end": 1193.62
+            },
+            {
+              "text": "other",
+              "start": 1193.62,
+              "end": 1194.24
+            },
+            {
+              "text": "than",
+              "start": 1194.24,
+              "end": 1194.42
+            },
+            {
+              "text": "that,",
+              "start": 1194.42,
+              "end": 1194.66
+            }
+          ]
+        },
+        {
+          "id": 313,
+          "text": "on the other platforms, they saw our game performing well on Steam and then said,",
+          "start": 1194.78,
+          "end": 1199.88,
+          "words": [
+            {
+              "text": "on",
+              "start": 1194.78,
+              "end": 1195.14
+            },
+            {
+              "text": "the",
+              "start": 1195.14,
+              "end": 1195.28
+            },
+            {
+              "text": "other",
+              "start": 1195.28,
+              "end": 1195.44
+            },
+            {
+              "text": "platforms,",
+              "start": 1195.44,
+              "end": 1195.84
+            },
+            {
+              "text": "they",
+              "start": 1196.1,
+              "end": 1197.18
+            },
+            {
+              "text": "saw",
+              "start": 1197.18,
+              "end": 1197.48
+            },
+            {
+              "text": "our",
+              "start": 1197.48,
+              "end": 1198.02
+            },
+            {
+              "text": "game",
+              "start": 1198.02,
+              "end": 1198.18
+            },
+            {
+              "text": "performing",
+              "start": 1198.18,
+              "end": 1198.6
+            },
+            {
+              "text": "well",
+              "start": 1198.6,
+              "end": 1198.92
+            },
+            {
+              "text": "on",
+              "start": 1198.92,
+              "end": 1199.14
+            },
+            {
+              "text": "Steam",
+              "start": 1199.14,
+              "end": 1199.34
+            },
+            {
+              "text": "and",
+              "start": 1199.34,
+              "end": 1199.62
+            },
+            {
+              "text": "then",
+              "start": 1199.62,
+              "end": 1199.76
+            },
+            {
+              "text": "said,",
+              "start": 1199.76,
+              "end": 1199.88
+            }
+          ]
+        }
+      ]
+    },
+    "right": {
+      "language": "en",
+      "durationSec": 2392,
+      "segments": [
+        {
+          "id": 0,
+          "text": "okay, this is a good fit. We want you on our platform. And this is like they do some sort of promotion there also.",
+          "start": 1199.52,
+          "end": 1209.34,
+          "words": [
+            {
+              "text": "okay,",
+              "start": 1199.52,
+              "end": 1200.12
+            },
+            {
+              "text": "this",
+              "start": 1200.12,
+              "end": 1200.72
+            },
+            {
+              "text": "is",
+              "start": 1200.72,
+              "end": 1201.76
+            },
+            {
+              "text": "a",
+              "start": 1201.76,
+              "end": 1201.86
+            },
+            {
+              "text": "good",
+              "start": 1201.86,
+              "end": 1201.96
+            },
+            {
+              "text": "fit.",
+              "start": 1201.96,
+              "end": 1202.22
+            },
+            {
+              "text": "We",
+              "start": 1202.36,
+              "end": 1202.76
+            },
+            {
+              "text": "want",
+              "start": 1202.76,
+              "end": 1202.98
+            },
+            {
+              "text": "you",
+              "start": 1202.98,
+              "end": 1203.12
+            },
+            {
+              "text": "on",
+              "start": 1203.12,
+              "end": 1203.26
+            },
+            {
+              "text": "our",
+              "start": 1203.26,
+              "end": 1203.38
+            },
+            {
+              "text": "platform.",
+              "start": 1203.38,
+              "end": 1203.76
+            },
+            {
+              "text": "And",
+              "start": 1204.58,
+              "end": 1205.18
+            },
+            {
+              "text": "this",
+              "start": 1205.18,
+              "end": 1205.8
+            },
+            {
+              "text": "is",
+              "start": 1205.8,
+              "end": 1205.94
+            },
+            {
+              "text": "like",
+              "start": 1205.94,
+              "end": 1206.18
+            },
+            {
+              "text": "they",
+              "start": 1206.18,
+              "end": 1206.62
+            },
+            {
+              "text": "do",
+              "start": 1206.62,
+              "end": 1206.92
+            },
+            {
+              "text": "some",
+              "start": 1206.92,
+              "end": 1207.82
+            },
+            {
+              "text": "sort",
+              "start": 1207.82,
+              "end": 1208.26
+            },
+            {
+              "text": "of",
+              "start": 1208.26,
+              "end": 1208.46
+            },
+            {
+              "text": "promotion",
+              "start": 1208.46,
+              "end": 1208.8
+            },
+            {
+              "text": "there",
+              "start": 1208.8,
+              "end": 1209.04
+            },
+            {
+              "text": "also.",
+              "start": 1209.04,
+              "end": 1209.34
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "text": "You get like a certain spot in their front end because they trust that when the game performed so well on PC",
+          "start": 1209.38,
+          "end": 1219.86,
+          "words": [
+            {
+              "text": "You",
+              "start": 1209.38,
+              "end": 1209.54
+            },
+            {
+              "text": "get",
+              "start": 1209.54,
+              "end": 1209.7
+            },
+            {
+              "text": "like",
+              "start": 1209.7,
+              "end": 1210.18
+            },
+            {
+              "text": "a",
+              "start": 1210.18,
+              "end": 1210.38
+            },
+            {
+              "text": "certain",
+              "start": 1210.38,
+              "end": 1210.94
+            },
+            {
+              "text": "spot",
+              "start": 1210.94,
+              "end": 1211.28
+            },
+            {
+              "text": "in",
+              "start": 1211.28,
+              "end": 1211.58
+            },
+            {
+              "text": "their",
+              "start": 1211.58,
+              "end": 1211.74
+            },
+            {
+              "text": "front",
+              "start": 1211.74,
+              "end": 1212.7
+            },
+            {
+              "text": "end",
+              "start": 1212.7,
+              "end": 1212.98
+            },
+            {
+              "text": "because",
+              "start": 1212.98,
+              "end": 1213.98
+            },
+            {
+              "text": "they",
+              "start": 1213.98,
+              "end": 1214.3
+            },
+            {
+              "text": "trust",
+              "start": 1214.3,
+              "end": 1214.58
+            },
+            {
+              "text": "that",
+              "start": 1214.58,
+              "end": 1215.2
+            },
+            {
+              "text": "when",
+              "start": 1215.2,
+              "end": 1216.58
+            },
+            {
+              "text": "the",
+              "start": 1216.58,
+              "end": 1216.78
+            },
+            {
+              "text": "game",
+              "start": 1216.78,
+              "end": 1217
+            },
+            {
+              "text": "performed",
+              "start": 1217,
+              "end": 1217.28
+            },
+            {
+              "text": "so",
+              "start": 1217.28,
+              "end": 1217.58
+            },
+            {
+              "text": "well",
+              "start": 1217.58,
+              "end": 1217.8
+            },
+            {
+              "text": "on",
+              "start": 1217.8,
+              "end": 1218.5
+            },
+            {
+              "text": "PC",
+              "start": 1218.5,
+              "end": 1219.86
+            }
+          ]
+        }
+      ]
+    },
+    "before": {
+      "language": "en",
+      "durationSec": 3108.672,
+      "segments": [
+        {
+          "id": 310,
+          "text": "the Switch is because they know it from Steam. That would be our point of view. And we were",
+          "start": 1172.94,
+          "end": 1179.8,
+          "words": [
+            {
+              "text": "the",
+              "start": 1172.94,
+              "end": 1173.04
+            },
+            {
+              "text": "Switch",
+              "start": 1173.04,
+              "end": 1173.28
+            },
+            {
+              "text": "is",
+              "start": 1173.28,
+              "end": 1174.04
+            },
+            {
+              "text": "because",
+              "start": 1174.04,
+              "end": 1174.28
+            },
+            {
+              "text": "they",
+              "start": 1174.28,
+              "end": 1174.54
+            },
+            {
+              "text": "know",
+              "start": 1174.54,
+              "end": 1174.76
+            },
+            {
+              "text": "it",
+              "start": 1174.76,
+              "end": 1174.94
+            },
+            {
+              "text": "from",
+              "start": 1174.94,
+              "end": 1175.12
+            },
+            {
+              "text": "Steam.",
+              "start": 1175.12,
+              "end": 1175.46
+            },
+            {
+              "text": "That",
+              "start": 1175.7,
+              "end": 1176.2
+            },
+            {
+              "text": "would",
+              "start": 1176.2,
+              "end": 1176.58
+            },
+            {
+              "text": "be",
+              "start": 1176.58,
+              "end": 1177.16
+            },
+            {
+              "text": "our",
+              "start": 1177.16,
+              "end": 1177.46
+            },
+            {
+              "text": "point",
+              "start": 1177.46,
+              "end": 1178.04
+            },
+            {
+              "text": "of",
+              "start": 1178.04,
+              "end": 1178.24
+            },
+            {
+              "text": "view.",
+              "start": 1178.24,
+              "end": 1178.46
+            },
+            {
+              "text": "And",
+              "start": 1178.6,
+              "end": 1178.74
+            },
+            {
+              "text": "we",
+              "start": 1178.74,
+              "end": 1178.98
+            },
+            {
+              "text": "were",
+              "start": 1178.98,
+              "end": 1179.8
+            }
+          ]
+        },
+        {
+          "id": 311,
+          "text": "kind of stumped how to approach this. Obviously that kind of problem solved itself when we",
+          "start": 1179.8,
+          "end": 1187.22,
+          "words": [
+            {
+              "text": "kind",
+              "start": 1179.8,
+              "end": 1180.22
+            },
+            {
+              "text": "of",
+              "start": 1180.22,
+              "end": 1180.58
+            },
+            {
+              "text": "stumped",
+              "start": 1180.58,
+              "end": 1181.06
+            },
+            {
+              "text": "how",
+              "start": 1181.06,
+              "end": 1181.74
+            },
+            {
+              "text": "to",
+              "start": 1181.74,
+              "end": 1181.94
+            },
+            {
+              "text": "approach",
+              "start": 1181.94,
+              "end": 1182.26
+            },
+            {
+              "text": "this.",
+              "start": 1182.26,
+              "end": 1182.82
+            },
+            {
+              "text": "Obviously",
+              "start": 1183.18,
+              "end": 1183.8
+            },
+            {
+              "text": "that",
+              "start": 1183.8,
+              "end": 1184.12
+            },
+            {
+              "text": "kind",
+              "start": 1184.12,
+              "end": 1184.44
+            },
+            {
+              "text": "of",
+              "start": 1184.44,
+              "end": 1184.66
+            },
+            {
+              "text": "problem",
+              "start": 1184.66,
+              "end": 1185.4
+            },
+            {
+              "text": "solved",
+              "start": 1185.4,
+              "end": 1186.22
+            },
+            {
+              "text": "itself",
+              "start": 1186.22,
+              "end": 1186.6
+            },
+            {
+              "text": "when",
+              "start": 1186.6,
+              "end": 1186.98
+            },
+            {
+              "text": "we",
+              "start": 1186.98,
+              "end": 1187.22
+            }
+          ]
+        },
+        {
+          "id": 312,
+          "text": "kind of put our porting switch on ice because of technical issues. But other than that,",
+          "start": 1187.22,
+          "end": 1194.66,
+          "words": [
+            {
+              "text": "kind",
+              "start": 1187.22,
+              "end": 1187.42
+            },
+            {
+              "text": "of",
+              "start": 1187.42,
+              "end": 1187.68
+            },
+            {
+              "text": "put",
+              "start": 1187.68,
+              "end": 1189.06
+            },
+            {
+              "text": "our",
+              "start": 1189.06,
+              "end": 1189.36
+            },
+            {
+              "text": "porting",
+              "start": 1189.36,
+              "end": 1189.98
+            },
+            {
+              "text": "switch",
+              "start": 1189.98,
+              "end": 1190.24
+            },
+            {
+              "text": "on",
+              "start": 1190.24,
+              "end": 1190.54
+            },
+            {
+              "text": "ice",
+              "start": 1190.54,
+              "end": 1190.82
+            },
+            {
+              "text": "because",
+              "start": 1190.82,
+              "end": 1191.14
+            },
+            {
+              "text": "of",
+              "start": 1191.14,
+              "end": 1191.34
+            },
+            {
+              "text": "technical",
+              "start": 1191.34,
+              "end": 1191.72
+            },
+            {
+              "text": "issues.",
+              "start": 1191.72,
+              "end": 1192.1
+            },
+            {
+              "text": "But",
+              "start": 1193,
+              "end": 1193.62
+            },
+            {
+              "text": "other",
+              "start": 1193.62,
+              "end": 1194.24
+            },
+            {
+              "text": "than",
+              "start": 1194.24,
+              "end": 1194.42
+            },
+            {
+              "text": "that,",
+              "start": 1194.42,
+              "end": 1194.66
+            }
+          ]
+        },
+        {
+          "id": 313,
+          "text": "on the other platforms, they saw our game performing well on Steam and then said,",
+          "start": 1194.78,
+          "end": 1199.88,
+          "words": [
+            {
+              "text": "on",
+              "start": 1194.78,
+              "end": 1195.14
+            },
+            {
+              "text": "the",
+              "start": 1195.14,
+              "end": 1195.28
+            },
+            {
+              "text": "other",
+              "start": 1195.28,
+              "end": 1195.44
+            },
+            {
+              "text": "platforms,",
+              "start": 1195.44,
+              "end": 1195.84
+            }
+          ]
+        },
+        {
+          "id": 314,
+          "text": "okay, this is a good fit. We want you on our platform. And this is like they do some sort of promotion there also.",
+          "start": 1199.52,
+          "end": 1209.34,
+          "words": [
+            {
+              "text": "okay,",
+              "start": 1199.52,
+              "end": 1200.12
+            },
+            {
+              "text": "this",
+              "start": 1200.12,
+              "end": 1200.72
+            },
+            {
+              "text": "is",
+              "start": 1200.72,
+              "end": 1201.76
+            },
+            {
+              "text": "a",
+              "start": 1201.76,
+              "end": 1201.86
+            },
+            {
+              "text": "good",
+              "start": 1201.86,
+              "end": 1201.96
+            },
+            {
+              "text": "fit.",
+              "start": 1201.96,
+              "end": 1202.22
+            },
+            {
+              "text": "We",
+              "start": 1202.36,
+              "end": 1202.76
+            },
+            {
+              "text": "want",
+              "start": 1202.76,
+              "end": 1202.98
+            },
+            {
+              "text": "you",
+              "start": 1202.98,
+              "end": 1203.12
+            },
+            {
+              "text": "on",
+              "start": 1203.12,
+              "end": 1203.26
+            },
+            {
+              "text": "our",
+              "start": 1203.26,
+              "end": 1203.38
+            },
+            {
+              "text": "platform.",
+              "start": 1203.38,
+              "end": 1203.76
+            },
+            {
+              "text": "And",
+              "start": 1204.58,
+              "end": 1205.18
+            },
+            {
+              "text": "this",
+              "start": 1205.18,
+              "end": 1205.8
+            },
+            {
+              "text": "is",
+              "start": 1205.8,
+              "end": 1205.94
+            },
+            {
+              "text": "like",
+              "start": 1205.94,
+              "end": 1206.18
+            },
+            {
+              "text": "they",
+              "start": 1206.18,
+              "end": 1206.62
+            },
+            {
+              "text": "do",
+              "start": 1206.62,
+              "end": 1206.92
+            },
+            {
+              "text": "some",
+              "start": 1206.92,
+              "end": 1207.82
+            },
+            {
+              "text": "sort",
+              "start": 1207.82,
+              "end": 1208.26
+            },
+            {
+              "text": "of",
+              "start": 1208.26,
+              "end": 1208.46
+            },
+            {
+              "text": "promotion",
+              "start": 1208.46,
+              "end": 1208.8
+            },
+            {
+              "text": "there",
+              "start": 1208.8,
+              "end": 1209.04
+            },
+            {
+              "text": "also.",
+              "start": 1209.04,
+              "end": 1209.34
+            }
+          ]
+        },
+        {
+          "id": 315,
+          "text": "You get like a certain spot in their front end because they trust that when the game performed so well on PC",
+          "start": 1209.38,
+          "end": 1219.86,
+          "words": [
+            {
+              "text": "You",
+              "start": 1209.38,
+              "end": 1209.54
+            },
+            {
+              "text": "get",
+              "start": 1209.54,
+              "end": 1209.7
+            },
+            {
+              "text": "like",
+              "start": 1209.7,
+              "end": 1210.18
+            },
+            {
+              "text": "a",
+              "start": 1210.18,
+              "end": 1210.38
+            },
+            {
+              "text": "certain",
+              "start": 1210.38,
+              "end": 1210.94
+            },
+            {
+              "text": "spot",
+              "start": 1210.94,
+              "end": 1211.28
+            },
+            {
+              "text": "in",
+              "start": 1211.28,
+              "end": 1211.58
+            },
+            {
+              "text": "their",
+              "start": 1211.58,
+              "end": 1211.74
+            },
+            {
+              "text": "front",
+              "start": 1211.74,
+              "end": 1212.7
+            },
+            {
+              "text": "end",
+              "start": 1212.7,
+              "end": 1212.98
+            },
+            {
+              "text": "because",
+              "start": 1212.98,
+              "end": 1213.98
+            },
+            {
+              "text": "they",
+              "start": 1213.98,
+              "end": 1214.3
+            },
+            {
+              "text": "trust",
+              "start": 1214.3,
+              "end": 1214.58
+            },
+            {
+              "text": "that",
+              "start": 1214.58,
+              "end": 1215.2
+            },
+            {
+              "text": "when",
+              "start": 1215.2,
+              "end": 1216.58
+            },
+            {
+              "text": "the",
+              "start": 1216.58,
+              "end": 1216.78
+            },
+            {
+              "text": "game",
+              "start": 1216.78,
+              "end": 1217
+            },
+            {
+              "text": "performed",
+              "start": 1217,
+              "end": 1217.28
+            },
+            {
+              "text": "so",
+              "start": 1217.28,
+              "end": 1217.58
+            },
+            {
+              "text": "well",
+              "start": 1217.58,
+              "end": 1217.8
+            },
+            {
+              "text": "on",
+              "start": 1217.8,
+              "end": 1218.5
+            },
+            {
+              "text": "PC",
+              "start": 1218.5,
+              "end": 1219.86
+            }
+          ]
+        }
+      ]
+    },
+    "patch": {
+      "language": "en",
+      "durationSec": 1216,
+      "segments": [
+        {
+          "id": 0,
+          "text": "That would be our our point of view and and we we were kind of stumped how to how to approach this",
+          "start": 1176,
+          "end": 1182.8,
+          "words": [
+            {
+              "text": "That",
+              "start": 1176,
+              "end": 1176.22
+            },
+            {
+              "text": "would",
+              "start": 1176.22,
+              "end": 1176.58
+            },
+            {
+              "text": "be",
+              "start": 1176.58,
+              "end": 1176.76
+            },
+            {
+              "text": "our",
+              "start": 1176.76,
+              "end": 1177.4
+            },
+            {
+              "text": "our",
+              "start": 1177.4,
+              "end": 1177.76
+            },
+            {
+              "text": "point",
+              "start": 1177.76,
+              "end": 1178.06
+            },
+            {
+              "text": "of",
+              "start": 1178.06,
+              "end": 1178.24
+            },
+            {
+              "text": "view",
+              "start": 1178.24,
+              "end": 1178.46
+            },
+            {
+              "text": "and",
+              "start": 1178.46,
+              "end": 1178.72
+            },
+            {
+              "text": "and",
+              "start": 1178.72,
+              "end": 1178.84
+            },
+            {
+              "text": "we",
+              "start": 1178.84,
+              "end": 1178.98
+            },
+            {
+              "text": "we",
+              "start": 1178.98,
+              "end": 1179.58
+            },
+            {
+              "text": "were",
+              "start": 1179.58,
+              "end": 1179.88
+            },
+            {
+              "text": "kind",
+              "start": 1179.88,
+              "end": 1180.36
+            },
+            {
+              "text": "of",
+              "start": 1180.36,
+              "end": 1180.58
+            },
+            {
+              "text": "stumped",
+              "start": 1180.58,
+              "end": 1181.04
+            },
+            {
+              "text": "how",
+              "start": 1181.04,
+              "end": 1181.74
+            },
+            {
+              "text": "to",
+              "start": 1181.74,
+              "end": 1181.94
+            },
+            {
+              "text": "how",
+              "start": 1181.94,
+              "end": 1182.06
+            },
+            {
+              "text": "to",
+              "start": 1182.06,
+              "end": 1182.24
+            },
+            {
+              "text": "approach",
+              "start": 1182.24,
+              "end": 1182.52
+            },
+            {
+              "text": "this",
+              "start": 1182.52,
+              "end": 1182.8
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "text": "obviously that that kind of that problem solved itself when we kind of",
+          "start": 1183.49,
+          "end": 1187.66,
+          "words": [
+            {
+              "text": "obviously",
+              "start": 1183.49,
+              "end": 1183.76
+            },
+            {
+              "text": "that",
+              "start": 1183.76,
+              "end": 1184.12
+            },
+            {
+              "text": "that",
+              "start": 1184.12,
+              "end": 1184.3
+            },
+            {
+              "text": "kind",
+              "start": 1184.3,
+              "end": 1184.52
+            },
+            {
+              "text": "of",
+              "start": 1184.52,
+              "end": 1184.72
+            },
+            {
+              "text": "that",
+              "start": 1184.72,
+              "end": 1185.24
+            },
+            {
+              "text": "problem",
+              "start": 1185.24,
+              "end": 1185.84
+            },
+            {
+              "text": "solved",
+              "start": 1185.84,
+              "end": 1186.22
+            },
+            {
+              "text": "itself",
+              "start": 1186.22,
+              "end": 1186.58
+            },
+            {
+              "text": "when",
+              "start": 1186.58,
+              "end": 1186.98
+            },
+            {
+              "text": "we",
+              "start": 1186.98,
+              "end": 1187.18
+            },
+            {
+              "text": "kind",
+              "start": 1187.18,
+              "end": 1187.4
+            },
+            {
+              "text": "of",
+              "start": 1187.4,
+              "end": 1187.66
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "text": "Put our porting for switch on ice because of technical issues",
+          "start": 1188.5,
+          "end": 1192.08,
+          "words": [
+            {
+              "text": "Put",
+              "start": 1188.5,
+              "end": 1189.04
+            },
+            {
+              "text": "our",
+              "start": 1189.04,
+              "end": 1189.34
+            },
+            {
+              "text": "porting",
+              "start": 1189.34,
+              "end": 1189.98
+            },
+            {
+              "text": "for",
+              "start": 1189.98,
+              "end": 1190.08
+            },
+            {
+              "text": "switch",
+              "start": 1190.08,
+              "end": 1190.38
+            },
+            {
+              "text": "on",
+              "start": 1190.38,
+              "end": 1190.54
+            },
+            {
+              "text": "ice",
+              "start": 1190.54,
+              "end": 1190.82
+            },
+            {
+              "text": "because",
+              "start": 1190.82,
+              "end": 1191.08
+            },
+            {
+              "text": "of",
+              "start": 1191.08,
+              "end": 1191.34
+            },
+            {
+              "text": "technical",
+              "start": 1191.34,
+              "end": 1191.7
+            },
+            {
+              "text": "issues",
+              "start": 1191.7,
+              "end": 1192.08
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "text": "But other than that on the other platforms",
+          "start": 1193.14,
+          "end": 1195.82,
+          "words": [
+            {
+              "text": "But",
+              "start": 1193.14,
+              "end": 1193.68
+            },
+            {
+              "text": "other",
+              "start": 1193.68,
+              "end": 1194.22
+            },
+            {
+              "text": "than",
+              "start": 1194.22,
+              "end": 1194.42
+            },
+            {
+              "text": "that",
+              "start": 1194.42,
+              "end": 1194.64
+            },
+            {
+              "text": "on",
+              "start": 1194.64,
+              "end": 1195.12
+            },
+            {
+              "text": "the",
+              "start": 1195.12,
+              "end": 1195.28
+            },
+            {
+              "text": "other",
+              "start": 1195.28,
+              "end": 1195.42
+            },
+            {
+              "text": "platforms",
+              "start": 1195.42,
+              "end": 1195.82
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "text": "They saw our game performing well on Steam and then said okay",
+          "start": 1196.62,
+          "end": 1200.46,
+          "words": [
+            {
+              "text": "They",
+              "start": 1196.62,
+              "end": 1197.16
+            },
+            {
+              "text": "saw",
+              "start": 1197.16,
+              "end": 1197.48
+            },
+            {
+              "text": "our",
+              "start": 1197.48,
+              "end": 1198
+            },
+            {
+              "text": "game",
+              "start": 1198,
+              "end": 1198.2
+            },
+            {
+              "text": "performing",
+              "start": 1198.2,
+              "end": 1198.6
+            },
+            {
+              "text": "well",
+              "start": 1198.6,
+              "end": 1198.92
+            },
+            {
+              "text": "on",
+              "start": 1198.92,
+              "end": 1199.1
+            },
+            {
+              "text": "Steam",
+              "start": 1199.1,
+              "end": 1199.32
+            },
+            {
+              "text": "and",
+              "start": 1199.32,
+              "end": 1199.62
+            },
+            {
+              "text": "then",
+              "start": 1199.62,
+              "end": 1199.74
+            },
+            {
+              "text": "said",
+              "start": 1199.74,
+              "end": 1199.96
+            },
+            {
+              "text": "okay",
+              "start": 1199.96,
+              "end": 1200.46
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "text": "This is a good fit. We want you on our platform",
+          "start": 1201.06,
+          "end": 1203.78,
+          "words": [
+            {
+              "text": "This",
+              "start": 1201.06,
+              "end": 1201.6
+            },
+            {
+              "text": "is",
+              "start": 1201.6,
+              "end": 1201.76
+            },
+            {
+              "text": "a",
+              "start": 1201.76,
+              "end": 1201.86
+            },
+            {
+              "text": "good",
+              "start": 1201.86,
+              "end": 1201.98
+            },
+            {
+              "text": "fit.",
+              "start": 1201.98,
+              "end": 1202.2
+            },
+            {
+              "text": "We",
+              "start": 1202.38,
+              "end": 1202.76
+            },
+            {
+              "text": "want",
+              "start": 1202.76,
+              "end": 1202.98
+            },
+            {
+              "text": "you",
+              "start": 1202.98,
+              "end": 1203.12
+            },
+            {
+              "text": "on",
+              "start": 1203.12,
+              "end": 1203.24
+            },
+            {
+              "text": "our",
+              "start": 1203.24,
+              "end": 1203.36
+            },
+            {
+              "text": "platform",
+              "start": 1203.36,
+              "end": 1203.78
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "text": "form and and this is like like they do some some sort of promotion there also",
+          "start": 1203.78,
+          "end": 1209.3,
+          "words": [
+            {
+              "text": "form",
+              "start": 1203.78,
+              "end": 1204.78
+            },
+            {
+              "text": "and",
+              "start": 1204.78,
+              "end": 1205.2
+            },
+            {
+              "text": "and",
+              "start": 1205.2,
+              "end": 1205.5
+            },
+            {
+              "text": "this",
+              "start": 1205.5,
+              "end": 1205.8
+            },
+            {
+              "text": "is",
+              "start": 1205.8,
+              "end": 1205.92
+            },
+            {
+              "text": "like",
+              "start": 1205.92,
+              "end": 1206.2
+            },
+            {
+              "text": "like",
+              "start": 1206.2,
+              "end": 1206.5
+            },
+            {
+              "text": "they",
+              "start": 1206.5,
+              "end": 1206.7
+            },
+            {
+              "text": "do",
+              "start": 1206.7,
+              "end": 1206.92
+            },
+            {
+              "text": "some",
+              "start": 1206.92,
+              "end": 1207.8
+            },
+            {
+              "text": "some",
+              "start": 1207.8,
+              "end": 1208.12
+            },
+            {
+              "text": "sort",
+              "start": 1208.12,
+              "end": 1208.3
+            },
+            {
+              "text": "of",
+              "start": 1208.3,
+              "end": 1208.48
+            },
+            {
+              "text": "promotion",
+              "start": 1208.48,
+              "end": 1208.8
+            },
+            {
+              "text": "there",
+              "start": 1208.8,
+              "end": 1209.04
+            },
+            {
+              "text": "also",
+              "start": 1209.04,
+              "end": 1209.3
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "text": "you get you get like a certain spot in there in the front end because they",
+          "start": 1209.3,
+          "end": 1214.28,
+          "words": [
+            {
+              "text": "you",
+              "start": 1209.3,
+              "end": 1209.54
+            },
+            {
+              "text": "get",
+              "start": 1209.54,
+              "end": 1209.72
+            },
+            {
+              "text": "you",
+              "start": 1209.72,
+              "end": 1209.88
+            },
+            {
+              "text": "get",
+              "start": 1209.88,
+              "end": 1210.02
+            },
+            {
+              "text": "like",
+              "start": 1210.02,
+              "end": 1210.18
+            },
+            {
+              "text": "a",
+              "start": 1210.18,
+              "end": 1210.36
+            },
+            {
+              "text": "certain",
+              "start": 1210.36,
+              "end": 1210.92
+            },
+            {
+              "text": "spot",
+              "start": 1210.92,
+              "end": 1211.3
+            },
+            {
+              "text": "in",
+              "start": 1211.3,
+              "end": 1211.54
+            },
+            {
+              "text": "there",
+              "start": 1211.54,
+              "end": 1211.74
+            },
+            {
+              "text": "in",
+              "start": 1211.74,
+              "end": 1212.42
+            },
+            {
+              "text": "the",
+              "start": 1212.42,
+              "end": 1212.5
+            },
+            {
+              "text": "front",
+              "start": 1212.5,
+              "end": 1212.72
+            },
+            {
+              "text": "end",
+              "start": 1212.72,
+              "end": 1213
+            },
+            {
+              "text": "because",
+              "start": 1213,
+              "end": 1213.98
+            },
+            {
+              "text": "they",
+              "start": 1213.98,
+              "end": 1214.28
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "text": "trust that",
+          "start": 1214.28,
+          "end": 1215.14,
+          "words": [
+            {
+              "text": "trust",
+              "start": 1214.28,
+              "end": 1214.58
+            },
+            {
+              "text": "that",
+              "start": 1214.58,
+              "end": 1215.14
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "source": "godot-panel.mp4",
+    "seam": 2388,
+    "left": {
+      "language": "en",
+      "durationSec": 2392,
+      "segments": [
+        {
+          "id": 318,
+          "text": "send out keys to streamers because back then survivor likes were like the the hype",
+          "start": 2364.6,
+          "end": 2370.8199999999997,
+          "words": [
+            {
+              "text": "send",
+              "start": 2364.6,
+              "end": 2365.08
+            },
+            {
+              "text": "out",
+              "start": 2365.08,
+              "end": 2365.26
+            },
+            {
+              "text": "keys",
+              "start": 2365.26,
+              "end": 2365.48
+            },
+            {
+              "text": "to",
+              "start": 2365.48,
+              "end": 2365.7200000000003
+            },
+            {
+              "text": "streamers",
+              "start": 2365.7200000000003,
+              "end": 2366.26
+            },
+            {
+              "text": "because",
+              "start": 2366.26,
+              "end": 2366.8
+            },
+            {
+              "text": "back",
+              "start": 2366.8,
+              "end": 2367.4
+            },
+            {
+              "text": "then",
+              "start": 2367.4,
+              "end": 2367.74
+            },
+            {
+              "text": "survivor",
+              "start": 2367.74,
+              "end": 2368.56
+            },
+            {
+              "text": "likes",
+              "start": 2368.56,
+              "end": 2368.8599999999997
+            },
+            {
+              "text": "were",
+              "start": 2368.8599999999997,
+              "end": 2369.2200000000003
+            },
+            {
+              "text": "like",
+              "start": 2369.2200000000003,
+              "end": 2369.52
+            },
+            {
+              "text": "the",
+              "start": 2369.52,
+              "end": 2370.1400000000003
+            },
+            {
+              "text": "the",
+              "start": 2370.1400000000003,
+              "end": 2370.4
+            },
+            {
+              "text": "hype",
+              "start": 2370.4,
+              "end": 2370.8199999999997
+            }
+          ]
+        },
+        {
+          "id": 319,
+          "text": "and streamers were playing it a lot and so so we were like right in the middle of of this whole",
+          "start": 2371.66,
+          "end": 2376.98,
+          "words": [
+            {
+              "text": "and",
+              "start": 2371.66,
+              "end": 2371.96
+            },
+            {
+              "text": "streamers",
+              "start": 2371.96,
+              "end": 2372.6
+            },
+            {
+              "text": "were",
+              "start": 2372.6,
+              "end": 2372.7200000000003
+            },
+            {
+              "text": "playing",
+              "start": 2372.7200000000003,
+              "end": 2372.92
+            },
+            {
+              "text": "it",
+              "start": 2372.92,
+              "end": 2373.08
+            },
+            {
+              "text": "a",
+              "start": 2373.08,
+              "end": 2373.1800000000003
+            },
+            {
+              "text": "lot",
+              "start": 2373.1800000000003,
+              "end": 2373.3599999999997
+            },
+            {
+              "text": "and",
+              "start": 2373.3599999999997,
+              "end": 2374.1400000000003
+            },
+            {
+              "text": "so",
+              "start": 2374.1400000000003,
+              "end": 2374.52
+            },
+            {
+              "text": "so",
+              "start": 2374.52,
+              "end": 2374.7200000000003
+            },
+            {
+              "text": "we",
+              "start": 2374.7200000000003,
+              "end": 2374.98
+            },
+            {
+              "text": "were",
+              "start": 2374.98,
+              "end": 2375.1
+            },
+            {
+              "text": "like",
+              "start": 2375.1,
+              "end": 2375.26
+            },
+            {
+              "text": "right",
+              "start": 2375.26,
+              "end": 2375.6400000000003
+            },
+            {
+              "text": "in",
+              "start": 2375.6400000000003,
+              "end": 2375.92
+            },
+            {
+              "text": "the",
+              "start": 2375.92,
+              "end": 2376
+            },
+            {
+              "text": "middle",
+              "start": 2376,
+              "end": 2376.2
+            },
+            {
+              "text": "of",
+              "start": 2376.2,
+              "end": 2376.4
+            },
+            {
+              "text": "of",
+              "start": 2376.4,
+              "end": 2376.58
+            },
+            {
+              "text": "this",
+              "start": 2376.58,
+              "end": 2376.8
+            },
+            {
+              "text": "whole",
+              "start": 2376.8,
+              "end": 2376.98
+            }
+          ]
+        },
+        {
+          "id": 320,
+          "text": "wave today's today you would you would probably not get such a big response than we did um so",
+          "start": 2376.98,
+          "end": 2384.34,
+          "words": [
+            {
+              "text": "wave",
+              "start": 2376.98,
+              "end": 2377.52
+            },
+            {
+              "text": "today's",
+              "start": 2377.52,
+              "end": 2378.46
+            },
+            {
+              "text": "today",
+              "start": 2378.46,
+              "end": 2378.8599999999997
+            },
+            {
+              "text": "you",
+              "start": 2378.8599999999997,
+              "end": 2379.1800000000003
+            },
+            {
+              "text": "would",
+              "start": 2379.1800000000003,
+              "end": 2379.34
+            },
+            {
+              "text": "you",
+              "start": 2379.34,
+              "end": 2379.62
+            },
+            {
+              "text": "would",
+              "start": 2379.62,
+              "end": 2379.8199999999997
+            },
+            {
+              "text": "probably",
+              "start": 2379.8199999999997,
+              "end": 2380.8
+            },
+            {
+              "text": "not",
+              "start": 2380.8,
+              "end": 2381.38
+            },
+            {
+              "text": "get",
+              "start": 2381.38,
+              "end": 2381.7200000000003
+            },
+            {
+              "text": "such",
+              "start": 2381.7200000000003,
+              "end": 2381.94
+            },
+            {
+              "text": "a",
+              "start": 2381.94,
+              "end": 2382.1
+            },
+            {
+              "text": "big",
+              "start": 2382.1,
+              "end": 2382.2200000000003
+            },
+            {
+              "text": "response",
+              "start": 2382.2200000000003,
+              "end": 2382.6400000000003
+            },
+            {
+              "text": "than",
+              "start": 2382.6400000000003,
+              "end": 2382.9
+            },
+            {
+              "text": "we",
+              "start": 2382.9,
+              "end": 2383.06
+            },
+            {
+              "text": "did",
+              "start": 2383.06,
+              "end": 2383.2200000000003
+            },
+            {
+              "text": "um",
+              "start": 2383.2200000000003,
+              "end": 2383.96
+            },
+            {
+              "text": "so",
+              "start": 2383.96,
+              "end": 2384.34
+            }
+          ]
+        },
+        {
+          "id": 321,
+          "text": "So the wave is over, so you would have to think of",
+          "start": 2384.34,
+          "end": 2386.6,
+          "words": [
+            {
+              "text": "So",
+              "start": 2384.34,
+              "end": 2384.44
+            },
+            {
+              "text": "the",
+              "start": 2384.44,
+              "end": 2384.7
+            },
+            {
+              "text": "wave",
+              "start": 2384.7,
+              "end": 2384.92
+            },
+            {
+              "text": "is",
+              "start": 2384.92,
+              "end": 2385.06
+            },
+            {
+              "text": "over,",
+              "start": 2385.06,
+              "end": 2385.2799999999997
+            },
+            {
+              "text": "so",
+              "start": 2385.38,
+              "end": 2385.52
+            },
+            {
+              "text": "you",
+              "start": 2385.52,
+              "end": 2385.6400000000003
+            },
+            {
+              "text": "would",
+              "start": 2385.6400000000003,
+              "end": 2385.8199999999997
+            },
+            {
+              "text": "have",
+              "start": 2385.8199999999997,
+              "end": 2385.98
+            },
+            {
+              "text": "to",
+              "start": 2385.98,
+              "end": 2386.24
+            },
+            {
+              "text": "think",
+              "start": 2386.24,
+              "end": 2386.48
+            },
+            {
+              "text": "of",
+              "start": 2386.48,
+              "end": 2386.6
+            }
+          ]
+        },
+        {
+          "id": 322,
+          "text": "something else.",
+          "start": 2386.6,
+          "end": 2387.02,
+          "words": [
+            {
+              "text": "something",
+              "start": 2386.6,
+              "end": 2386.7799999999997
+            },
+            {
+              "text": "else.",
+              "start": 2386.7799999999997,
+              "end": 2387.02
+            }
+          ]
+        },
+        {
+          "id": 323,
+          "text": "But back then, it worked.",
+          "start": 2387.12,
+          "end": 2388.54,
+          "words": [
+            {
+              "text": "But",
+              "start": 2387.12,
+              "end": 2387.26
+            },
+            {
+              "text": "back",
+              "start": 2387.26,
+              "end": 2387.84
+            },
+            {
+              "text": "then,",
+              "start": 2387.84,
+              "end": 2388
+            },
+            {
+              "text": "it",
+              "start": 2388.08,
+              "end": 2388.2200000000003
+            },
+            {
+              "text": "worked.",
+              "start": 2388.2200000000003,
+              "end": 2388.54
+            }
+          ]
+        },
+        {
+          "id": 324,
+          "text": "And we realized, OK, the demo is actually catching",
+          "start": 2389.54,
+          "end": 2391.76,
+          "words": [
+            {
+              "text": "And",
+              "start": 2389.54,
+              "end": 2389.8599999999997
+            },
+            {
+              "text": "we",
+              "start": 2389.8599999999997,
+              "end": 2389.96
+            },
+            {
+              "text": "realized,",
+              "start": 2389.96,
+              "end": 2390.24
+            },
+            {
+              "text": "OK,",
+              "start": 2390.38,
+              "end": 2390.5
+            },
+            {
+              "text": "the",
+              "start": 2390.62,
+              "end": 2390.67
+            },
+            {
+              "text": "demo",
+              "start": 2390.67,
+              "end": 2390.84
+            },
+            {
+              "text": "is",
+              "start": 2390.84,
+              "end": 2391
+            },
+            {
+              "text": "actually",
+              "start": 2391,
+              "end": 2391.46
+            },
+            {
+              "text": "catching",
+              "start": 2391.46,
+              "end": 2391.76
+            }
+          ]
+        }
+      ]
+    },
+    "right": {
+      "language": "en",
+      "durationSec": 3108.672,
+      "segments": [
+        {
+          "id": 0,
+          "text": "up. We got like a couple of hundred reviews within within the first week. And we said, OK, cool. Let's let's roll with it. Another three months. After three months, we released it. And then still three people only. We released it and the access and it's an access we got our money back within a couple of weeks.",
+          "start": 2384,
+          "end": 2413.3,
+          "words": [
+            {
+              "text": "up.",
+              "start": 2384,
+              "end": 2384.15
+            },
+            {
+              "text": "We",
+              "start": 2386.8,
+              "end": 2387.32
+            },
+            {
+              "text": "got",
+              "start": 2387.32,
+              "end": 2390.16
+            },
+            {
+              "text": "like",
+              "start": 2390.16,
+              "end": 2392.44
+            },
+            {
+              "text": "a",
+              "start": 2392.44,
+              "end": 2392.86
+            },
+            {
+              "text": "couple",
+              "start": 2392.86,
+              "end": 2393.4
+            },
+            {
+              "text": "of",
+              "start": 2393.4,
+              "end": 2393.5
+            },
+            {
+              "text": "hundred",
+              "start": 2393.5,
+              "end": 2393.76
+            },
+            {
+              "text": "reviews",
+              "start": 2393.76,
+              "end": 2394.18
+            },
+            {
+              "text": "within",
+              "start": 2394.18,
+              "end": 2395
+            },
+            {
+              "text": "within",
+              "start": 2395,
+              "end": 2395.64
+            },
+            {
+              "text": "the",
+              "start": 2395.64,
+              "end": 2395.82
+            },
+            {
+              "text": "first",
+              "start": 2395.82,
+              "end": 2396
+            },
+            {
+              "text": "week.",
+              "start": 2396,
+              "end": 2396.28
+            },
+            {
+              "text": "And",
+              "start": 2396.78,
+              "end": 2397.3
+            },
+            {
+              "text": "we",
+              "start": 2397.3,
+              "end": 2397.44
+            },
+            {
+              "text": "said,",
+              "start": 2397.44,
+              "end": 2397.62
+            },
+            {
+              "text": "OK,",
+              "start": 2397.66,
+              "end": 2397.8
+            },
+            {
+              "text": "cool.",
+              "start": 2397.9,
+              "end": 2398.14
+            },
+            {
+              "text": "Let's",
+              "start": 2398.48,
+              "end": 2399
+            },
+            {
+              "text": "let's",
+              "start": 2399,
+              "end": 2399.26
+            },
+            {
+              "text": "roll",
+              "start": 2399.26,
+              "end": 2399.34
+            },
+            {
+              "text": "with",
+              "start": 2399.34,
+              "end": 2399.52
+            },
+            {
+              "text": "it.",
+              "start": 2399.52,
+              "end": 2399.72
+            },
+            {
+              "text": "Another",
+              "start": 2399.76,
+              "end": 2399.96
+            },
+            {
+              "text": "three",
+              "start": 2399.96,
+              "end": 2400.18
+            },
+            {
+              "text": "months.",
+              "start": 2400.18,
+              "end": 2400.44
+            },
+            {
+              "text": "After",
+              "start": 2400.74,
+              "end": 2401.26
+            },
+            {
+              "text": "three",
+              "start": 2401.26,
+              "end": 2401.48
+            },
+            {
+              "text": "months,",
+              "start": 2401.48,
+              "end": 2401.72
+            },
+            {
+              "text": "we",
+              "start": 2401.84,
+              "end": 2402.06
+            },
+            {
+              "text": "released",
+              "start": 2402.06,
+              "end": 2402.4
+            },
+            {
+              "text": "it.",
+              "start": 2402.4,
+              "end": 2402.64
+            },
+            {
+              "text": "And",
+              "start": 2402.74,
+              "end": 2403.04
+            },
+            {
+              "text": "then",
+              "start": 2403.04,
+              "end": 2403.2
+            },
+            {
+              "text": "still",
+              "start": 2403.2,
+              "end": 2403.68
+            },
+            {
+              "text": "three",
+              "start": 2403.68,
+              "end": 2403.92
+            },
+            {
+              "text": "people",
+              "start": 2403.92,
+              "end": 2404.28
+            },
+            {
+              "text": "only.",
+              "start": 2404.28,
+              "end": 2404.94
+            },
+            {
+              "text": "We",
+              "start": 2405.62,
+              "end": 2406.14
+            },
+            {
+              "text": "released",
+              "start": 2406.14,
+              "end": 2406.46
+            },
+            {
+              "text": "it",
+              "start": 2406.46,
+              "end": 2406.7
+            },
+            {
+              "text": "and",
+              "start": 2406.7,
+              "end": 2407.34
+            },
+            {
+              "text": "the",
+              "start": 2407.34,
+              "end": 2407.46
+            },
+            {
+              "text": "access",
+              "start": 2407.46,
+              "end": 2407.82
+            },
+            {
+              "text": "and",
+              "start": 2407.82,
+              "end": 2408.18
+            },
+            {
+              "text": "it's",
+              "start": 2408.18,
+              "end": 2408.64
+            },
+            {
+              "text": "an",
+              "start": 2408.64,
+              "end": 2408.9
+            },
+            {
+              "text": "access",
+              "start": 2408.9,
+              "end": 2409.32
+            },
+            {
+              "text": "we",
+              "start": 2409.32,
+              "end": 2409.74
+            },
+            {
+              "text": "got",
+              "start": 2409.74,
+              "end": 2410.56
+            },
+            {
+              "text": "our",
+              "start": 2410.56,
+              "end": 2411
+            },
+            {
+              "text": "money",
+              "start": 2411,
+              "end": 2411.48
+            },
+            {
+              "text": "back",
+              "start": 2411.48,
+              "end": 2411.68
+            },
+            {
+              "text": "within",
+              "start": 2411.68,
+              "end": 2412.02
+            },
+            {
+              "text": "a",
+              "start": 2412.02,
+              "end": 2412.66
+            },
+            {
+              "text": "couple",
+              "start": 2412.66,
+              "end": 2412.94
+            },
+            {
+              "text": "of",
+              "start": 2412.94,
+              "end": 2413.06
+            },
+            {
+              "text": "weeks.",
+              "start": 2413.06,
+              "end": 2413.3
+            }
+          ]
+        }
+      ]
+    },
+    "before": {
+      "language": "en",
+      "durationSec": 3108.672,
+      "segments": [
+        {
+          "id": 632,
+          "text": "send out keys to streamers because back then survivor likes were like the the hype",
+          "start": 2364.6,
+          "end": 2370.8199999999997,
+          "words": [
+            {
+              "text": "send",
+              "start": 2364.6,
+              "end": 2365.08
+            },
+            {
+              "text": "out",
+              "start": 2365.08,
+              "end": 2365.26
+            },
+            {
+              "text": "keys",
+              "start": 2365.26,
+              "end": 2365.48
+            },
+            {
+              "text": "to",
+              "start": 2365.48,
+              "end": 2365.7200000000003
+            },
+            {
+              "text": "streamers",
+              "start": 2365.7200000000003,
+              "end": 2366.26
+            },
+            {
+              "text": "because",
+              "start": 2366.26,
+              "end": 2366.8
+            },
+            {
+              "text": "back",
+              "start": 2366.8,
+              "end": 2367.4
+            },
+            {
+              "text": "then",
+              "start": 2367.4,
+              "end": 2367.74
+            },
+            {
+              "text": "survivor",
+              "start": 2367.74,
+              "end": 2368.56
+            },
+            {
+              "text": "likes",
+              "start": 2368.56,
+              "end": 2368.8599999999997
+            },
+            {
+              "text": "were",
+              "start": 2368.8599999999997,
+              "end": 2369.2200000000003
+            },
+            {
+              "text": "like",
+              "start": 2369.2200000000003,
+              "end": 2369.52
+            },
+            {
+              "text": "the",
+              "start": 2369.52,
+              "end": 2370.1400000000003
+            },
+            {
+              "text": "the",
+              "start": 2370.1400000000003,
+              "end": 2370.4
+            },
+            {
+              "text": "hype",
+              "start": 2370.4,
+              "end": 2370.8199999999997
+            }
+          ]
+        },
+        {
+          "id": 633,
+          "text": "and streamers were playing it a lot and so so we were like right in the middle of of this whole",
+          "start": 2371.66,
+          "end": 2376.98,
+          "words": [
+            {
+              "text": "and",
+              "start": 2371.66,
+              "end": 2371.96
+            },
+            {
+              "text": "streamers",
+              "start": 2371.96,
+              "end": 2372.6
+            },
+            {
+              "text": "were",
+              "start": 2372.6,
+              "end": 2372.7200000000003
+            },
+            {
+              "text": "playing",
+              "start": 2372.7200000000003,
+              "end": 2372.92
+            },
+            {
+              "text": "it",
+              "start": 2372.92,
+              "end": 2373.08
+            },
+            {
+              "text": "a",
+              "start": 2373.08,
+              "end": 2373.1800000000003
+            },
+            {
+              "text": "lot",
+              "start": 2373.1800000000003,
+              "end": 2373.3599999999997
+            },
+            {
+              "text": "and",
+              "start": 2373.3599999999997,
+              "end": 2374.1400000000003
+            },
+            {
+              "text": "so",
+              "start": 2374.1400000000003,
+              "end": 2374.52
+            },
+            {
+              "text": "so",
+              "start": 2374.52,
+              "end": 2374.7200000000003
+            },
+            {
+              "text": "we",
+              "start": 2374.7200000000003,
+              "end": 2374.98
+            },
+            {
+              "text": "were",
+              "start": 2374.98,
+              "end": 2375.1
+            },
+            {
+              "text": "like",
+              "start": 2375.1,
+              "end": 2375.26
+            },
+            {
+              "text": "right",
+              "start": 2375.26,
+              "end": 2375.6400000000003
+            },
+            {
+              "text": "in",
+              "start": 2375.6400000000003,
+              "end": 2375.92
+            },
+            {
+              "text": "the",
+              "start": 2375.92,
+              "end": 2376
+            },
+            {
+              "text": "middle",
+              "start": 2376,
+              "end": 2376.2
+            },
+            {
+              "text": "of",
+              "start": 2376.2,
+              "end": 2376.4
+            },
+            {
+              "text": "of",
+              "start": 2376.4,
+              "end": 2376.58
+            },
+            {
+              "text": "this",
+              "start": 2376.58,
+              "end": 2376.8
+            },
+            {
+              "text": "whole",
+              "start": 2376.8,
+              "end": 2376.98
+            }
+          ]
+        },
+        {
+          "id": 634,
+          "text": "wave today's today you would you would probably not get such a big response than we did um so",
+          "start": 2376.98,
+          "end": 2384.34,
+          "words": [
+            {
+              "text": "wave",
+              "start": 2376.98,
+              "end": 2377.52
+            },
+            {
+              "text": "today's",
+              "start": 2377.52,
+              "end": 2378.46
+            },
+            {
+              "text": "today",
+              "start": 2378.46,
+              "end": 2378.8599999999997
+            },
+            {
+              "text": "you",
+              "start": 2378.8599999999997,
+              "end": 2379.1800000000003
+            },
+            {
+              "text": "would",
+              "start": 2379.1800000000003,
+              "end": 2379.34
+            },
+            {
+              "text": "you",
+              "start": 2379.34,
+              "end": 2379.62
+            },
+            {
+              "text": "would",
+              "start": 2379.62,
+              "end": 2379.8199999999997
+            },
+            {
+              "text": "probably",
+              "start": 2379.8199999999997,
+              "end": 2380.8
+            },
+            {
+              "text": "not",
+              "start": 2380.8,
+              "end": 2381.38
+            },
+            {
+              "text": "get",
+              "start": 2381.38,
+              "end": 2381.7200000000003
+            },
+            {
+              "text": "such",
+              "start": 2381.7200000000003,
+              "end": 2381.94
+            },
+            {
+              "text": "a",
+              "start": 2381.94,
+              "end": 2382.1
+            },
+            {
+              "text": "big",
+              "start": 2382.1,
+              "end": 2382.2200000000003
+            },
+            {
+              "text": "response",
+              "start": 2382.2200000000003,
+              "end": 2382.6400000000003
+            },
+            {
+              "text": "than",
+              "start": 2382.6400000000003,
+              "end": 2382.9
+            },
+            {
+              "text": "we",
+              "start": 2382.9,
+              "end": 2383.06
+            },
+            {
+              "text": "did",
+              "start": 2383.06,
+              "end": 2383.2200000000003
+            },
+            {
+              "text": "um",
+              "start": 2383.2200000000003,
+              "end": 2383.96
+            },
+            {
+              "text": "so",
+              "start": 2383.96,
+              "end": 2384.34
+            }
+          ]
+        },
+        {
+          "id": 635,
+          "text": "So the wave is over, so you would have to think of",
+          "start": 2384.34,
+          "end": 2386.6,
+          "words": [
+            {
+              "text": "So",
+              "start": 2384.34,
+              "end": 2384.44
+            },
+            {
+              "text": "the",
+              "start": 2384.44,
+              "end": 2384.7
+            },
+            {
+              "text": "wave",
+              "start": 2384.7,
+              "end": 2384.92
+            },
+            {
+              "text": "is",
+              "start": 2384.92,
+              "end": 2385.06
+            },
+            {
+              "text": "over,",
+              "start": 2385.06,
+              "end": 2385.2799999999997
+            },
+            {
+              "text": "so",
+              "start": 2385.38,
+              "end": 2385.52
+            },
+            {
+              "text": "you",
+              "start": 2385.52,
+              "end": 2385.6400000000003
+            },
+            {
+              "text": "would",
+              "start": 2385.6400000000003,
+              "end": 2385.8199999999997
+            },
+            {
+              "text": "have",
+              "start": 2385.8199999999997,
+              "end": 2385.98
+            },
+            {
+              "text": "to",
+              "start": 2385.98,
+              "end": 2386.24
+            },
+            {
+              "text": "think",
+              "start": 2386.24,
+              "end": 2386.48
+            },
+            {
+              "text": "of",
+              "start": 2386.48,
+              "end": 2386.6
+            }
+          ]
+        },
+        {
+          "id": 636,
+          "text": "something else.",
+          "start": 2386.6,
+          "end": 2387.02,
+          "words": [
+            {
+              "text": "something",
+              "start": 2386.6,
+              "end": 2386.7799999999997
+            },
+            {
+              "text": "else.",
+              "start": 2386.7799999999997,
+              "end": 2387.02
+            }
+          ]
+        },
+        {
+          "id": 637,
+          "text": "But back then, it worked.",
+          "start": 2387.12,
+          "end": 2413.3,
+          "words": [
+            {
+              "text": "But",
+              "start": 2387.12,
+              "end": 2387.26
+            },
+            {
+              "text": "back",
+              "start": 2387.26,
+              "end": 2387.84
+            },
+            {
+              "text": "then,",
+              "start": 2387.84,
+              "end": 2388
+            },
+            {
+              "text": "like",
+              "start": 2390.16,
+              "end": 2392.44
+            },
+            {
+              "text": "a",
+              "start": 2392.44,
+              "end": 2392.86
+            },
+            {
+              "text": "couple",
+              "start": 2392.86,
+              "end": 2393.4
+            },
+            {
+              "text": "of",
+              "start": 2393.4,
+              "end": 2393.5
+            },
+            {
+              "text": "hundred",
+              "start": 2393.5,
+              "end": 2393.76
+            },
+            {
+              "text": "reviews",
+              "start": 2393.76,
+              "end": 2394.18
+            },
+            {
+              "text": "within",
+              "start": 2394.18,
+              "end": 2395
+            },
+            {
+              "text": "within",
+              "start": 2395,
+              "end": 2395.64
+            },
+            {
+              "text": "the",
+              "start": 2395.64,
+              "end": 2395.82
+            },
+            {
+              "text": "first",
+              "start": 2395.82,
+              "end": 2396
+            },
+            {
+              "text": "week.",
+              "start": 2396,
+              "end": 2396.28
+            },
+            {
+              "text": "And",
+              "start": 2396.78,
+              "end": 2397.3
+            },
+            {
+              "text": "we",
+              "start": 2397.3,
+              "end": 2397.44
+            },
+            {
+              "text": "said,",
+              "start": 2397.44,
+              "end": 2397.62
+            },
+            {
+              "text": "OK,",
+              "start": 2397.66,
+              "end": 2397.8
+            },
+            {
+              "text": "cool.",
+              "start": 2397.9,
+              "end": 2398.14
+            },
+            {
+              "text": "Let's",
+              "start": 2398.48,
+              "end": 2399
+            },
+            {
+              "text": "let's",
+              "start": 2399,
+              "end": 2399.26
+            },
+            {
+              "text": "roll",
+              "start": 2399.26,
+              "end": 2399.34
+            },
+            {
+              "text": "with",
+              "start": 2399.34,
+              "end": 2399.52
+            },
+            {
+              "text": "it.",
+              "start": 2399.52,
+              "end": 2399.72
+            },
+            {
+              "text": "Another",
+              "start": 2399.76,
+              "end": 2399.96
+            },
+            {
+              "text": "three",
+              "start": 2399.96,
+              "end": 2400.18
+            },
+            {
+              "text": "months.",
+              "start": 2400.18,
+              "end": 2400.44
+            },
+            {
+              "text": "After",
+              "start": 2400.74,
+              "end": 2401.26
+            },
+            {
+              "text": "three",
+              "start": 2401.26,
+              "end": 2401.48
+            },
+            {
+              "text": "months,",
+              "start": 2401.48,
+              "end": 2401.72
+            },
+            {
+              "text": "we",
+              "start": 2401.84,
+              "end": 2402.06
+            },
+            {
+              "text": "released",
+              "start": 2402.06,
+              "end": 2402.4
+            },
+            {
+              "text": "it.",
+              "start": 2402.4,
+              "end": 2402.64
+            },
+            {
+              "text": "And",
+              "start": 2402.74,
+              "end": 2403.04
+            },
+            {
+              "text": "then",
+              "start": 2403.04,
+              "end": 2403.2
+            },
+            {
+              "text": "still",
+              "start": 2403.2,
+              "end": 2403.68
+            },
+            {
+              "text": "three",
+              "start": 2403.68,
+              "end": 2403.92
+            },
+            {
+              "text": "people",
+              "start": 2403.92,
+              "end": 2404.28
+            },
+            {
+              "text": "only.",
+              "start": 2404.28,
+              "end": 2404.94
+            },
+            {
+              "text": "We",
+              "start": 2405.62,
+              "end": 2406.14
+            },
+            {
+              "text": "released",
+              "start": 2406.14,
+              "end": 2406.46
+            },
+            {
+              "text": "it",
+              "start": 2406.46,
+              "end": 2406.7
+            },
+            {
+              "text": "and",
+              "start": 2406.7,
+              "end": 2407.34
+            },
+            {
+              "text": "the",
+              "start": 2407.34,
+              "end": 2407.46
+            },
+            {
+              "text": "access",
+              "start": 2407.46,
+              "end": 2407.82
+            },
+            {
+              "text": "and",
+              "start": 2407.82,
+              "end": 2408.18
+            },
+            {
+              "text": "it's",
+              "start": 2408.18,
+              "end": 2408.64
+            },
+            {
+              "text": "an",
+              "start": 2408.64,
+              "end": 2408.9
+            },
+            {
+              "text": "access",
+              "start": 2408.9,
+              "end": 2409.32
+            },
+            {
+              "text": "we",
+              "start": 2409.32,
+              "end": 2409.74
+            },
+            {
+              "text": "got",
+              "start": 2409.74,
+              "end": 2410.56
+            },
+            {
+              "text": "our",
+              "start": 2410.56,
+              "end": 2411
+            },
+            {
+              "text": "money",
+              "start": 2411,
+              "end": 2411.48
+            },
+            {
+              "text": "back",
+              "start": 2411.48,
+              "end": 2411.68
+            },
+            {
+              "text": "within",
+              "start": 2411.68,
+              "end": 2412.02
+            },
+            {
+              "text": "a",
+              "start": 2412.02,
+              "end": 2412.66
+            },
+            {
+              "text": "couple",
+              "start": 2412.66,
+              "end": 2412.94
+            },
+            {
+              "text": "of",
+              "start": 2412.94,
+              "end": 2413.06
+            },
+            {
+              "text": "weeks.",
+              "start": 2413.06,
+              "end": 2413.3
+            }
+          ]
+        }
+      ]
+    },
+    "patch": {
+      "language": "en",
+      "durationSec": 2408,
+      "segments": [
+        {
+          "id": 0,
+          "text": "Then Survivor-likes were the hype, and streamers were playing it a lot, so we were right in",
+          "start": 2368,
+          "end": 2375.9,
+          "words": [
+            {
+              "text": "Then",
+              "start": 2368,
+              "end": 2368.06
+            },
+            {
+              "text": "Survivor",
+              "start": 2368.06,
+              "end": 2368.74
+            },
+            {
+              "text": "-likes",
+              "start": 2368.74,
+              "end": 2369.02
+            },
+            {
+              "text": "were",
+              "start": 2369.02,
+              "end": 2369.2
+            },
+            {
+              "text": "the",
+              "start": 2369.2,
+              "end": 2369.68
+            },
+            {
+              "text": "hype,",
+              "start": 2369.68,
+              "end": 2370.82
+            },
+            {
+              "text": "and",
+              "start": 2371,
+              "end": 2371.88
+            },
+            {
+              "text": "streamers",
+              "start": 2371.88,
+              "end": 2372.58
+            },
+            {
+              "text": "were",
+              "start": 2372.58,
+              "end": 2372.7
+            },
+            {
+              "text": "playing",
+              "start": 2372.7,
+              "end": 2372.9
+            },
+            {
+              "text": "it",
+              "start": 2372.9,
+              "end": 2373.08
+            },
+            {
+              "text": "a",
+              "start": 2373.08,
+              "end": 2373.18
+            },
+            {
+              "text": "lot,",
+              "start": 2373.18,
+              "end": 2373.38
+            },
+            {
+              "text": "so",
+              "start": 2374.06,
+              "end": 2374.44
+            },
+            {
+              "text": "we",
+              "start": 2374.44,
+              "end": 2374.96
+            },
+            {
+              "text": "were",
+              "start": 2374.96,
+              "end": 2375.1
+            },
+            {
+              "text": "right",
+              "start": 2375.1,
+              "end": 2375.34
+            },
+            {
+              "text": "in",
+              "start": 2375.34,
+              "end": 2375.9
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "text": "the middle of this whole wave.",
+          "start": 2375.9,
+          "end": 2377.52,
+          "words": [
+            {
+              "text": "the",
+              "start": 2375.9,
+              "end": 2376
+            },
+            {
+              "text": "middle",
+              "start": 2376,
+              "end": 2376.2
+            },
+            {
+              "text": "of",
+              "start": 2376.2,
+              "end": 2376.38
+            },
+            {
+              "text": "this",
+              "start": 2376.38,
+              "end": 2376.78
+            },
+            {
+              "text": "whole",
+              "start": 2376.78,
+              "end": 2376.98
+            },
+            {
+              "text": "wave.",
+              "start": 2376.98,
+              "end": 2377.52
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "text": "Today you would probably not get such a big response than we did.",
+          "start": 2377.9,
+          "end": 2383.2,
+          "words": [
+            {
+              "text": "Today",
+              "start": 2377.9,
+              "end": 2378.22
+            },
+            {
+              "text": "you",
+              "start": 2378.22,
+              "end": 2379.14
+            },
+            {
+              "text": "would",
+              "start": 2379.14,
+              "end": 2379.32
+            },
+            {
+              "text": "probably",
+              "start": 2379.32,
+              "end": 2380.78
+            },
+            {
+              "text": "not",
+              "start": 2380.78,
+              "end": 2381.4
+            },
+            {
+              "text": "get",
+              "start": 2381.4,
+              "end": 2381.7
+            },
+            {
+              "text": "such",
+              "start": 2381.7,
+              "end": 2381.96
+            },
+            {
+              "text": "a",
+              "start": 2381.96,
+              "end": 2382.1
+            },
+            {
+              "text": "big",
+              "start": 2382.1,
+              "end": 2382.24
+            },
+            {
+              "text": "response",
+              "start": 2382.24,
+              "end": 2382.66
+            },
+            {
+              "text": "than",
+              "start": 2382.66,
+              "end": 2382.88
+            },
+            {
+              "text": "we",
+              "start": 2382.88,
+              "end": 2383.06
+            },
+            {
+              "text": "did.",
+              "start": 2383.06,
+              "end": 2383.2
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "text": "The wave is over, so you would have to think of something else, but back then it worked,",
+          "start": 2384.12,
+          "end": 2388.58,
+          "words": [
+            {
+              "text": "The",
+              "start": 2384.12,
+              "end": 2384.52
+            },
+            {
+              "text": "wave",
+              "start": 2384.52,
+              "end": 2384.92
+            },
+            {
+              "text": "is",
+              "start": 2384.92,
+              "end": 2385.06
+            },
+            {
+              "text": "over,",
+              "start": 2385.06,
+              "end": 2385.28
+            },
+            {
+              "text": "so",
+              "start": 2385.4,
+              "end": 2385.52
+            },
+            {
+              "text": "you",
+              "start": 2385.52,
+              "end": 2385.64
+            },
+            {
+              "text": "would",
+              "start": 2385.64,
+              "end": 2385.8
+            },
+            {
+              "text": "have",
+              "start": 2385.8,
+              "end": 2385.98
+            },
+            {
+              "text": "to",
+              "start": 2385.98,
+              "end": 2386.22
+            },
+            {
+              "text": "think",
+              "start": 2386.22,
+              "end": 2386.5
+            },
+            {
+              "text": "of",
+              "start": 2386.5,
+              "end": 2386.6
+            },
+            {
+              "text": "something",
+              "start": 2386.6,
+              "end": 2386.76
+            },
+            {
+              "text": "else,",
+              "start": 2386.76,
+              "end": 2387.02
+            },
+            {
+              "text": "but",
+              "start": 2387.12,
+              "end": 2387.2
+            },
+            {
+              "text": "back",
+              "start": 2387.2,
+              "end": 2387.84
+            },
+            {
+              "text": "then",
+              "start": 2387.84,
+              "end": 2388
+            },
+            {
+              "text": "it",
+              "start": 2388,
+              "end": 2388.16
+            },
+            {
+              "text": "worked,",
+              "start": 2388.16,
+              "end": 2388.58
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "text": "and we realized, okay, the demo is actually catching up.",
+          "start": 2389.38,
+          "end": 2392.06,
+          "words": [
+            {
+              "text": "and",
+              "start": 2389.38,
+              "end": 2389.78
+            },
+            {
+              "text": "we",
+              "start": 2389.78,
+              "end": 2389.96
+            },
+            {
+              "text": "realized,",
+              "start": 2389.96,
+              "end": 2390.24
+            },
+            {
+              "text": "okay,",
+              "start": 2390.36,
+              "end": 2390.5
+            },
+            {
+              "text": "the",
+              "start": 2390.56,
+              "end": 2390.66
+            },
+            {
+              "text": "demo",
+              "start": 2390.66,
+              "end": 2390.84
+            },
+            {
+              "text": "is",
+              "start": 2390.84,
+              "end": 2391.02
+            },
+            {
+              "text": "actually",
+              "start": 2391.02,
+              "end": 2391.48
+            },
+            {
+              "text": "catching",
+              "start": 2391.48,
+              "end": 2391.78
+            },
+            {
+              "text": "up.",
+              "start": 2391.78,
+              "end": 2392.06
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "text": "We got a couple of hundred reviews within the first week, and we said, okay, cool, let's",
+          "start": 2392.06,
+          "end": 2399,
+          "words": [
+            {
+              "text": "We",
+              "start": 2392.06,
+              "end": 2392.16
+            },
+            {
+              "text": "got",
+              "start": 2392.16,
+              "end": 2392.28
+            },
+            {
+              "text": "a",
+              "start": 2392.28,
+              "end": 2392.48
+            },
+            {
+              "text": "couple",
+              "start": 2392.48,
+              "end": 2393.38
+            },
+            {
+              "text": "of",
+              "start": 2393.38,
+              "end": 2393.5
+            },
+            {
+              "text": "hundred",
+              "start": 2393.5,
+              "end": 2393.72
+            },
+            {
+              "text": "reviews",
+              "start": 2393.72,
+              "end": 2394.22
+            },
+            {
+              "text": "within",
+              "start": 2394.22,
+              "end": 2394.98
+            },
+            {
+              "text": "the",
+              "start": 2394.98,
+              "end": 2395.74
+            },
+            {
+              "text": "first",
+              "start": 2395.74,
+              "end": 2395.94
+            },
+            {
+              "text": "week,",
+              "start": 2395.94,
+              "end": 2396.28
+            },
+            {
+              "text": "and",
+              "start": 2396.38,
+              "end": 2397.3
+            },
+            {
+              "text": "we",
+              "start": 2397.3,
+              "end": 2397.46
+            },
+            {
+              "text": "said,",
+              "start": 2397.46,
+              "end": 2397.62
+            },
+            {
+              "text": "okay,",
+              "start": 2397.66,
+              "end": 2397.82
+            },
+            {
+              "text": "cool,",
+              "start": 2397.88,
+              "end": 2398.1
+            },
+            {
+              "text": "let's",
+              "start": 2398.2,
+              "end": 2399
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "text": "roll with it.",
+          "start": 2399,
+          "end": 2399.7,
+          "words": [
+            {
+              "text": "roll",
+              "start": 2399,
+              "end": 2399.36
+            },
+            {
+              "text": "with",
+              "start": 2399.36,
+              "end": 2399.54
+            },
+            {
+              "text": "it.",
+              "start": 2399.54,
+              "end": 2399.7
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "text": "Another three months.",
+          "start": 2399.76,
+          "end": 2400.44,
+          "words": [
+            {
+              "text": "Another",
+              "start": 2399.76,
+              "end": 2399.98
+            },
+            {
+              "text": "three",
+              "start": 2399.98,
+              "end": 2400.2
+            },
+            {
+              "text": "months.",
+              "start": 2400.2,
+              "end": 2400.44
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "text": "After three months, we released it, and then still three people only.",
+          "start": 2400.86,
+          "end": 2404.92,
+          "words": [
+            {
+              "text": "After",
+              "start": 2400.86,
+              "end": 2401.3
+            },
+            {
+              "text": "three",
+              "start": 2401.3,
+              "end": 2401.48
+            },
+            {
+              "text": "months,",
+              "start": 2401.48,
+              "end": 2401.72
+            },
+            {
+              "text": "we",
+              "start": 2401.86,
+              "end": 2402.06
+            },
+            {
+              "text": "released",
+              "start": 2402.06,
+              "end": 2402.42
+            },
+            {
+              "text": "it,",
+              "start": 2402.42,
+              "end": 2402.68
+            },
+            {
+              "text": "and",
+              "start": 2402.74,
+              "end": 2403.06
+            },
+            {
+              "text": "then",
+              "start": 2403.06,
+              "end": 2403.2
+            },
+            {
+              "text": "still",
+              "start": 2403.2,
+              "end": 2403.7
+            },
+            {
+              "text": "three",
+              "start": 2403.7,
+              "end": 2403.94
+            },
+            {
+              "text": "people",
+              "start": 2403.94,
+              "end": 2404.28
+            },
+            {
+              "text": "only.",
+              "start": 2404.28,
+              "end": 2404.92
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "text": "We released it in early access.",
+          "start": 2405.72,
+          "end": 2407.88,
+          "words": [
+            {
+              "text": "We",
+              "start": 2405.72,
+              "end": 2406.16
+            },
+            {
+              "text": "released",
+              "start": 2406.16,
+              "end": 2406.5
+            },
+            {
+              "text": "it",
+              "start": 2406.5,
+              "end": 2406.78
+            },
+            {
+              "text": "in",
+              "start": 2406.78,
+              "end": 2407.24
+            },
+            {
+              "text": "early",
+              "start": 2407.24,
+              "end": 2407.58
+            },
+            {
+              "text": "access.",
+              "start": 2407.58,
+              "end": 2407.88
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "source": "automation-empathy-talk.webm",
+    "seam": 1196,
+    "left": {
+      "language": "en",
+      "durationSec": 1199.973,
+      "segments": [
+        {
+          "id": 154,
+          "text": "important. So the next thing I want to look at is the Uncanny Valley. Who is actually",
+          "start": 1168.43,
+          "end": 1182.74,
+          "words": [
+            {
+              "text": "important.",
+              "start": 1168.43,
+              "end": 1168.75
+            },
+            {
+              "text": "So",
+              "start": 1175,
+              "end": 1175.56
+            },
+            {
+              "text": "the",
+              "start": 1175.56,
+              "end": 1176.98
+            },
+            {
+              "text": "next",
+              "start": 1176.98,
+              "end": 1178.84
+            },
+            {
+              "text": "thing",
+              "start": 1178.84,
+              "end": 1179.16
+            },
+            {
+              "text": "I",
+              "start": 1179.16,
+              "end": 1179.42
+            },
+            {
+              "text": "want",
+              "start": 1179.42,
+              "end": 1179.64
+            },
+            {
+              "text": "to",
+              "start": 1179.64,
+              "end": 1180.02
+            },
+            {
+              "text": "look",
+              "start": 1180.02,
+              "end": 1180.58
+            },
+            {
+              "text": "at",
+              "start": 1180.58,
+              "end": 1180.86
+            },
+            {
+              "text": "is",
+              "start": 1180.86,
+              "end": 1181.1
+            },
+            {
+              "text": "the",
+              "start": 1181.1,
+              "end": 1181.38
+            },
+            {
+              "text": "Uncanny",
+              "start": 1181.38,
+              "end": 1182.02
+            },
+            {
+              "text": "Valley.",
+              "start": 1182.02,
+              "end": 1182.22
+            },
+            {
+              "text": "Who",
+              "start": 1182.32,
+              "end": 1182.4
+            },
+            {
+              "text": "is",
+              "start": 1182.4,
+              "end": 1182.54
+            },
+            {
+              "text": "actually",
+              "start": 1182.54,
+              "end": 1182.74
+            }
+          ]
+        },
+        {
+          "id": 155,
+          "text": "familiar with this term? Wow, cool, everybody. I'm still going to talk about it because it's",
+          "start": 1182.74,
+          "end": 1189.5,
+          "words": [
+            {
+              "text": "familiar",
+              "start": 1182.74,
+              "end": 1183.06
+            },
+            {
+              "text": "with",
+              "start": 1183.06,
+              "end": 1183.4
+            },
+            {
+              "text": "this",
+              "start": 1183.4,
+              "end": 1183.62
+            },
+            {
+              "text": "term?",
+              "start": 1183.62,
+              "end": 1183.88
+            },
+            {
+              "text": "Wow,",
+              "start": 1184.8,
+              "end": 1185.36
+            },
+            {
+              "text": "cool,",
+              "start": 1185.52,
+              "end": 1185.86
+            },
+            {
+              "text": "everybody.",
+              "start": 1185.96,
+              "end": 1186.24
+            },
+            {
+              "text": "I'm",
+              "start": 1187.04,
+              "end": 1187.6
+            },
+            {
+              "text": "still",
+              "start": 1187.6,
+              "end": 1188.14
+            },
+            {
+              "text": "going",
+              "start": 1188.14,
+              "end": 1188.32
+            },
+            {
+              "text": "to",
+              "start": 1188.32,
+              "end": 1188.46
+            },
+            {
+              "text": "talk",
+              "start": 1188.46,
+              "end": 1188.62
+            },
+            {
+              "text": "about",
+              "start": 1188.62,
+              "end": 1188.82
+            },
+            {
+              "text": "it",
+              "start": 1188.82,
+              "end": 1188.98
+            },
+            {
+              "text": "because",
+              "start": 1188.98,
+              "end": 1189.18
+            },
+            {
+              "text": "it's",
+              "start": 1189.18,
+              "end": 1189.5
+            }
+          ]
+        },
+        {
+          "id": 156,
+          "text": "still nice and creepy. Okay, so the Uncanny Valley shapes the emotional bond of a machine",
+          "start": 1189.5,
+          "end": 1198.2,
+          "words": [
+            {
+              "text": "still",
+              "start": 1189.5,
+              "end": 1189.88
+            },
+            {
+              "text": "nice",
+              "start": 1189.88,
+              "end": 1190.42
+            },
+            {
+              "text": "and",
+              "start": 1190.42,
+              "end": 1190.56
+            },
+            {
+              "text": "creepy.",
+              "start": 1190.56,
+              "end": 1190.88
+            },
+            {
+              "text": "Okay,",
+              "start": 1192.78,
+              "end": 1193.34
+            },
+            {
+              "text": "so",
+              "start": 1193.46,
+              "end": 1193.7
+            },
+            {
+              "text": "the",
+              "start": 1193.7,
+              "end": 1194.06
+            },
+            {
+              "text": "Uncanny",
+              "start": 1194.06,
+              "end": 1194.42
+            },
+            {
+              "text": "Valley",
+              "start": 1194.42,
+              "end": 1194.72
+            },
+            {
+              "text": "shapes",
+              "start": 1194.72,
+              "end": 1196.02
+            },
+            {
+              "text": "the",
+              "start": 1196.02,
+              "end": 1196.5
+            },
+            {
+              "text": "emotional",
+              "start": 1196.5,
+              "end": 1196.86
+            },
+            {
+              "text": "bond",
+              "start": 1196.86,
+              "end": 1197.48
+            },
+            {
+              "text": "of",
+              "start": 1197.48,
+              "end": 1197.82
+            },
+            {
+              "text": "a",
+              "start": 1197.82,
+              "end": 1197.92
+            },
+            {
+              "text": "machine",
+              "start": 1197.92,
+              "end": 1198.2
+            }
+          ]
+        },
+        {
+          "id": 157,
+          "text": "the teen and the human.",
+          "start": 1198.2,
+          "end": 1198.86,
+          "words": [
+            {
+              "text": "the",
+              "start": 1198.2,
+              "end": 1198.38
+            },
+            {
+              "text": "teen",
+              "start": 1198.38,
+              "end": 1198.43
+            },
+            {
+              "text": "and",
+              "start": 1198.43,
+              "end": 1198.54
+            },
+            {
+              "text": "the",
+              "start": 1198.54,
+              "end": 1198.68
+            },
+            {
+              "text": "human.",
+              "start": 1198.68,
+              "end": 1198.86
+            }
+          ]
+        }
+      ]
+    },
+    "right": {
+      "language": "en",
+      "durationSec": 2392,
+      "segments": [
+        {
+          "id": 0,
+          "text": "Okay, so the Uncanny Valley shapes the emotional bond of a machine and a human. Okay, it's not a very new concept. It was introduced by Masahiro Mori, Japanese researcher in the 1970s and it describes the discomfort from almost but not quite lifelike humanoid forms from a human perspective.",
+          "start": 1192,
+          "end": 1218.72,
+          "words": [
+            {
+              "text": "Okay,",
+              "start": 1192,
+              "end": 1193.34
+            },
+            {
+              "text": "so",
+              "start": 1193.52,
+              "end": 1193.72
+            },
+            {
+              "text": "the",
+              "start": 1193.72,
+              "end": 1194.1
+            },
+            {
+              "text": "Uncanny",
+              "start": 1194.1,
+              "end": 1194.46
+            },
+            {
+              "text": "Valley",
+              "start": 1194.46,
+              "end": 1194.72
+            },
+            {
+              "text": "shapes",
+              "start": 1194.72,
+              "end": 1196.06
+            },
+            {
+              "text": "the",
+              "start": 1196.06,
+              "end": 1196.52
+            },
+            {
+              "text": "emotional",
+              "start": 1196.52,
+              "end": 1196.88
+            },
+            {
+              "text": "bond",
+              "start": 1196.88,
+              "end": 1197.48
+            },
+            {
+              "text": "of",
+              "start": 1197.48,
+              "end": 1197.84
+            },
+            {
+              "text": "a",
+              "start": 1197.84,
+              "end": 1197.96
+            },
+            {
+              "text": "machine",
+              "start": 1197.96,
+              "end": 1198.24
+            },
+            {
+              "text": "and",
+              "start": 1198.24,
+              "end": 1198.6
+            },
+            {
+              "text": "a",
+              "start": 1198.6,
+              "end": 1198.68
+            },
+            {
+              "text": "human.",
+              "start": 1198.68,
+              "end": 1198.94
+            },
+            {
+              "text": "Okay,",
+              "start": 1199.16,
+              "end": 1199.84
+            },
+            {
+              "text": "it's",
+              "start": 1199.92,
+              "end": 1200.06
+            },
+            {
+              "text": "not",
+              "start": 1200.06,
+              "end": 1200.22
+            },
+            {
+              "text": "a",
+              "start": 1200.22,
+              "end": 1200.36
+            },
+            {
+              "text": "very",
+              "start": 1200.36,
+              "end": 1200.98
+            },
+            {
+              "text": "new",
+              "start": 1200.98,
+              "end": 1201.2
+            },
+            {
+              "text": "concept.",
+              "start": 1201.2,
+              "end": 1201.58
+            },
+            {
+              "text": "It",
+              "start": 1201.78,
+              "end": 1202.22
+            },
+            {
+              "text": "was",
+              "start": 1202.22,
+              "end": 1202.4
+            },
+            {
+              "text": "introduced",
+              "start": 1202.4,
+              "end": 1203.06
+            },
+            {
+              "text": "by",
+              "start": 1203.06,
+              "end": 1203.56
+            },
+            {
+              "text": "Masahiro",
+              "start": 1203.56,
+              "end": 1204.98
+            },
+            {
+              "text": "Mori,",
+              "start": 1204.98,
+              "end": 1205.6
+            },
+            {
+              "text": "Japanese",
+              "start": 1205.68,
+              "end": 1206.16
+            },
+            {
+              "text": "researcher",
+              "start": 1206.16,
+              "end": 1206.7
+            },
+            {
+              "text": "in",
+              "start": 1206.7,
+              "end": 1206.98
+            },
+            {
+              "text": "the",
+              "start": 1206.98,
+              "end": 1207.06
+            },
+            {
+              "text": "1970s",
+              "start": 1207.06,
+              "end": 1208
+            },
+            {
+              "text": "and",
+              "start": 1208,
+              "end": 1208.66
+            },
+            {
+              "text": "it",
+              "start": 1208.66,
+              "end": 1208.86
+            },
+            {
+              "text": "describes",
+              "start": 1208.86,
+              "end": 1209.18
+            },
+            {
+              "text": "the",
+              "start": 1209.18,
+              "end": 1209.78
+            },
+            {
+              "text": "discomfort",
+              "start": 1209.78,
+              "end": 1210.8
+            },
+            {
+              "text": "from",
+              "start": 1210.8,
+              "end": 1211.56
+            },
+            {
+              "text": "almost",
+              "start": 1211.56,
+              "end": 1212.18
+            },
+            {
+              "text": "but",
+              "start": 1212.18,
+              "end": 1212.62
+            },
+            {
+              "text": "not",
+              "start": 1212.62,
+              "end": 1212.92
+            },
+            {
+              "text": "quite",
+              "start": 1212.92,
+              "end": 1213.3
+            },
+            {
+              "text": "lifelike",
+              "start": 1213.3,
+              "end": 1214.28
+            },
+            {
+              "text": "humanoid",
+              "start": 1214.28,
+              "end": 1215.22
+            },
+            {
+              "text": "forms",
+              "start": 1215.22,
+              "end": 1215.92
+            },
+            {
+              "text": "from",
+              "start": 1215.92,
+              "end": 1217.34
+            },
+            {
+              "text": "a",
+              "start": 1217.34,
+              "end": 1217.92
+            },
+            {
+              "text": "human",
+              "start": 1217.92,
+              "end": 1218.34
+            },
+            {
+              "text": "perspective.",
+              "start": 1218.34,
+              "end": 1218.72
+            }
+          ]
+        }
+      ]
+    },
+    "before": {
+      "language": "en",
+      "durationSec": 2464.5403125,
+      "segments": [
+        {
+          "id": 154,
+          "text": "important. So the next thing I want to look at is the Uncanny Valley. Who is actually",
+          "start": 1168.43,
+          "end": 1182.74,
+          "words": [
+            {
+              "text": "important.",
+              "start": 1168.43,
+              "end": 1168.75
+            },
+            {
+              "text": "So",
+              "start": 1175,
+              "end": 1175.56
+            },
+            {
+              "text": "the",
+              "start": 1175.56,
+              "end": 1176.98
+            },
+            {
+              "text": "next",
+              "start": 1176.98,
+              "end": 1178.84
+            },
+            {
+              "text": "thing",
+              "start": 1178.84,
+              "end": 1179.16
+            },
+            {
+              "text": "I",
+              "start": 1179.16,
+              "end": 1179.42
+            },
+            {
+              "text": "want",
+              "start": 1179.42,
+              "end": 1179.64
+            },
+            {
+              "text": "to",
+              "start": 1179.64,
+              "end": 1180.02
+            },
+            {
+              "text": "look",
+              "start": 1180.02,
+              "end": 1180.58
+            },
+            {
+              "text": "at",
+              "start": 1180.58,
+              "end": 1180.86
+            },
+            {
+              "text": "is",
+              "start": 1180.86,
+              "end": 1181.1
+            },
+            {
+              "text": "the",
+              "start": 1181.1,
+              "end": 1181.38
+            },
+            {
+              "text": "Uncanny",
+              "start": 1181.38,
+              "end": 1182.02
+            },
+            {
+              "text": "Valley.",
+              "start": 1182.02,
+              "end": 1182.22
+            },
+            {
+              "text": "Who",
+              "start": 1182.32,
+              "end": 1182.4
+            },
+            {
+              "text": "is",
+              "start": 1182.4,
+              "end": 1182.54
+            },
+            {
+              "text": "actually",
+              "start": 1182.54,
+              "end": 1182.74
+            }
+          ]
+        },
+        {
+          "id": 155,
+          "text": "familiar with this term? Wow, cool, everybody. I'm still going to talk about it because it's",
+          "start": 1182.74,
+          "end": 1189.5,
+          "words": [
+            {
+              "text": "familiar",
+              "start": 1182.74,
+              "end": 1183.06
+            },
+            {
+              "text": "with",
+              "start": 1183.06,
+              "end": 1183.4
+            },
+            {
+              "text": "this",
+              "start": 1183.4,
+              "end": 1183.62
+            },
+            {
+              "text": "term?",
+              "start": 1183.62,
+              "end": 1183.88
+            },
+            {
+              "text": "Wow,",
+              "start": 1184.8,
+              "end": 1185.36
+            },
+            {
+              "text": "cool,",
+              "start": 1185.52,
+              "end": 1185.86
+            },
+            {
+              "text": "everybody.",
+              "start": 1185.96,
+              "end": 1186.24
+            },
+            {
+              "text": "I'm",
+              "start": 1187.04,
+              "end": 1187.6
+            },
+            {
+              "text": "still",
+              "start": 1187.6,
+              "end": 1188.14
+            },
+            {
+              "text": "going",
+              "start": 1188.14,
+              "end": 1188.32
+            },
+            {
+              "text": "to",
+              "start": 1188.32,
+              "end": 1188.46
+            },
+            {
+              "text": "talk",
+              "start": 1188.46,
+              "end": 1188.62
+            },
+            {
+              "text": "about",
+              "start": 1188.62,
+              "end": 1188.82
+            },
+            {
+              "text": "it",
+              "start": 1188.82,
+              "end": 1188.98
+            },
+            {
+              "text": "because",
+              "start": 1188.98,
+              "end": 1189.18
+            },
+            {
+              "text": "it's",
+              "start": 1189.18,
+              "end": 1189.5
+            }
+          ]
+        },
+        {
+          "id": 156,
+          "text": "still nice and creepy. Okay, so the Uncanny Valley shapes the emotional bond of a machine",
+          "start": 1189.5,
+          "end": 1218.72,
+          "words": [
+            {
+              "text": "still",
+              "start": 1189.5,
+              "end": 1189.88
+            },
+            {
+              "text": "nice",
+              "start": 1189.88,
+              "end": 1190.42
+            },
+            {
+              "text": "and",
+              "start": 1190.42,
+              "end": 1190.56
+            },
+            {
+              "text": "creepy.",
+              "start": 1190.56,
+              "end": 1190.88
+            },
+            {
+              "text": "Okay,",
+              "start": 1192.78,
+              "end": 1193.34
+            },
+            {
+              "text": "so",
+              "start": 1193.46,
+              "end": 1193.7
+            },
+            {
+              "text": "the",
+              "start": 1193.7,
+              "end": 1194.06
+            },
+            {
+              "text": "Uncanny",
+              "start": 1194.06,
+              "end": 1194.42
+            },
+            {
+              "text": "Valley",
+              "start": 1194.42,
+              "end": 1194.72
+            },
+            {
+              "text": "shapes",
+              "start": 1194.72,
+              "end": 1196.02
+            },
+            {
+              "text": "the",
+              "start": 1196.06,
+              "end": 1196.52
+            },
+            {
+              "text": "emotional",
+              "start": 1196.52,
+              "end": 1196.88
+            },
+            {
+              "text": "bond",
+              "start": 1196.88,
+              "end": 1197.48
+            },
+            {
+              "text": "of",
+              "start": 1197.48,
+              "end": 1197.84
+            },
+            {
+              "text": "a",
+              "start": 1197.84,
+              "end": 1197.96
+            },
+            {
+              "text": "machine",
+              "start": 1197.96,
+              "end": 1198.24
+            },
+            {
+              "text": "and",
+              "start": 1198.24,
+              "end": 1198.6
+            },
+            {
+              "text": "a",
+              "start": 1198.6,
+              "end": 1198.68
+            },
+            {
+              "text": "human.",
+              "start": 1198.68,
+              "end": 1198.94
+            },
+            {
+              "text": "Okay,",
+              "start": 1199.16,
+              "end": 1199.84
+            },
+            {
+              "text": "it's",
+              "start": 1199.92,
+              "end": 1200.06
+            },
+            {
+              "text": "not",
+              "start": 1200.06,
+              "end": 1200.22
+            },
+            {
+              "text": "a",
+              "start": 1200.22,
+              "end": 1200.36
+            },
+            {
+              "text": "very",
+              "start": 1200.36,
+              "end": 1200.98
+            },
+            {
+              "text": "new",
+              "start": 1200.98,
+              "end": 1201.2
+            },
+            {
+              "text": "concept.",
+              "start": 1201.2,
+              "end": 1201.58
+            },
+            {
+              "text": "It",
+              "start": 1201.78,
+              "end": 1202.22
+            },
+            {
+              "text": "was",
+              "start": 1202.22,
+              "end": 1202.4
+            },
+            {
+              "text": "introduced",
+              "start": 1202.4,
+              "end": 1203.06
+            },
+            {
+              "text": "by",
+              "start": 1203.06,
+              "end": 1203.56
+            },
+            {
+              "text": "Masahiro",
+              "start": 1203.56,
+              "end": 1204.98
+            },
+            {
+              "text": "Mori,",
+              "start": 1204.98,
+              "end": 1205.6
+            },
+            {
+              "text": "Japanese",
+              "start": 1205.68,
+              "end": 1206.16
+            },
+            {
+              "text": "researcher",
+              "start": 1206.16,
+              "end": 1206.7
+            },
+            {
+              "text": "in",
+              "start": 1206.7,
+              "end": 1206.98
+            },
+            {
+              "text": "the",
+              "start": 1206.98,
+              "end": 1207.06
+            },
+            {
+              "text": "1970s",
+              "start": 1207.06,
+              "end": 1208
+            },
+            {
+              "text": "and",
+              "start": 1208,
+              "end": 1208.66
+            },
+            {
+              "text": "it",
+              "start": 1208.66,
+              "end": 1208.86
+            },
+            {
+              "text": "describes",
+              "start": 1208.86,
+              "end": 1209.18
+            },
+            {
+              "text": "the",
+              "start": 1209.18,
+              "end": 1209.78
+            },
+            {
+              "text": "discomfort",
+              "start": 1209.78,
+              "end": 1210.8
+            },
+            {
+              "text": "from",
+              "start": 1210.8,
+              "end": 1211.56
+            },
+            {
+              "text": "almost",
+              "start": 1211.56,
+              "end": 1212.18
+            },
+            {
+              "text": "but",
+              "start": 1212.18,
+              "end": 1212.62
+            },
+            {
+              "text": "not",
+              "start": 1212.62,
+              "end": 1212.92
+            },
+            {
+              "text": "quite",
+              "start": 1212.92,
+              "end": 1213.3
+            },
+            {
+              "text": "lifelike",
+              "start": 1213.3,
+              "end": 1214.28
+            },
+            {
+              "text": "humanoid",
+              "start": 1214.28,
+              "end": 1215.22
+            },
+            {
+              "text": "forms",
+              "start": 1215.22,
+              "end": 1215.92
+            },
+            {
+              "text": "from",
+              "start": 1215.92,
+              "end": 1217.34
+            },
+            {
+              "text": "a",
+              "start": 1217.34,
+              "end": 1217.92
+            },
+            {
+              "text": "human",
+              "start": 1217.92,
+              "end": 1218.34
+            },
+            {
+              "text": "perspective.",
+              "start": 1218.34,
+              "end": 1218.72
+            }
+          ]
+        }
+      ]
+    },
+    "patch": {
+      "language": "en",
+      "durationSec": 1216,
+      "segments": [
+        {
+          "id": 0,
+          "text": "So, the next thing I want to look at is the uncanny valley. Who is actually familiar with",
+          "start": 1176,
+          "end": 1183.42,
+          "words": [
+            {
+              "text": "So,",
+              "start": 1176,
+              "end": 1176.05
+            },
+            {
+              "text": "the",
+              "start": 1176.05,
+              "end": 1178.04
+            },
+            {
+              "text": "next",
+              "start": 1178.04,
+              "end": 1178.86
+            },
+            {
+              "text": "thing",
+              "start": 1178.86,
+              "end": 1179.18
+            },
+            {
+              "text": "I",
+              "start": 1179.18,
+              "end": 1179.46
+            },
+            {
+              "text": "want",
+              "start": 1179.46,
+              "end": 1179.66
+            },
+            {
+              "text": "to",
+              "start": 1179.66,
+              "end": 1180.04
+            },
+            {
+              "text": "look",
+              "start": 1180.04,
+              "end": 1180.62
+            },
+            {
+              "text": "at",
+              "start": 1180.62,
+              "end": 1180.9
+            },
+            {
+              "text": "is",
+              "start": 1180.9,
+              "end": 1181.16
+            },
+            {
+              "text": "the",
+              "start": 1181.16,
+              "end": 1181.44
+            },
+            {
+              "text": "uncanny",
+              "start": 1181.44,
+              "end": 1182.06
+            },
+            {
+              "text": "valley.",
+              "start": 1182.06,
+              "end": 1182.24
+            },
+            {
+              "text": "Who",
+              "start": 1182.36,
+              "end": 1182.44
+            },
+            {
+              "text": "is",
+              "start": 1182.44,
+              "end": 1182.56
+            },
+            {
+              "text": "actually",
+              "start": 1182.56,
+              "end": 1182.78
+            },
+            {
+              "text": "familiar",
+              "start": 1182.78,
+              "end": 1183.1
+            },
+            {
+              "text": "with",
+              "start": 1183.1,
+              "end": 1183.42
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "text": "this term? Wow. Cool. Everybody. I'm still going to talk about it because it's still",
+          "start": 1183.42,
+          "end": 1189.92,
+          "words": [
+            {
+              "text": "this",
+              "start": 1183.42,
+              "end": 1183.64
+            },
+            {
+              "text": "term?",
+              "start": 1183.64,
+              "end": 1183.9
+            },
+            {
+              "text": "Wow.",
+              "start": 1184.84,
+              "end": 1185.42
+            },
+            {
+              "text": "Cool.",
+              "start": 1185.58,
+              "end": 1185.92
+            },
+            {
+              "text": "Everybody.",
+              "start": 1186,
+              "end": 1186.3
+            },
+            {
+              "text": "I'm",
+              "start": 1187.08,
+              "end": 1187.66
+            },
+            {
+              "text": "still",
+              "start": 1187.66,
+              "end": 1188.18
+            },
+            {
+              "text": "going",
+              "start": 1188.18,
+              "end": 1188.34
+            },
+            {
+              "text": "to",
+              "start": 1188.34,
+              "end": 1188.48
+            },
+            {
+              "text": "talk",
+              "start": 1188.48,
+              "end": 1188.66
+            },
+            {
+              "text": "about",
+              "start": 1188.66,
+              "end": 1188.86
+            },
+            {
+              "text": "it",
+              "start": 1188.86,
+              "end": 1189.02
+            },
+            {
+              "text": "because",
+              "start": 1189.02,
+              "end": 1189.18
+            },
+            {
+              "text": "it's",
+              "start": 1189.18,
+              "end": 1189.54
+            },
+            {
+              "text": "still",
+              "start": 1189.54,
+              "end": 1189.92
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "text": "nice and creepy. Okay. So, the uncanny valley shapes the emotional bond of a machine and",
+          "start": 1189.92,
+          "end": 1198.58,
+          "words": [
+            {
+              "text": "nice",
+              "start": 1189.92,
+              "end": 1190.44
+            },
+            {
+              "text": "and",
+              "start": 1190.44,
+              "end": 1190.6
+            },
+            {
+              "text": "creepy.",
+              "start": 1190.6,
+              "end": 1190.9
+            },
+            {
+              "text": "Okay.",
+              "start": 1192.82,
+              "end": 1193.4
+            },
+            {
+              "text": "So,",
+              "start": 1193.5,
+              "end": 1193.74
+            },
+            {
+              "text": "the",
+              "start": 1193.86,
+              "end": 1194.16
+            },
+            {
+              "text": "uncanny",
+              "start": 1194.16,
+              "end": 1194.46
+            },
+            {
+              "text": "valley",
+              "start": 1194.46,
+              "end": 1194.74
+            },
+            {
+              "text": "shapes",
+              "start": 1194.74,
+              "end": 1196.08
+            },
+            {
+              "text": "the",
+              "start": 1196.08,
+              "end": 1196.52
+            },
+            {
+              "text": "emotional",
+              "start": 1196.52,
+              "end": 1196.88
+            },
+            {
+              "text": "bond",
+              "start": 1196.88,
+              "end": 1197.5
+            },
+            {
+              "text": "of",
+              "start": 1197.5,
+              "end": 1197.84
+            },
+            {
+              "text": "a",
+              "start": 1197.84,
+              "end": 1197.98
+            },
+            {
+              "text": "machine",
+              "start": 1197.98,
+              "end": 1198.24
+            },
+            {
+              "text": "and",
+              "start": 1198.24,
+              "end": 1198.58
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "text": "and a human. Okay, it's not a very new concept. It was introduced by Masahiro Mori, a Japanese",
+          "start": 1198.58,
+          "end": 1206.22,
+          "words": [
+            {
+              "text": "and",
+              "start": 1198.58,
+              "end": 1198.66
+            },
+            {
+              "text": "a",
+              "start": 1198.66,
+              "end": 1198.71
+            },
+            {
+              "text": "human.",
+              "start": 1198.71,
+              "end": 1198.9
+            },
+            {
+              "text": "Okay,",
+              "start": 1199.14,
+              "end": 1199.82
+            },
+            {
+              "text": "it's",
+              "start": 1199.92,
+              "end": 1200.06
+            },
+            {
+              "text": "not",
+              "start": 1200.06,
+              "end": 1200.2
+            },
+            {
+              "text": "a",
+              "start": 1200.2,
+              "end": 1200.38
+            },
+            {
+              "text": "very",
+              "start": 1200.38,
+              "end": 1200.98
+            },
+            {
+              "text": "new",
+              "start": 1200.98,
+              "end": 1201.2
+            },
+            {
+              "text": "concept.",
+              "start": 1201.2,
+              "end": 1201.58
+            },
+            {
+              "text": "It",
+              "start": 1201.8,
+              "end": 1202.22
+            },
+            {
+              "text": "was",
+              "start": 1202.22,
+              "end": 1202.42
+            },
+            {
+              "text": "introduced",
+              "start": 1202.42,
+              "end": 1203.06
+            },
+            {
+              "text": "by",
+              "start": 1203.06,
+              "end": 1203.54
+            },
+            {
+              "text": "Masahiro",
+              "start": 1203.54,
+              "end": 1205
+            },
+            {
+              "text": "Mori,",
+              "start": 1205,
+              "end": 1205.68
+            },
+            {
+              "text": "a",
+              "start": 1205.7,
+              "end": 1205.9
+            },
+            {
+              "text": "Japanese",
+              "start": 1205.9,
+              "end": 1206.22
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "text": "researcher in the 1970s, and it describes the discomfort from almost but not quite lifelike",
+          "start": 1206.22,
+          "end": 1214.36,
+          "words": [
+            {
+              "text": "researcher",
+              "start": 1206.22,
+              "end": 1206.68
+            },
+            {
+              "text": "in",
+              "start": 1206.68,
+              "end": 1206.98
+            },
+            {
+              "text": "the",
+              "start": 1206.98,
+              "end": 1207.06
+            },
+            {
+              "text": "1970s,",
+              "start": 1207.06,
+              "end": 1208.02
+            },
+            {
+              "text": "and",
+              "start": 1208.02,
+              "end": 1208.7
+            },
+            {
+              "text": "it",
+              "start": 1208.7,
+              "end": 1208.86
+            },
+            {
+              "text": "describes",
+              "start": 1208.86,
+              "end": 1209.2
+            },
+            {
+              "text": "the",
+              "start": 1209.2,
+              "end": 1209.78
+            },
+            {
+              "text": "discomfort",
+              "start": 1209.78,
+              "end": 1210.82
+            },
+            {
+              "text": "from",
+              "start": 1210.82,
+              "end": 1211.56
+            },
+            {
+              "text": "almost",
+              "start": 1211.56,
+              "end": 1212.2
+            },
+            {
+              "text": "but",
+              "start": 1212.2,
+              "end": 1212.62
+            },
+            {
+              "text": "not",
+              "start": 1212.62,
+              "end": 1212.92
+            },
+            {
+              "text": "quite",
+              "start": 1212.92,
+              "end": 1213.32
+            },
+            {
+              "text": "lifelike",
+              "start": 1213.32,
+              "end": 1214.36
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "text": "humanoid form",
+          "start": 1214.36,
+          "end": 1215.6,
+          "words": [
+            {
+              "text": "humanoid",
+              "start": 1214.36,
+              "end": 1215.3
+            },
+            {
+              "text": "form",
+              "start": 1215.3,
+              "end": 1215.6
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "source": "automation-empathy-talk.webm",
+    "seam": 2388,
+    "left": {
+      "language": "en",
+      "durationSec": 2392,
+      "segments": [
+        {
+          "id": 184,
+          "text": "Like creativity normally can be distinguished",
+          "start": 2367.6800000000003,
+          "end": 2371.7200000000003,
+          "words": [
+            {
+              "text": "Like",
+              "start": 2367.6800000000003,
+              "end": 2368.12
+            },
+            {
+              "text": "creativity",
+              "start": 2368.12,
+              "end": 2368.66
+            },
+            {
+              "text": "normally",
+              "start": 2368.66,
+              "end": 2369.04
+            },
+            {
+              "text": "can",
+              "start": 2369.04,
+              "end": 2370.12
+            },
+            {
+              "text": "be",
+              "start": 2370.12,
+              "end": 2370.3599999999997
+            },
+            {
+              "text": "distinguished",
+              "start": 2370.3599999999997,
+              "end": 2371.7200000000003
+            }
+          ]
+        },
+        {
+          "id": 185,
+          "text": "in like three different parts.",
+          "start": 2371.7200000000003,
+          "end": 2372.96,
+          "words": [
+            {
+              "text": "in",
+              "start": 2371.7200000000003,
+              "end": 2372
+            },
+            {
+              "text": "like",
+              "start": 2372,
+              "end": 2372.12
+            },
+            {
+              "text": "three",
+              "start": 2372.12,
+              "end": 2372.34
+            },
+            {
+              "text": "different",
+              "start": 2372.34,
+              "end": 2372.58
+            },
+            {
+              "text": "parts.",
+              "start": 2372.58,
+              "end": 2372.96
+            }
+          ]
+        },
+        {
+          "id": 186,
+          "text": "You have transformation.",
+          "start": 2373.16,
+          "end": 2373.96,
+          "words": [
+            {
+              "text": "You",
+              "start": 2373.16,
+              "end": 2373.24
+            },
+            {
+              "text": "have",
+              "start": 2373.24,
+              "end": 2373.38
+            },
+            {
+              "text": "transformation.",
+              "start": 2373.38,
+              "end": 2373.96
+            }
+          ]
+        },
+        {
+          "id": 187,
+          "text": "I read it, but I forgot it already.",
+          "start": 2376.08,
+          "end": 2378.04,
+          "words": [
+            {
+              "text": "I",
+              "start": 2376.08,
+              "end": 2376.52
+            },
+            {
+              "text": "read",
+              "start": 2376.52,
+              "end": 2376.96
+            },
+            {
+              "text": "it,",
+              "start": 2376.96,
+              "end": 2377.1
+            },
+            {
+              "text": "but",
+              "start": 2377.16,
+              "end": 2377.26
+            },
+            {
+              "text": "I",
+              "start": 2377.26,
+              "end": 2377.38
+            },
+            {
+              "text": "forgot",
+              "start": 2377.38,
+              "end": 2377.62
+            },
+            {
+              "text": "it",
+              "start": 2377.62,
+              "end": 2377.8199999999997
+            },
+            {
+              "text": "already.",
+              "start": 2377.8199999999997,
+              "end": 2378.04
+            }
+          ]
+        },
+        {
+          "id": 188,
+          "text": "We have three different parts, and like two of them are pretty easy to, well, automate,",
+          "start": 2378.42,
+          "end": 2384.4,
+          "words": [
+            {
+              "text": "We",
+              "start": 2378.42,
+              "end": 2378.7799999999997
+            },
+            {
+              "text": "have",
+              "start": 2378.7799999999997,
+              "end": 2378.9
+            },
+            {
+              "text": "three",
+              "start": 2378.9,
+              "end": 2379.52
+            },
+            {
+              "text": "different",
+              "start": 2379.52,
+              "end": 2379.96
+            },
+            {
+              "text": "parts,",
+              "start": 2379.96,
+              "end": 2380.3199999999997
+            },
+            {
+              "text": "and",
+              "start": 2380.42,
+              "end": 2380.52
+            },
+            {
+              "text": "like",
+              "start": 2380.52,
+              "end": 2380.6800000000003
+            },
+            {
+              "text": "two",
+              "start": 2380.6800000000003,
+              "end": 2380.88
+            },
+            {
+              "text": "of",
+              "start": 2380.88,
+              "end": 2381
+            },
+            {
+              "text": "them",
+              "start": 2381,
+              "end": 2381.2
+            },
+            {
+              "text": "are",
+              "start": 2381.2,
+              "end": 2381.44
+            },
+            {
+              "text": "pretty",
+              "start": 2381.44,
+              "end": 2381.8599999999997
+            },
+            {
+              "text": "easy",
+              "start": 2381.8599999999997,
+              "end": 2382.1400000000003
+            },
+            {
+              "text": "to,",
+              "start": 2382.1400000000003,
+              "end": 2382.4
+            },
+            {
+              "text": "well,",
+              "start": 2382.52,
+              "end": 2383.9
+            },
+            {
+              "text": "automate,",
+              "start": 2384.02,
+              "end": 2384.4
+            }
+          ]
+        },
+        {
+          "id": 189,
+          "text": "and one isn't.",
+          "start": 2384.6400000000003,
+          "end": 2385.7200000000003,
+          "words": [
+            {
+              "text": "and",
+              "start": 2384.6400000000003,
+              "end": 2385.1
+            },
+            {
+              "text": "one",
+              "start": 2385.1,
+              "end": 2385.2799999999997
+            },
+            {
+              "text": "isn't.",
+              "start": 2385.2799999999997,
+              "end": 2385.7200000000003
+            }
+          ]
+        },
+        {
+          "id": 190,
+          "text": "But, I mean, I have to leave you with this now, because our time is over.",
+          "start": 2386.38,
+          "end": 2390.3199999999997,
+          "words": [
+            {
+              "text": "But,",
+              "start": 2386.38,
+              "end": 2386.74
+            },
+            {
+              "text": "I",
+              "start": 2386.8,
+              "end": 2386.88
+            },
+            {
+              "text": "mean,",
+              "start": 2386.88,
+              "end": 2387
+            },
+            {
+              "text": "I",
+              "start": 2387,
+              "end": 2387.12
+            },
+            {
+              "text": "have",
+              "start": 2387.12,
+              "end": 2387.26
+            },
+            {
+              "text": "to",
+              "start": 2387.26,
+              "end": 2387.42
+            },
+            {
+              "text": "leave",
+              "start": 2387.42,
+              "end": 2387.52
+            },
+            {
+              "text": "you",
+              "start": 2387.52,
+              "end": 2387.62
+            },
+            {
+              "text": "with",
+              "start": 2387.62,
+              "end": 2387.74
+            },
+            {
+              "text": "this",
+              "start": 2387.74,
+              "end": 2387.92
+            },
+            {
+              "text": "now,",
+              "start": 2387.92,
+              "end": 2388.38
+            },
+            {
+              "text": "because",
+              "start": 2388.5,
+              "end": 2389.34
+            },
+            {
+              "text": "our",
+              "start": 2389.34,
+              "end": 2389.66
+            },
+            {
+              "text": "time",
+              "start": 2389.66,
+              "end": 2389.94
+            },
+            {
+              "text": "is",
+              "start": 2389.94,
+              "end": 2390.08
+            },
+            {
+              "text": "over.",
+              "start": 2390.08,
+              "end": 2390.3199999999997
+            }
+          ]
+        }
+      ]
+    },
+    "right": {
+      "language": "en",
+      "durationSec": 2464.5403125,
+      "segments": [
+        {
+          "id": 0,
+          "text": "Sorry.",
+          "start": 2385.48,
+          "end": 2386.08,
+          "words": [
+            {
+              "text": "Sorry.",
+              "start": 2385.48,
+              "end": 2386.08
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "text": "Okay.",
+          "start": 2390.34,
+          "end": 2390.94,
+          "words": [
+            {
+              "text": "Okay.",
+              "start": 2390.34,
+              "end": 2390.94
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "text": "We, I think we can squeeze in 30 seconds one last question at number three.",
+          "start": 2390.94,
+          "end": 2395.7,
+          "words": [
+            {
+              "text": "We,",
+              "start": 2390.94,
+              "end": 2391.06
+            },
+            {
+              "text": "I",
+              "start": 2391.3,
+              "end": 2391.76
+            },
+            {
+              "text": "think",
+              "start": 2391.76,
+              "end": 2392.08
+            },
+            {
+              "text": "we",
+              "start": 2392.08,
+              "end": 2392.2
+            },
+            {
+              "text": "can",
+              "start": 2392.2,
+              "end": 2392.38
+            },
+            {
+              "text": "squeeze",
+              "start": 2392.38,
+              "end": 2392.68
+            },
+            {
+              "text": "in",
+              "start": 2392.68,
+              "end": 2392.94
+            },
+            {
+              "text": "30",
+              "start": 2392.94,
+              "end": 2393.18
+            },
+            {
+              "text": "seconds",
+              "start": 2393.18,
+              "end": 2393.62
+            },
+            {
+              "text": "one",
+              "start": 2393.62,
+              "end": 2394
+            },
+            {
+              "text": "last",
+              "start": 2394,
+              "end": 2394.5
+            },
+            {
+              "text": "question",
+              "start": 2394.5,
+              "end": 2395.04
+            },
+            {
+              "text": "at",
+              "start": 2395.04,
+              "end": 2395.2
+            },
+            {
+              "text": "number",
+              "start": 2395.2,
+              "end": 2395.38
+            },
+            {
+              "text": "three.",
+              "start": 2395.38,
+              "end": 2395.7
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "text": "Okay.",
+          "start": 2396.1,
+          "end": 2396.22,
+          "words": [
+            {
+              "text": "Okay.",
+              "start": 2396.1,
+              "end": 2396.22
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "text": "Thank you for the talk.",
+          "start": 2397.26,
+          "end": 2398.96,
+          "words": [
+            {
+              "text": "Thank",
+              "start": 2397.26,
+              "end": 2397.86
+            },
+            {
+              "text": "you",
+              "start": 2397.86,
+              "end": 2398.16
+            },
+            {
+              "text": "for",
+              "start": 2398.16,
+              "end": 2398.56
+            },
+            {
+              "text": "the",
+              "start": 2398.56,
+              "end": 2398.7
+            },
+            {
+              "text": "talk.",
+              "start": 2398.7,
+              "end": 2398.96
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "text": "I wanted to ask whether you encountered any or did any research yourself on actually modeling",
+          "start": 2399.34,
+          "end": 2405.32,
+          "words": [
+            {
+              "text": "I",
+              "start": 2399.34,
+              "end": 2399.94
+            },
+            {
+              "text": "wanted",
+              "start": 2399.94,
+              "end": 2400.26
+            },
+            {
+              "text": "to",
+              "start": 2400.26,
+              "end": 2400.42
+            },
+            {
+              "text": "ask",
+              "start": 2400.42,
+              "end": 2400.66
+            },
+            {
+              "text": "whether",
+              "start": 2400.66,
+              "end": 2400.9
+            },
+            {
+              "text": "you",
+              "start": 2400.9,
+              "end": 2401.16
+            },
+            {
+              "text": "encountered",
+              "start": 2401.16,
+              "end": 2401.54
+            },
+            {
+              "text": "any",
+              "start": 2401.54,
+              "end": 2401.96
+            },
+            {
+              "text": "or",
+              "start": 2401.96,
+              "end": 2402.2
+            },
+            {
+              "text": "did",
+              "start": 2402.2,
+              "end": 2402.72
+            },
+            {
+              "text": "any",
+              "start": 2402.72,
+              "end": 2403.06
+            },
+            {
+              "text": "research",
+              "start": 2403.06,
+              "end": 2403.4
+            },
+            {
+              "text": "yourself",
+              "start": 2403.4,
+              "end": 2403.66
+            },
+            {
+              "text": "on",
+              "start": 2403.66,
+              "end": 2404.02
+            },
+            {
+              "text": "actually",
+              "start": 2404.02,
+              "end": 2404.9
+            },
+            {
+              "text": "modeling",
+              "start": 2404.9,
+              "end": 2405.32
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "text": "internal emotional state to then map that to any sort of performance?",
+          "start": 2405.32,
+          "end": 2409.68,
+          "words": [
+            {
+              "text": "internal",
+              "start": 2405.32,
+              "end": 2405.68
+            },
+            {
+              "text": "emotional",
+              "start": 2405.68,
+              "end": 2406.14
+            },
+            {
+              "text": "state",
+              "start": 2406.14,
+              "end": 2406.62
+            },
+            {
+              "text": "to",
+              "start": 2406.62,
+              "end": 2406.96
+            },
+            {
+              "text": "then",
+              "start": 2406.96,
+              "end": 2407.16
+            },
+            {
+              "text": "map",
+              "start": 2407.16,
+              "end": 2408.08
+            },
+            {
+              "text": "that",
+              "start": 2408.08,
+              "end": 2408.32
+            },
+            {
+              "text": "to",
+              "start": 2408.32,
+              "end": 2408.6
+            },
+            {
+              "text": "any",
+              "start": 2408.6,
+              "end": 2408.82
+            },
+            {
+              "text": "sort",
+              "start": 2408.82,
+              "end": 2409.08
+            },
+            {
+              "text": "of",
+              "start": 2409.08,
+              "end": 2409.28
+            },
+            {
+              "text": "performance?",
+              "start": 2409.28,
+              "end": 2409.68
+            }
+          ]
+        }
+      ]
+    },
+    "before": {
+      "language": "en",
+      "durationSec": 2464.5403125,
+      "segments": [
+        {
+          "id": 340,
+          "text": "Like creativity normally can be distinguished",
+          "start": 2367.6800000000003,
+          "end": 2371.7200000000003,
+          "words": [
+            {
+              "text": "Like",
+              "start": 2367.6800000000003,
+              "end": 2368.12
+            },
+            {
+              "text": "creativity",
+              "start": 2368.12,
+              "end": 2368.66
+            },
+            {
+              "text": "normally",
+              "start": 2368.66,
+              "end": 2369.04
+            },
+            {
+              "text": "can",
+              "start": 2369.04,
+              "end": 2370.12
+            },
+            {
+              "text": "be",
+              "start": 2370.12,
+              "end": 2370.3599999999997
+            },
+            {
+              "text": "distinguished",
+              "start": 2370.3599999999997,
+              "end": 2371.7200000000003
+            }
+          ]
+        },
+        {
+          "id": 341,
+          "text": "in like three different parts.",
+          "start": 2371.7200000000003,
+          "end": 2372.96,
+          "words": [
+            {
+              "text": "in",
+              "start": 2371.7200000000003,
+              "end": 2372
+            },
+            {
+              "text": "like",
+              "start": 2372,
+              "end": 2372.12
+            },
+            {
+              "text": "three",
+              "start": 2372.12,
+              "end": 2372.34
+            },
+            {
+              "text": "different",
+              "start": 2372.34,
+              "end": 2372.58
+            },
+            {
+              "text": "parts.",
+              "start": 2372.58,
+              "end": 2372.96
+            }
+          ]
+        },
+        {
+          "id": 342,
+          "text": "You have transformation.",
+          "start": 2373.16,
+          "end": 2373.96,
+          "words": [
+            {
+              "text": "You",
+              "start": 2373.16,
+              "end": 2373.24
+            },
+            {
+              "text": "have",
+              "start": 2373.24,
+              "end": 2373.38
+            },
+            {
+              "text": "transformation.",
+              "start": 2373.38,
+              "end": 2373.96
+            }
+          ]
+        },
+        {
+          "id": 343,
+          "text": "I read it, but I forgot it already.",
+          "start": 2376.08,
+          "end": 2378.04,
+          "words": [
+            {
+              "text": "I",
+              "start": 2376.08,
+              "end": 2376.52
+            },
+            {
+              "text": "read",
+              "start": 2376.52,
+              "end": 2376.96
+            },
+            {
+              "text": "it,",
+              "start": 2376.96,
+              "end": 2377.1
+            },
+            {
+              "text": "but",
+              "start": 2377.16,
+              "end": 2377.26
+            },
+            {
+              "text": "I",
+              "start": 2377.26,
+              "end": 2377.38
+            },
+            {
+              "text": "forgot",
+              "start": 2377.38,
+              "end": 2377.62
+            },
+            {
+              "text": "it",
+              "start": 2377.62,
+              "end": 2377.8199999999997
+            },
+            {
+              "text": "already.",
+              "start": 2377.8199999999997,
+              "end": 2378.04
+            }
+          ]
+        },
+        {
+          "id": 344,
+          "text": "We have three different parts, and like two of them are pretty easy to, well, automate,",
+          "start": 2378.42,
+          "end": 2384.4,
+          "words": [
+            {
+              "text": "We",
+              "start": 2378.42,
+              "end": 2378.7799999999997
+            },
+            {
+              "text": "have",
+              "start": 2378.7799999999997,
+              "end": 2378.9
+            },
+            {
+              "text": "three",
+              "start": 2378.9,
+              "end": 2379.52
+            },
+            {
+              "text": "different",
+              "start": 2379.52,
+              "end": 2379.96
+            },
+            {
+              "text": "parts,",
+              "start": 2379.96,
+              "end": 2380.3199999999997
+            },
+            {
+              "text": "and",
+              "start": 2380.42,
+              "end": 2380.52
+            },
+            {
+              "text": "like",
+              "start": 2380.52,
+              "end": 2380.6800000000003
+            },
+            {
+              "text": "two",
+              "start": 2380.6800000000003,
+              "end": 2380.88
+            },
+            {
+              "text": "of",
+              "start": 2380.88,
+              "end": 2381
+            },
+            {
+              "text": "them",
+              "start": 2381,
+              "end": 2381.2
+            },
+            {
+              "text": "are",
+              "start": 2381.2,
+              "end": 2381.44
+            },
+            {
+              "text": "pretty",
+              "start": 2381.44,
+              "end": 2381.8599999999997
+            },
+            {
+              "text": "easy",
+              "start": 2381.8599999999997,
+              "end": 2382.1400000000003
+            },
+            {
+              "text": "to,",
+              "start": 2382.1400000000003,
+              "end": 2382.4
+            },
+            {
+              "text": "well,",
+              "start": 2382.52,
+              "end": 2383.9
+            },
+            {
+              "text": "automate,",
+              "start": 2384.02,
+              "end": 2384.4
+            }
+          ]
+        },
+        {
+          "id": 345,
+          "text": "and one isn't.",
+          "start": 2384.6400000000003,
+          "end": 2385.7200000000003,
+          "words": [
+            {
+              "text": "and",
+              "start": 2384.6400000000003,
+              "end": 2385.1
+            },
+            {
+              "text": "one",
+              "start": 2385.1,
+              "end": 2385.2799999999997
+            },
+            {
+              "text": "isn't.",
+              "start": 2385.2799999999997,
+              "end": 2385.7200000000003
+            }
+          ]
+        },
+        {
+          "id": 346,
+          "text": "But, I mean, I have to leave you with this now, because our time is over.",
+          "start": 2386.38,
+          "end": 2390.3199999999997,
+          "words": [
+            {
+              "text": "But,",
+              "start": 2386.38,
+              "end": 2386.74
+            },
+            {
+              "text": "I",
+              "start": 2386.8,
+              "end": 2386.88
+            },
+            {
+              "text": "mean,",
+              "start": 2386.88,
+              "end": 2387
+            },
+            {
+              "text": "I",
+              "start": 2387,
+              "end": 2387.12
+            },
+            {
+              "text": "have",
+              "start": 2387.12,
+              "end": 2387.26
+            },
+            {
+              "text": "to",
+              "start": 2387.26,
+              "end": 2387.42
+            },
+            {
+              "text": "leave",
+              "start": 2387.42,
+              "end": 2387.52
+            },
+            {
+              "text": "you",
+              "start": 2387.52,
+              "end": 2387.62
+            },
+            {
+              "text": "with",
+              "start": 2387.62,
+              "end": 2387.74
+            },
+            {
+              "text": "this",
+              "start": 2387.74,
+              "end": 2387.92
+            },
+            {
+              "text": "now,",
+              "start": 2387.92,
+              "end": 2388.38
+            }
+          ]
+        },
+        {
+          "id": 347,
+          "text": "Okay.",
+          "start": 2390.34,
+          "end": 2390.94,
+          "words": [
+            {
+              "text": "Okay.",
+              "start": 2390.34,
+              "end": 2390.94
+            }
+          ]
+        },
+        {
+          "id": 348,
+          "text": "We, I think we can squeeze in 30 seconds one last question at number three.",
+          "start": 2390.94,
+          "end": 2395.7,
+          "words": [
+            {
+              "text": "We,",
+              "start": 2390.94,
+              "end": 2391.06
+            },
+            {
+              "text": "I",
+              "start": 2391.3,
+              "end": 2391.76
+            },
+            {
+              "text": "think",
+              "start": 2391.76,
+              "end": 2392.08
+            },
+            {
+              "text": "we",
+              "start": 2392.08,
+              "end": 2392.2
+            },
+            {
+              "text": "can",
+              "start": 2392.2,
+              "end": 2392.38
+            },
+            {
+              "text": "squeeze",
+              "start": 2392.38,
+              "end": 2392.68
+            },
+            {
+              "text": "in",
+              "start": 2392.68,
+              "end": 2392.94
+            },
+            {
+              "text": "30",
+              "start": 2392.94,
+              "end": 2393.18
+            },
+            {
+              "text": "seconds",
+              "start": 2393.18,
+              "end": 2393.62
+            },
+            {
+              "text": "one",
+              "start": 2393.62,
+              "end": 2394
+            },
+            {
+              "text": "last",
+              "start": 2394,
+              "end": 2394.5
+            },
+            {
+              "text": "question",
+              "start": 2394.5,
+              "end": 2395.04
+            },
+            {
+              "text": "at",
+              "start": 2395.04,
+              "end": 2395.2
+            },
+            {
+              "text": "number",
+              "start": 2395.2,
+              "end": 2395.38
+            },
+            {
+              "text": "three.",
+              "start": 2395.38,
+              "end": 2395.7
+            }
+          ]
+        },
+        {
+          "id": 349,
+          "text": "Okay.",
+          "start": 2396.1,
+          "end": 2396.22,
+          "words": [
+            {
+              "text": "Okay.",
+              "start": 2396.1,
+              "end": 2396.22
+            }
+          ]
+        },
+        {
+          "id": 350,
+          "text": "Thank you for the talk.",
+          "start": 2397.26,
+          "end": 2398.96,
+          "words": [
+            {
+              "text": "Thank",
+              "start": 2397.26,
+              "end": 2397.86
+            },
+            {
+              "text": "you",
+              "start": 2397.86,
+              "end": 2398.16
+            },
+            {
+              "text": "for",
+              "start": 2398.16,
+              "end": 2398.56
+            },
+            {
+              "text": "the",
+              "start": 2398.56,
+              "end": 2398.7
+            },
+            {
+              "text": "talk.",
+              "start": 2398.7,
+              "end": 2398.96
+            }
+          ]
+        },
+        {
+          "id": 351,
+          "text": "I wanted to ask whether you encountered any or did any research yourself on actually modeling",
+          "start": 2399.34,
+          "end": 2405.32,
+          "words": [
+            {
+              "text": "I",
+              "start": 2399.34,
+              "end": 2399.94
+            },
+            {
+              "text": "wanted",
+              "start": 2399.94,
+              "end": 2400.26
+            },
+            {
+              "text": "to",
+              "start": 2400.26,
+              "end": 2400.42
+            },
+            {
+              "text": "ask",
+              "start": 2400.42,
+              "end": 2400.66
+            },
+            {
+              "text": "whether",
+              "start": 2400.66,
+              "end": 2400.9
+            },
+            {
+              "text": "you",
+              "start": 2400.9,
+              "end": 2401.16
+            },
+            {
+              "text": "encountered",
+              "start": 2401.16,
+              "end": 2401.54
+            },
+            {
+              "text": "any",
+              "start": 2401.54,
+              "end": 2401.96
+            },
+            {
+              "text": "or",
+              "start": 2401.96,
+              "end": 2402.2
+            },
+            {
+              "text": "did",
+              "start": 2402.2,
+              "end": 2402.72
+            },
+            {
+              "text": "any",
+              "start": 2402.72,
+              "end": 2403.06
+            },
+            {
+              "text": "research",
+              "start": 2403.06,
+              "end": 2403.4
+            },
+            {
+              "text": "yourself",
+              "start": 2403.4,
+              "end": 2403.66
+            },
+            {
+              "text": "on",
+              "start": 2403.66,
+              "end": 2404.02
+            },
+            {
+              "text": "actually",
+              "start": 2404.02,
+              "end": 2404.9
+            },
+            {
+              "text": "modeling",
+              "start": 2404.9,
+              "end": 2405.32
+            }
+          ]
+        },
+        {
+          "id": 352,
+          "text": "internal emotional state to then map that to any sort of performance?",
+          "start": 2405.32,
+          "end": 2409.68,
+          "words": [
+            {
+              "text": "internal",
+              "start": 2405.32,
+              "end": 2405.68
+            },
+            {
+              "text": "emotional",
+              "start": 2405.68,
+              "end": 2406.14
+            },
+            {
+              "text": "state",
+              "start": 2406.14,
+              "end": 2406.62
+            },
+            {
+              "text": "to",
+              "start": 2406.62,
+              "end": 2406.96
+            },
+            {
+              "text": "then",
+              "start": 2406.96,
+              "end": 2407.16
+            },
+            {
+              "text": "map",
+              "start": 2407.16,
+              "end": 2408.08
+            },
+            {
+              "text": "that",
+              "start": 2408.08,
+              "end": 2408.32
+            },
+            {
+              "text": "to",
+              "start": 2408.32,
+              "end": 2408.6
+            },
+            {
+              "text": "any",
+              "start": 2408.6,
+              "end": 2408.82
+            },
+            {
+              "text": "sort",
+              "start": 2408.82,
+              "end": 2409.08
+            },
+            {
+              "text": "of",
+              "start": 2409.08,
+              "end": 2409.28
+            },
+            {
+              "text": "performance?",
+              "start": 2409.28,
+              "end": 2409.68
+            }
+          ]
+        }
+      ]
+    },
+    "patch": {
+      "language": "en",
+      "durationSec": 2408,
+      "segments": [
+        {
+          "id": 0,
+          "text": "Like creativity normally can be distinguished in like three different parts.",
+          "start": 2368,
+          "end": 2372.98,
+          "words": [
+            {
+              "text": "Like",
+              "start": 2368,
+              "end": 2368.16
+            },
+            {
+              "text": "creativity",
+              "start": 2368.16,
+              "end": 2368.66
+            },
+            {
+              "text": "normally",
+              "start": 2368.66,
+              "end": 2369.06
+            },
+            {
+              "text": "can",
+              "start": 2369.06,
+              "end": 2370.1
+            },
+            {
+              "text": "be",
+              "start": 2370.1,
+              "end": 2370.36
+            },
+            {
+              "text": "distinguished",
+              "start": 2370.36,
+              "end": 2371.66
+            },
+            {
+              "text": "in",
+              "start": 2371.66,
+              "end": 2372
+            },
+            {
+              "text": "like",
+              "start": 2372,
+              "end": 2372.14
+            },
+            {
+              "text": "three",
+              "start": 2372.14,
+              "end": 2372.34
+            },
+            {
+              "text": "different",
+              "start": 2372.34,
+              "end": 2372.58
+            },
+            {
+              "text": "parts.",
+              "start": 2372.58,
+              "end": 2372.98
+            }
+          ]
+        },
+        {
+          "id": 1,
+          "text": "You have transformation, I read it but I forgot it already, you have three different parts",
+          "start": 2373.14,
+          "end": 2380.34,
+          "words": [
+            {
+              "text": "You",
+              "start": 2373.14,
+              "end": 2373.22
+            },
+            {
+              "text": "have",
+              "start": 2373.22,
+              "end": 2373.38
+            },
+            {
+              "text": "transformation,",
+              "start": 2373.38,
+              "end": 2373.96
+            },
+            {
+              "text": "I",
+              "start": 2374.42,
+              "end": 2375.54
+            },
+            {
+              "text": "read",
+              "start": 2375.54,
+              "end": 2376.94
+            },
+            {
+              "text": "it",
+              "start": 2376.94,
+              "end": 2377.1
+            },
+            {
+              "text": "but",
+              "start": 2377.1,
+              "end": 2377.24
+            },
+            {
+              "text": "I",
+              "start": 2377.24,
+              "end": 2377.38
+            },
+            {
+              "text": "forgot",
+              "start": 2377.38,
+              "end": 2377.64
+            },
+            {
+              "text": "it",
+              "start": 2377.64,
+              "end": 2377.82
+            },
+            {
+              "text": "already,",
+              "start": 2377.82,
+              "end": 2378.02
+            },
+            {
+              "text": "you",
+              "start": 2378.4,
+              "end": 2378.5
+            },
+            {
+              "text": "have",
+              "start": 2378.5,
+              "end": 2378.55
+            },
+            {
+              "text": "three",
+              "start": 2378.55,
+              "end": 2379.36
+            },
+            {
+              "text": "different",
+              "start": 2379.36,
+              "end": 2379.94
+            },
+            {
+              "text": "parts",
+              "start": 2379.94,
+              "end": 2380.34
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "text": "and like two of them are pretty easy to well automate and one isn't.",
+          "start": 2380.34,
+          "end": 2385.72,
+          "words": [
+            {
+              "text": "and",
+              "start": 2380.34,
+              "end": 2380.52
+            },
+            {
+              "text": "like",
+              "start": 2380.52,
+              "end": 2380.68
+            },
+            {
+              "text": "two",
+              "start": 2380.68,
+              "end": 2380.86
+            },
+            {
+              "text": "of",
+              "start": 2380.86,
+              "end": 2380.98
+            },
+            {
+              "text": "them",
+              "start": 2380.98,
+              "end": 2381.18
+            },
+            {
+              "text": "are",
+              "start": 2381.18,
+              "end": 2381.44
+            },
+            {
+              "text": "pretty",
+              "start": 2381.44,
+              "end": 2381.84
+            },
+            {
+              "text": "easy",
+              "start": 2381.84,
+              "end": 2382.14
+            },
+            {
+              "text": "to",
+              "start": 2382.14,
+              "end": 2382.38
+            },
+            {
+              "text": "well",
+              "start": 2382.38,
+              "end": 2383.96
+            },
+            {
+              "text": "automate",
+              "start": 2383.96,
+              "end": 2384.4
+            },
+            {
+              "text": "and",
+              "start": 2384.4,
+              "end": 2385.06
+            },
+            {
+              "text": "one",
+              "start": 2385.06,
+              "end": 2385.28
+            },
+            {
+              "text": "isn't.",
+              "start": 2385.28,
+              "end": 2385.72
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "text": "But I mean I have to leave you with this now because our time is over, sorry.",
+          "start": 2386.2,
+          "end": 2390.64,
+          "words": [
+            {
+              "text": "But",
+              "start": 2386.2,
+              "end": 2386.68
+            },
+            {
+              "text": "I",
+              "start": 2386.68,
+              "end": 2386.88
+            },
+            {
+              "text": "mean",
+              "start": 2386.88,
+              "end": 2386.98
+            },
+            {
+              "text": "I",
+              "start": 2386.98,
+              "end": 2387.1
+            },
+            {
+              "text": "have",
+              "start": 2387.1,
+              "end": 2387.26
+            },
+            {
+              "text": "to",
+              "start": 2387.26,
+              "end": 2387.42
+            },
+            {
+              "text": "leave",
+              "start": 2387.42,
+              "end": 2387.52
+            },
+            {
+              "text": "you",
+              "start": 2387.52,
+              "end": 2387.6
+            },
+            {
+              "text": "with",
+              "start": 2387.6,
+              "end": 2387.74
+            },
+            {
+              "text": "this",
+              "start": 2387.74,
+              "end": 2387.92
+            },
+            {
+              "text": "now",
+              "start": 2387.92,
+              "end": 2388.36
+            },
+            {
+              "text": "because",
+              "start": 2388.36,
+              "end": 2389.32
+            },
+            {
+              "text": "our",
+              "start": 2389.32,
+              "end": 2389.64
+            },
+            {
+              "text": "time",
+              "start": 2389.64,
+              "end": 2389.92
+            },
+            {
+              "text": "is",
+              "start": 2389.92,
+              "end": 2390.08
+            },
+            {
+              "text": "over,",
+              "start": 2390.08,
+              "end": 2390.3
+            },
+            {
+              "text": "sorry.",
+              "start": 2390.4,
+              "end": 2390.64
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "text": "I think we can squeeze in 30 seconds one last question at number three.",
+          "start": 2391.04,
+          "end": 2395.68,
+          "words": [
+            {
+              "text": "I",
+              "start": 2391.04,
+              "end": 2391.52
+            },
+            {
+              "text": "think",
+              "start": 2391.52,
+              "end": 2392.08
+            },
+            {
+              "text": "we",
+              "start": 2392.08,
+              "end": 2392.2
+            },
+            {
+              "text": "can",
+              "start": 2392.2,
+              "end": 2392.36
+            },
+            {
+              "text": "squeeze",
+              "start": 2392.36,
+              "end": 2392.7
+            },
+            {
+              "text": "in",
+              "start": 2392.7,
+              "end": 2392.94
+            },
+            {
+              "text": "30",
+              "start": 2392.94,
+              "end": 2393.2
+            },
+            {
+              "text": "seconds",
+              "start": 2393.2,
+              "end": 2393.62
+            },
+            {
+              "text": "one",
+              "start": 2393.62,
+              "end": 2393.98
+            },
+            {
+              "text": "last",
+              "start": 2393.98,
+              "end": 2394.52
+            },
+            {
+              "text": "question",
+              "start": 2394.52,
+              "end": 2395.06
+            },
+            {
+              "text": "at",
+              "start": 2395.06,
+              "end": 2395.2
+            },
+            {
+              "text": "number",
+              "start": 2395.2,
+              "end": 2395.38
+            },
+            {
+              "text": "three.",
+              "start": 2395.38,
+              "end": 2395.68
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "text": "Thank you for the talk.",
+          "start": 2396.84,
+          "end": 2398.96,
+          "words": [
+            {
+              "text": "Thank",
+              "start": 2396.84,
+              "end": 2397.5
+            },
+            {
+              "text": "you",
+              "start": 2397.5,
+              "end": 2398.16
+            },
+            {
+              "text": "for",
+              "start": 2398.16,
+              "end": 2398.54
+            },
+            {
+              "text": "the",
+              "start": 2398.54,
+              "end": 2398.7
+            },
+            {
+              "text": "talk.",
+              "start": 2398.7,
+              "end": 2398.96
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "text": "I wanted to ask whether you encountered any or did any research yourself on actually modeling",
+          "start": 2399.28,
+          "end": 2405.32,
+          "words": [
+            {
+              "text": "I",
+              "start": 2399.28,
+              "end": 2399.94
+            },
+            {
+              "text": "wanted",
+              "start": 2399.94,
+              "end": 2400.26
+            },
+            {
+              "text": "to",
+              "start": 2400.26,
+              "end": 2400.42
+            },
+            {
+              "text": "ask",
+              "start": 2400.42,
+              "end": 2400.66
+            },
+            {
+              "text": "whether",
+              "start": 2400.66,
+              "end": 2400.9
+            },
+            {
+              "text": "you",
+              "start": 2400.9,
+              "end": 2401.16
+            },
+            {
+              "text": "encountered",
+              "start": 2401.16,
+              "end": 2401.54
+            },
+            {
+              "text": "any",
+              "start": 2401.54,
+              "end": 2401.96
+            },
+            {
+              "text": "or",
+              "start": 2401.96,
+              "end": 2402.18
+            },
+            {
+              "text": "did",
+              "start": 2402.18,
+              "end": 2402.74
+            },
+            {
+              "text": "any",
+              "start": 2402.74,
+              "end": 2403.04
+            },
+            {
+              "text": "research",
+              "start": 2403.04,
+              "end": 2403.4
+            },
+            {
+              "text": "yourself",
+              "start": 2403.4,
+              "end": 2403.66
+            },
+            {
+              "text": "on",
+              "start": 2403.66,
+              "end": 2403.98
+            },
+            {
+              "text": "actually",
+              "start": 2403.98,
+              "end": 2404.9
+            },
+            {
+              "text": "modeling",
+              "start": 2404.9,
+              "end": 2405.32
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "text": "internal emotional state to them?",
+          "start": 2405.32,
+          "end": 2407.18,
+          "words": [
+            {
+              "text": "internal",
+              "start": 2405.32,
+              "end": 2405.68
+            },
+            {
+              "text": "emotional",
+              "start": 2405.68,
+              "end": 2406.14
+            },
+            {
+              "text": "state",
+              "start": 2406.14,
+              "end": 2406.62
+            },
+            {
+              "text": "to",
+              "start": 2406.62,
+              "end": 2406.96
+            },
+            {
+              "text": "them?",
+              "start": 2406.96,
+              "end": 2407.18
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

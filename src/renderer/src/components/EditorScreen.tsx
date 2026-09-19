@@ -20,6 +20,7 @@ import {
 import type { TimelineData } from '@shared/types'
 import { isWholeVideoClip } from '@shared/wholeVideo'
 import { needsReframe } from '@shared/reframe'
+import { automaticLayoutShots, validLayoutShots } from '@shared/contentType'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import TrimBar from './TrimBar'
@@ -94,8 +95,9 @@ export default function EditorScreen(): React.JSX.Element {
   const clipId = clip?.id ?? null
   const reframePending = clip ? needsReframe(clip) : false
   useEffect(() => {
-    if (clipId && reframePending && !sourceMissing) void ensureReframe(clipId)
-  }, [clipId, reframePending, sourceMissing, ensureReframe])
+    if (clipId && !sourceMissing) void ensureReframe(clipId)
+    // Later trim changes trigger analysis after updateClip has saved them.
+  }, [clipId, sourceMissing, ensureReframe])
 
   if (!project || !clip) return <div />
 
@@ -121,6 +123,8 @@ export default function EditorScreen(): React.JSX.Element {
 
   const entry = exports[clip.id]
   const cropDisabled = clip.edit.aspect === 'original'
+  const hasShotLayout = validLayoutShots(clip.visualLayout, clip.edit.start, clip.edit.end)
+  const automaticLayout = automaticLayoutShots(clip).length > 0
 
   return (
     <div className="flex h-full min-h-0">
@@ -201,12 +205,12 @@ export default function EditorScreen(): React.JSX.Element {
             <Toggle
               label="Auto zoom — punch-ins on emphasis, jump zooms covering cuts"
               checked={clip.edit.autoZoom ?? false}
-              disabled={clip.edit.reframeMode !== 'crop'}
+              disabled={clip.edit.reframeMode !== 'crop' || automaticLayout}
               onChange={(v) => set({ autoZoom: v })}
             />
-            {clip.edit.reframeMode !== 'crop' && (
+            {(clip.edit.reframeMode !== 'crop' || automaticLayout) && (
               <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
-                Auto zoom is only available with fill (crop) reframing.
+                {automaticLayout ? 'Automatic composition keeps its checked framing; switch to Manual to add zoom.' : 'Auto zoom is only available with fill (crop) reframing.'}
               </p>
             )}
           </div>
@@ -233,7 +237,7 @@ export default function EditorScreen(): React.JSX.Element {
               <div className="mt-3 grid grid-cols-3 gap-1.5">
                 {(
                   [
-                    { value: 'crop', label: 'Fill (crop)' },
+                    { value: 'crop', label: automaticLayout ? 'Auto layout' : 'Fill (crop)' },
                     { value: 'fit-letterbox', label: 'Fit (letterbox)' },
                     { value: 'fit-blur', label: 'Fit + blur' }
                   ] as Array<{ value: ReframeMode; label: string }>
@@ -251,10 +255,9 @@ export default function EditorScreen(): React.JSX.Element {
                   </button>
                 ))}
               </div>
-              {clip.contentType === 'screencast' && (
+              {clip.contentType === 'screencast' && clip.edit.reframeMode !== 'crop' && (
                 <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-                  Detected as a screen share or demo — using letterbox fit with no zoom so the
-                  full frame stays visible.
+                  The full source frame stays visible in this layout.
                 </p>
               )}
               {reframePending && (
@@ -287,11 +290,11 @@ export default function EditorScreen(): React.JSX.Element {
               )}
               {clip.edit.reframeMode === 'crop' && (
                 <>
-                  {clip.focusTrack && (
+                  {(clip.focusTrack || hasShotLayout) && (
                     <div className="mt-3 grid grid-cols-2 gap-1.5">
                       {(
                         [
-                          { value: 'auto', label: 'Auto (AI faces)' },
+                          { value: 'auto', label: 'Automatic' },
                           { value: 'manual', label: 'Manual' }
                         ] as Array<{ value: FramingMode; label: string }>
                       ).map((f) => (
@@ -310,7 +313,11 @@ export default function EditorScreen(): React.JSX.Element {
                       ))}
                     </div>
                   )}
-                  {clip.edit.framing === 'auto' && clip.focusTrack ? (
+                  {automaticLayout ? (
+                    <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+                      Automatic composition preserves the important content in each shot. Choose Manual to set your own crop, or Fit to show the full source.
+                    </p>
+                  ) : clip.edit.framing === 'auto' && clip.focusTrack ? (
                     <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
                       Following {clip.focusTrack.length} tracked speaker position
                       {clip.focusTrack.length === 1 ? '' : 's'} — the crop pans smoothly as the

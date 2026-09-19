@@ -19,6 +19,8 @@ import { mergeReframeResult, needsReframe } from '@shared/reframe'
 
 /** Font faces already registered with document.fonts (FontFace API). */
 const loadedFontFaces = new Map<string, FontFace>()
+/** Saved trim changes that arrived while a reframe request was in flight. */
+const queuedReframes = new Set<string>()
 
 /** Register custom fonts with the renderer so previews match exports. */
 async function registerFonts(fonts: CustomFont[]): Promise<void> {
@@ -356,6 +358,9 @@ export const useStore = create<AppState>((set, get) => ({
     if (!project) return
     get().updateClipLocal(clip)
     await window.clipforge.updateClip(project.id, clip)
+    if (get().project?.id === project.id && get().selectedClipId === clip.id) {
+      await get().ensureReframe(clip.id)
+    }
   },
 
   generateCaption: async (clipId) => {
@@ -386,7 +391,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   ensureReframe: async (clipId, retry = false) => {
     const project = get().project
-    if (!project || get().reframeBusy[clipId]) return
+    if (!project) return
+    if (get().reframeBusy[clipId]) {
+      queuedReframes.add(clipId)
+      return
+    }
     if (get().reframeError[clipId] && !retry) return
     const clip = project.clips.find((c) => c.id === clipId)
     if (!clip || !needsReframe(clip)) return
@@ -417,6 +426,9 @@ export const useStore = create<AppState>((set, get) => ({
       const busy = { ...get().reframeBusy }
       delete busy[clipId]
       set({ reframeBusy: busy })
+      if (queuedReframes.delete(clipId) && get().project?.id === project.id) {
+        void get().ensureReframe(clipId)
+      }
     }
   },
 

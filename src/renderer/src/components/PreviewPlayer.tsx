@@ -9,7 +9,8 @@ import {
   wordsInRange
 } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
-import { clipAllowsAutoZoom } from '@shared/contentType'
+import { automaticLayoutShots, clipAllowsAutoZoom, detailCaptionRanges } from '@shared/contentType'
+import { captionPositionAt } from '@shared/contentRegion'
 import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
 import {
@@ -35,6 +36,7 @@ export default function PreviewPlayer({
 }): React.JSX.Element {
   const videoRef = useRef<HTMLVideoElement>(null)
   const zoomLayerRef = useRef<HTMLDivElement>(null)
+  const overviewRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
   const playbackClockRef = useRef<PlaybackClock>({ mediaTime: 0, wallAt: 0 })
   const previewPlanRef = useRef<PreviewFramePlan>({
@@ -70,7 +72,7 @@ export default function PreviewPlayer({
     const video = videoRef.current
     const layer = zoomLayerRef.current
     if (!video || !layer) return
-    applyPreviewVideoFrame(video, layer, previewPlanRef.current, t)
+    applyPreviewVideoFrame(video, layer, previewPlanRef.current, t, overviewRef.current)
   }, [])
 
   const requestSeek = useCallback(
@@ -133,6 +135,15 @@ export default function PreviewPlayer({
     else if (video.currentTime > end + 0.05) requestSeek(end)
   }, [start, end, requestSeek])
 
+  // Region masks use viewport pixels, so update them even when paused and resized.
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    const observer = new ResizeObserver(() => applyFrame(video.currentTime))
+    observer.observe(video)
+    return () => observer.disconnect()
+  }, [applyFrame])
+
   // Let the sidebar (timeline, transcript) seek the preview.
   useEffect(() => {
     setSeekHandler((t: number) => {
@@ -159,17 +170,19 @@ export default function PreviewPlayer({
   // Mirrors the export's tighten-cuts behaviour by skipping removed spans.
   const keptSegments = useMemo(() => {
     if (!clip.edit.tightenCuts || !project.transcript) return null
-    return computeKeptSegments(project.transcript, start, end)
-  }, [clip.edit.tightenCuts, project.transcript, start, end])
+    return computeKeptSegments(project.transcript, start, end, clip.visualStory?.protectedRanges)
+  }, [clip.edit.tightenCuts, clip.visualStory, project.transcript, start, end])
   const timeMap = useMemo(() => (keptSegments ? new TimeMap(keptSegments) : null), [keptSegments])
+  const outputDuration = timeMap?.outputDuration ?? duration
+  const outputTime = timeMap ? timeMap.toOutput(time) : Math.max(0, time - start)
 
   // Mirrors the export's auto-zoom plan (same shared generator), including the
   // trim the export has to make when a plan outgrows one ffmpeg expression.
   const zoomEvents = useMemo(() => {
-    if (!clipAllowsAutoZoom(clip.edit)) return null
+    if (!clipAllowsAutoZoom(clip.edit) || automaticLayoutShots(clip).length > 0) return null
     const events = fitZoomEvents(computeZoomEvents(project.transcript, start, end, keptSegments))
     return events.length > 0 ? events : null
-  }, [clip.edit, project.transcript, start, end, keptSegments])
+  }, [clip, project.transcript, start, end, keptSegments])
 
   const src = window.clipforge.mediaUrl(project.video.path)
   const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'
@@ -181,13 +194,17 @@ export default function PreviewPlayer({
       focusTrack: clip.focusTrack,
       framing: clip.edit.framing,
       manualFocusX: clip.edit.focusX,
+      fitRanges: automaticLayoutShots(clip).filter((shot) => shot.mode === 'fit'),
       isCrop
     }
     const t = videoRef.current?.currentTime ?? start
     applyFrame(t)
   }, [
+    clip,
     zoomEvents,
     clip.focusTrack,
+    clip.visualLayout,
+    clip.edit,
     clip.edit.framing,
     clip.edit.focusX,
     isCrop,
@@ -241,7 +258,7 @@ export default function PreviewPlayer({
   }
 
   const seek = (fraction: number): void => {
-    requestSeek(start + fraction * duration)
+    requestSeek(timeMap ? timeMap.toSource(fraction * outputDuration) : start + fraction * duration)
   }
 
   return (
@@ -270,6 +287,7 @@ export default function PreviewPlayer({
             preload="auto"
           />
         </div>
+        <canvas ref={overviewRef} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 hidden w-full" />
         <BrollOverlay clip={clip} time={time} />
         <WatermarkOverlay />
         {clip.edit.captionsEnabled && project.transcript && (
@@ -298,12 +316,14 @@ export default function PreviewPlayer({
       <div className="flex w-full max-w-md items-center gap-3">
         <button
           onClick={togglePlay}
+          aria-label={playing ? 'Pause preview' : 'Play preview'}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-800 text-zinc-200 transition hover:bg-surface-700"
         >
           {playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
         </button>
         <button
           onClick={restart}
+          aria-label="Restart preview"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-800 text-zinc-400 transition hover:bg-surface-700"
         >
           <RotateCcw size={14} />
@@ -312,12 +332,12 @@ export default function PreviewPlayer({
           type="range"
           min={0}
           max={1000}
-          value={Math.round(((time - start) / duration) * 1000)}
+          value={Math.round((outputTime / outputDuration) * 1000)}
           onChange={(e) => seek(Number(e.target.value) / 1000)}
           className="flex-1"
         />
         <span className="shrink-0 text-xs tabular-nums text-zinc-500">
-          {formatTimecode(Math.max(0, time - start))} / {formatTimecode(duration)}
+          {formatTimecode(outputTime)} / {formatTimecode(outputDuration)}
         </span>
       </div>
     </div>
@@ -462,7 +482,7 @@ function CaptionOverlay({
   return (
     <div
       className="pointer-events-none absolute inset-x-0 flex flex-col items-center text-center"
-      style={{ top: `${style.positionY * 100}cqh`, transform: 'translateY(-50%)' }}
+      style={{ top: `${captionPositionAt(detailCaptionRanges(clip), time, style.positionY) * 100}cqh`, transform: 'translateY(-50%)' }}
     >
       {group.lines.map((line, li) => (
         <div

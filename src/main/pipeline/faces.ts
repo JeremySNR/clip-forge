@@ -2,8 +2,8 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import type { FocusKeyframe, ClipContentType, ClipEditState, VideoType } from '@shared/types'
-import { classifyClipContent } from '@shared/contentType'
+import type { Clip, FocusKeyframe, ClipContentType, ClipEditState, VideoType } from '@shared/types'
+import { applyVisualLayout, classifyClipContent, protectLayoutRanges } from '@shared/contentType'
 import { applyVideoTypeLayout, resolveContentType } from '@shared/videoType'
 import { mapLimit } from './concurrency'
 import { runFfmpeg } from './ffmpeg'
@@ -12,16 +12,19 @@ import { detectFaces, frameDifference, MODEL_H, MODEL_W, SCENE_CUT_THRESHOLD } f
 import {
   chooseFocusCentres,
   chooseSpeakerByScores,
+  lowDetailShotRanges,
   mouthActivity,
   type FaceBox
 } from './speaker'
 
 /**
  * Face-based auto reframing. The primary path runs audio-visual active
- * speaker detection (LR-ASD, see asd.ts): faces are detected with UltraFace,
+ * speaker detection (LR-ASD, see asd.ts): faces are detected with YuNet
+ * (UltraFace fallback),
  * tracked per person, and every track is scored frame-by-frame against the
- * clip's audio — the crop follows whoever is actually speaking, never someone
- * who merely moves or gestures.
+ * clip's audio to estimate who is speaking. Tracking, overlap and uncertain
+ * scores can still produce wrong-person crops; visual constraints may require
+ * preserving context rather than following one detected face.
  *
  * The result is a focus track of stable segments: hard cuts at camera cuts and
  * speaker switches (the way social clipping tools reframe multi-speaker
@@ -87,60 +90,21 @@ async function sampleFaceCentres(
     // Face detection per frame is independent — run inferences concurrently
     // (ONNX Runtime queues session.run calls safely across its thread pool).
     const facesPerFrame: FaceBox[][] = new Array(frameCount).fill(null).map(() => [])
-    const completedFrames = new Array<boolean>(frameCount).fill(false)
-    let detectionFrames = 0
-    let framesWithFaces = 0
-    let lastFaceFrame = -1
-    let processedThrough = -1
-    let abortedEarly = false
-    let effectiveCount = frameCount
-    const probeEnd = Math.round(8 * SAMPLE_FPS)
-    const absentLimit = Math.round(3 * SAMPLE_FPS)
     await mapLimit(frames, FACE_INFERENCE_CONCURRENCY, async (frame, f) => {
-      if (abortedEarly && f >= effectiveCount) return
       signal?.throwIfAborted()
-      const faces = await detectFaces(frame)
-      facesPerFrame[f] = faces
-      completedFrames[f] = true
-      if (abortedEarly) return
-
-      // Concurrent inferences finish out of order; only make bailout decisions
-      // from a contiguous analysed prefix so no frame inside it is skipped.
-      while (processedThrough + 1 < frameCount && completedFrames[processedThrough + 1]) {
-        processedThrough++
-        detectionFrames++
-        if (facesPerFrame[processedThrough].length > 0) {
-          framesWithFaces++
-          lastFaceFrame = processedThrough
-        }
-      }
-      if (
-        (processedThrough >= probeEnd && detectionFrames >= probeEnd && framesWithFaces < 3) ||
-        (lastFaceFrame >= 0 && processedThrough - lastFaceFrame >= absentLimit)
-      ) {
-        abortedEarly = true
-        effectiveCount = Math.min(frameCount, processedThrough + 1, Math.max(lastFaceFrame + 1, probeEnd))
-      }
+      facesPerFrame[f] = await detectFaces(frame)
     })
-
-    const trimmedFaces = facesPerFrame.slice(0, effectiveCount)
-    const trimmedFrames = frames.slice(0, effectiveCount)
-    const trimmedCuts = sceneCuts.filter((c) => c < effectiveCount)
 
     // Mouth-movement activity per face — the visual speech signal that lets
     // the focus follow whoever is talking rather than whoever is biggest.
-    const activityPerFrame: number[][] = trimmedFaces.map((faces, f) =>
-      f === 0 || trimmedCuts.includes(f)
+    const activityPerFrame: number[][] = facesPerFrame.map((faces, f) =>
+      f === 0 || sceneCuts.includes(f)
         ? faces.map(() => 0)
-        : faces.map((box) => mouthActivity(trimmedFrames[f - 1], trimmedFrames[f], box, MODEL_W, MODEL_H))
+        : faces.map((box) => mouthActivity(frames[f - 1], frames[f], box, MODEL_W, MODEL_H))
     )
 
-    const { centres: analysedCentres, switchCuts } = chooseFocusCentres(trimmedFaces, activityPerFrame, trimmedCuts)
-    const centres =
-      analysedCentres.length < frameCount
-        ? analysedCentres.concat(new Array<number | null>(frameCount - analysedCentres.length).fill(null))
-        : analysedCentres
-    const cuts = [...new Set([...trimmedCuts, ...switchCuts])].sort((a, b) => a - b)
+    const { centres, switchCuts } = chooseFocusCentres(facesPerFrame, activityPerFrame, sceneCuts)
+    const cuts = [...new Set([...sceneCuts, ...switchCuts])].sort((a, b) => a - b)
     return { centres, cuts }
   } finally {
     await rm(rawPath, { force: true }).catch(() => undefined)
@@ -241,6 +205,10 @@ function trackRun(
 export interface ClipFocusAnalysis {
   focusTrack: FocusKeyframe[] | null
   contentType: ClipContentType
+  /** Detected camera cuts, absolute source seconds; not speaker switches. */
+  sceneCuts?: number[]
+  sceneTransitions?: Array<{ start: number; end: number }>
+  lowDetailShots?: Array<{ start: number; end: number }>
 }
 
 /**
@@ -257,9 +225,15 @@ export async function analyzeClipFocus(
   try {
     const asd = await analyzeClipASD(videoPath, startSec, endSec, signal)
     if (asd) {
+      const sceneCuts = asd.sceneCuts.map((frame) => startSec + frame / asd.fps)
+      const sceneTransitions = asd.sceneTransitions?.map((range) => ({
+        start: startSec + range.start / asd.fps, end: startSec + range.end / asd.fps
+      }))
       const detectionFaceCoverage = asd.faceFrameRatio
+      const lowDetailShots = lowDetailShotRanges(asd.tracks, asd.frameCount, asd.sceneCuts, asd.fps, asd.cropSize)
+        .map(range => ({ start: startSec + range.start, end: Math.min(endSec, startSec + range.end) }))
       if (asd.tracks.length === 0) {
-        return { focusTrack: null, contentType: classifyClipContent(detectionFaceCoverage, false) }
+        return { focusTrack: null, contentType: classifyClipContent(detectionFaceCoverage, false), sceneCuts, sceneTransitions, lowDetailShots }
       }
       const { centres, switchCuts } = chooseSpeakerByScores(
         asd.tracks,
@@ -272,8 +246,8 @@ export async function analyzeClipFocus(
       const detected = centres.filter((c): c is number => c !== null).length
       const faceCoverage = centres.length > 0 ? detected / centres.length : 0
       const contentType = classifyClipContent(faceCoverage, focusTrack !== null)
-      if (contentType === 'screencast') return { focusTrack: null, contentType }
-      return { focusTrack, contentType }
+      if (contentType === 'screencast') return { focusTrack: null, contentType, sceneCuts, sceneTransitions, lowDetailShots }
+      return { focusTrack, contentType, sceneCuts, sceneTransitions, lowDetailShots }
     }
   } catch (err) {
     if (signal?.aborted) throw err
@@ -301,6 +275,7 @@ export function applyFocusAnalysis(
   clip: {
     focusTrack: FocusKeyframe[] | null
     contentType?: ClipContentType | null
+    visualLayout?: Clip['visualLayout']
     edit: ClipEditState
   },
   analysis: ClipFocusAnalysis,
@@ -308,5 +283,12 @@ export function applyFocusAnalysis(
 ): void {
   clip.focusTrack = analysis.focusTrack
   clip.contentType = resolveContentType(videoType, analysis.contentType)
-  clip.edit = applyVideoTypeLayout(clip.edit, analysis.contentType, videoType, analysis.focusTrack)
+  if (videoType !== 'talking-head') {
+    clip.visualLayout = protectLayoutRanges(clip.visualLayout, clip.edit.start, clip.edit.end, analysis.lowDetailShots ?? [])
+  }
+  clip.edit = applyVisualLayout(
+    applyVideoTypeLayout(clip.edit, analysis.contentType, videoType, analysis.focusTrack),
+    clip.visualLayout,
+    videoType
+  )
 }

@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import type { Transcript, BrandColors } from '@shared/types'
 import { resolveCaptionStyle, type CaptionStyle } from '@shared/captionStyles'
+import { captionPositionAt, type CaptionPositionRange } from '@shared/contentRegion'
 import type { FontMetrics } from '../fonts'
 import {
   CAPTION_SAFE_WIDTH,
@@ -144,6 +145,8 @@ export interface CaptionOptions {
   fontFamily?: string
   /** App-wide brand palette merged onto the caption preset. */
   brandColors?: BrandColors | null
+  /** Source-time layout bands that keep captions clear of enlarged detail. */
+  positionRanges?: CaptionPositionRange[]
 }
 
 export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
@@ -154,7 +157,6 @@ export function buildAss(transcript: Transcript, opts: CaptionOptions): string {
   // A bottom-aligned style with MarginV would grow upwards from that line and
   // sit half a block higher than the preview on every two-line caption.
   const captionX = Math.round(opts.width / 2)
-  const captionY = Math.round(style.positionY * opts.height)
   const marginH = Math.round(opts.width * (1 - CAPTION_SAFE_WIDTH) / 2)
   const primary = assStyleColor(style.textColor)
   const outline = assStyleColor(style.outlineColor)
@@ -211,7 +213,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   // \q2 turns libass wrapping off for caption events only: the layout above
   // decided their lines. The hook title keeps the script's smart wrapping
   // (WrapStyle 0) because it carries no explicit breaks of its own.
-  const anchor = `{\\an5\\q2\\pos(${captionX},${captionY})}`
 
   groups.forEach((group, gi) => {
     // The finished group holds briefly after its last word (never into the
@@ -224,9 +225,14 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       const next = group.words[i + 1]
       const end = Math.min(clipDur, (isLast ? groupEnd : next.start) - opts.clipStart)
       if (end <= start) continue
-      lines.push(
-        `Dialogue: 0,${assTime(start)},${assTime(end)},Caption,,0,0,0,,${anchor}${renderGroupText(group, i, style)}`
-      )
+      const cuts = [start, ...new Set((opts.positionRanges ?? []).flatMap(r => [r.start - opts.clipStart, r.end - opts.clipStart])
+        .filter(t => t > start && t < end)), end].sort((a, b) => a - b)
+      for (let part = 0; part < cuts.length - 1; part++) {
+        const from = cuts[part], until = cuts[part + 1]
+        const position = captionPositionAt(opts.positionRanges, opts.clipStart + (from + until) / 2, style.positionY)
+        const anchor = `{\\an5\\q2\\pos(${captionX},${Math.round(position * opts.height)})}`
+        lines.push(`Dialogue: 0,${assTime(from)},${assTime(until)},Caption,,0,0,0,,${anchor}${renderGroupText(group, i, style)}`)
+      }
     }
   })
 

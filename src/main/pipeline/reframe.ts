@@ -1,8 +1,10 @@
 import type { Clip, Project } from '@shared/types'
-import { mergeReframeResult, needsReframe } from '@shared/reframe'
+import { markReframeComplete, mergeReframeResult, needsReframe } from '@shared/reframe'
 import { shouldAnalyzeFaces } from '@shared/videoType'
 import { analyzeClipFocus, applyFocusAnalysis, type ClipFocusAnalysis } from './faces'
 import { loadProject, updateProject } from '../projects'
+import { getApiKey, getModelPreferences } from '../settings'
+import { refineComposition } from './composition'
 
 /**
  * On-demand reframe analysis for clips the pipeline left 'pending' (see
@@ -39,6 +41,7 @@ export function ensureClipReframe(
   clipId: string,
   signal?: AbortSignal
 ): Promise<Project> {
+  if (signal?.aborted) return Promise.reject(abortError(signal))
   const key = `${projectId}:${clipId}`
   let run = inFlight.get(key)
   if (!run) {
@@ -95,6 +98,7 @@ async function analyseAndPersist(
   signal?: AbortSignal
 ): Promise<Project> {
   const project = await loadProject(projectId)
+  signal?.throwIfAborted()
   const clip = project.clips.find((c) => c.id === clipId)
   if (!clip || !needsReframe(clip)) return project
   if (project.sourceMissing) {
@@ -110,13 +114,26 @@ async function analyseAndPersist(
   // Apply onto a copy: the saved clip may have moved on while the analysis
   // ran, and mergeReframeResult grafts only the analysis-owned fields.
   const analysed: Clip = { ...clip, edit: { ...clip.edit } }
+  const apiKey = clip.visualLayout?.preserveContext ? getApiKey() : ''
+  if (apiKey && project.videoType !== 'talking-head') {
+    await refineComposition(apiKey, getModelPreferences().analysisModel, project.video.path, analysed, analysis.sceneCuts, signal, analysis.focusTrack, analysis.sceneTransitions, project.transcript ?? undefined)
+  }
   applyFocusAnalysis(analysed, analysis, project.videoType)
-  analysed.reframeStatus = 'done'
+  markReframeComplete(analysed)
+  signal?.throwIfAborted()
 
-  return updateProject(projectId, (fresh) => {
+  const updated = await updateProject(projectId, (fresh) => {
     const idx = fresh.clips.findIndex((c) => c.id === clipId)
     // Regenerated away while we were analysing: nothing to attach it to.
     if (idx === -1) return
+    if (fresh.video.path !== project.video.path ||
+      (fresh.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
     fresh.clips[idx] = mergeReframeResult(fresh.clips[idx], analysed, fresh.videoType)
   })
+  signal?.throwIfAborted()
+  const latest = updated.clips.find((c) => c.id === clipId)
+  // A trim extension saved during inference needs another pass before export.
+  return latest && needsReframe(latest)
+    ? analyseAndPersist(projectId, clipId, signal)
+    : updated
 }
