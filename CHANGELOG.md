@@ -6,6 +6,24 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.10.0] - 2026-09-19
+
+### Added
+
+- A first-run setup wizard for ChatGPT sign-in through Codex, an OpenAI-compatible API, or local-only full-video captions. Existing installations keep their settings and skip onboarding.
+- In-app local Whisper setup: after Python 3.10+ is installed, Cutawan creates a private environment, installs faster-whisper, and downloads a Small or Large v3 model on request. Setup can be cancelled, retried, and checked without making an AI request.
+- Optional local Whisper transcription alongside API-based clip analysis, so API users can keep speech recognition on their computer.
+
+### Changed
+
+- Full-video captions can now be transcribed and exported without an API key when local Whisper is configured. AI clip finding still requires ChatGPT/Codex or an API connection.
+- Onboarding explains that Claude subscriptions are not connected to third-party apps through a personal login; Cutawan does not route automated requests against Claude subscription limits.
+
+### Validation and requirements
+
+- 439 tests, typecheck, lint, and the production build passed before release preparation.
+- Local Whisper setup requires a separately installed Python 3.10+ and a model download from Hugging Face. The ChatGPT route additionally requires an installed Codex CLI signed in with ChatGPT. The model download itself was not exercised in the test environment.
+
 ## [0.9.0] - 2026-09-19
 
 ### Improved
