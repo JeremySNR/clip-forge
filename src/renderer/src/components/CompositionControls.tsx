@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Clip, Composition, ContentRegion } from '@shared/types'
 import { presenterComposition } from '@shared/composition'
-import { compositionHidesTitle, layoutReviewMessage, validLayoutShots } from '@shared/contentType'
+import { compositionHidesTitle, layoutReviewMessage, layoutShotAt, validLayoutShots } from '@shared/contentType'
 import { usePreviewBus } from '../lib/previewBus'
 import { useStore } from '../store'
 
@@ -13,7 +13,7 @@ const startingRegions = presenterComposition({ x: .05, y: .35, width: .75, heigh
 
 export default function CompositionControls({ clip }: { clip: Clip }): React.JSX.Element | null {
   const [adding, setAdding] = useState(false)
-  const shot = usePreviewBus(s => clip.visualLayout?.shots?.find(shot => s.time >= shot.start && s.time < shot.end))
+  const shot = usePreviewBus(s => layoutShotAt(clip, s.time))
   const update = useStore(s => s.updateClip)
   const hasComposition = clip.visualLayout?.shots?.some(s => s.composition)
   const issue = layoutReviewMessage(clip)

@@ -48,6 +48,13 @@ it('exports original crops from all corners, switches at the right time, and kee
       expect(Math.max(...before.subarray(at, at + 3))).toBeLessThan(10)
       const streams = JSON.parse(await runBinary(FFPROBE_PATH, ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'json', outputPath]))
       expect(streams.streams.filter((s: { codec_type: string }) => s.codec_type === 'audio')).toHaveLength(1)
+      if (i === 0) {
+        const capped = await renderClip({ clip, source, transcript: null, outputPath: join(dir, 'capped.mp4'), sizeTargetBytes: 20000 })
+        expect(capped.sizePlan?.downscaled).toBe(true)
+        const cappedInfo = await probeVideo(capped.outputPath)
+        expect([cappedInfo.width, cappedInfo.height]).toEqual([capped.sizePlan!.width, capped.sizePlan!.height])
+        expect(cappedInfo.hasAudio).toBe(true)
+      }
     }
     expect((await readdir(dir)).some(name => name.includes('.partial-'))).toBe(false)
     const previous = join(dir, 'keep.mp4')

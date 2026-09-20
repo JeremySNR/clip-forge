@@ -890,7 +890,7 @@ async function render(job: RenderJob): Promise<RenderResult> {
   }
   const bytes = (await stat(job.outputPath)).size
   const exported = await probeVideo(job.outputPath)
-  if (exported.width !== w || exported.height !== h || exported.hasAudio !== source.hasAudio ||
+  if (exported.width !== (plan?.width ?? w) || exported.height !== (plan?.height ?? h) || exported.hasAudio !== source.hasAudio ||
     Math.abs(exported.durationSec - outputDuration) > Math.max(.25, 2 / Math.max(1, source.fps))) {
     throw new Error('Export validation failed: unexpected dimensions, duration or audio stream.')
   }

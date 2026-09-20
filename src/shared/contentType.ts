@@ -1,4 +1,4 @@
-import type { Clip, ClipContentType, ClipEditState, VideoType } from './types'
+import type { Clip, ClipContentType, ClipEditState, LayoutShot, VideoType } from './types'
 import { DETAIL_CAPTION_Y, validContentRegion, type CaptionPositionRange } from './contentRegion'
 import { presenterComposition, validComposition } from './composition'
 
@@ -140,6 +140,12 @@ export function layoutReviewMessage(clip: Pick<Clip, 'edit' | 'visualLayout'>): 
     ? automaticLayoutShots(clip) : clip.visualLayout!.shots!.filter(s => s.start < clip.edit.end && s.end > clip.edit.start)
   const issue = shots.find(s => s.review?.status === 'needs-review')
   return issue?.review?.reason ?? null
+}
+
+/** Editing at the end handle selects the final visible shot, not a new layout. */
+export function layoutShotAt(clip: Pick<Clip, 'edit' | 'visualLayout'>, time: number): LayoutShot | undefined {
+  const t = Math.max(clip.edit.start, Math.min(clip.edit.end - 0.000001, time))
+  return clip.visualLayout?.shots?.find(shot => t >= shot.start && t < shot.end)
 }
 
 /** Avoid a one-frame fit flash when both sides of a transition are safe crops. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Clip, ContentRegion } from '@shared/types'
 import { compositionPixels, presenterComposition, usefulComposition, validComposition } from '@shared/composition'
-import { automaticLayoutShots, compositionHidesTitle, detailCaptionRanges, layoutReviewMessage, protectLayoutRanges, validLayoutShots } from '@shared/contentType'
+import { automaticLayoutShots, compositionHidesTitle, detailCaptionRanges, layoutReviewMessage, layoutShotAt, protectLayoutRanges, validLayoutShots } from '@shared/contentType'
 import { mergeClipSave, mergeReframeResult } from '@shared/reframe'
 
 const content = { x: .2, y: .3, width: .6, height: .6 }
@@ -75,6 +75,18 @@ describe('independent presenter/content composition', () => {
     expect(mergeClipSave(manual, saved, 'auto').visualLayout).toEqual(manual.visualLayout)
     expect(mergeReframeResult(manual, saved, 'auto').visualLayout).toEqual(manual.visualLayout)
     expect(mergeClipSave(saved, manual, 'auto').visualLayout).toEqual(manual.visualLayout)
+  })
+
+  it('selects the final visible shot at the trim end, including trims on an internal cut', () => {
+    const c = clip()
+    const first = { ...c.visualLayout!.shots![0], end: 15 }
+    const last = { ...first, start: 15, end: 20 }
+    c.visualLayout!.shots = [first, last]
+    expect(layoutShotAt(c, 20)).toBe(last)
+    expect(layoutShotAt(c, 15)).toBe(last)
+    c.edit.end = 15
+    expect(layoutShotAt(c, 15)).toBe(first)
+    expect(layoutShotAt(c, 20)).toBe(first)
   })
 
   it('keeps the full scene when a manual composition no longer covers an extended trim', () => {
