@@ -107,9 +107,11 @@ jobs:
             gh release create "v$version" --draft --target "$GITHUB_SHA" --title "v$version" --notes-file notes.md
           fi
           gh release upload "v$version" release/* --clobber
-          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$version" > uploaded-release.json
+          # A fresh draft has no public tag yet; resolve it through gh's draft-aware lookup.
+          release_id=$(gh release view "v$version" --json databaseId --jq '.databaseId')
+          gh api "repos/$GITHUB_REPOSITORY/releases/$release_id" > uploaded-release.json
           node scripts/verify-release.mjs release uploaded-release.json
-          gh release edit "v$version" --notes-file notes.md --draft=false --latest
+          gh release edit "v$version" --target "$GITHUB_SHA" --notes-file notes.md --draft=false --latest
 
   # After the first listing exists on winget-pkgs (see docs/winget.md), later
   # releases open an update PR automatically. Skip until the package id is set.
