@@ -1,6 +1,6 @@
 {
   "name": "cutawan",
-  "version": "0.10.3",
+  "version": "0.11.0",
   "description": "Open-source AI video clipper — turn long videos into viral short clips (an Opus Clip alternative)",
   "main": "out/main/index.js",
   "author": "Cutawan Contributors",
@@ -70,7 +70,10 @@
       "node_modules/onnxruntime-node/**"
     ],
     "extraResources": [
-      { "from": "resources/local-whisper", "to": "local-whisper" },
+      {
+        "from": "resources/local-whisper",
+        "to": "local-whisper"
+      },
       {
         "from": "build/icon.png",
         "to": "icon.png"

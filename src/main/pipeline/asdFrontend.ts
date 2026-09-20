@@ -8,6 +8,12 @@ const CROP_SIZE = 112
 const EMBEDDING_SIZE = 128
 const AUDIO_COEFFICIENTS = 13
 
+/** Arrays for short clips; a disk-backed reader for long recordings. */
+export interface FaceCrops {
+  length: number
+  slice(from: number, to: number): Uint8Array[] | Promise<Uint8Array[]>
+}
+
 export function frontendWindows(frames: number): Array<{ from: number; to: number; inputFrom: number; inputTo: number }> {
   const windows = []
   for (let from = 0; from < frames; from += FRONTEND_BATCH_FRAMES) {
@@ -20,7 +26,7 @@ export function frontendWindows(frames: number): Array<{ from: number; to: numbe
 
 /** Bound convolution workspaces while retaining the full temporal receptive field. */
 export async function encodeFaceTrack(
-  modelPath: string, crops: Uint8Array[], audio: Float32Array, signal?: AbortSignal
+  modelPath: string, crops: FaceCrops, audio: Float32Array, signal?: AbortSignal
 ): Promise<{ embedA: Float32Array; embedV: Float32Array }> {
   const embedA = new Float32Array(crops.length * EMBEDDING_SIZE)
   const embedV = new Float32Array(crops.length * EMBEDDING_SIZE)
@@ -28,7 +34,9 @@ export async function encodeFaceTrack(
     signal?.throwIfAborted()
     const frames = inputTo - inputFrom
     const video = new Float32Array(frames * CROP_SIZE * CROP_SIZE)
-    for (let i = inputFrom; i < inputTo; i++) video.set(crops[i], (i - inputFrom) * CROP_SIZE * CROP_SIZE)
+    const window = await crops.slice(inputFrom, inputTo)
+    if (window.length !== frames) throw new Error('Incomplete face crop window')
+    for (let i = 0; i < frames; i++) video.set(window[i], i * CROP_SIZE * CROP_SIZE)
     const outputs = await runInference(modelPath, {
       audio: { data: audio.slice(inputFrom * 4 * AUDIO_COEFFICIENTS, inputTo * 4 * AUDIO_COEFFICIENTS),
         dims: [1, frames * 4, AUDIO_COEFFICIENTS] },

@@ -1,6 +1,7 @@
 import type { PreviewFramePlan } from '@shared/previewFrame'
 import { PREVIEW_ZOOM_ORIGIN_Y, previewObjectPosition, previewZoom, previewIsCrop, previewRegionStyle } from '@shared/previewFrame'
 import { contentRegionPixels, detailPanelGeometry } from '@shared/contentRegion'
+import { compositionPixels } from '@shared/composition'
 
 /** Apply crop focus and zoom directly to the preview DOM (bypasses React). */
 export function applyPreviewVideoFrame(
@@ -10,6 +11,33 @@ export function applyPreviewVideoFrame(
   t: number,
   overview?: HTMLCanvasElement | null
 ): void {
+  const composition = plan.isCrop ? plan.fitRanges?.find(r => t >= r.start && t < r.end)?.composition : undefined
+  video.style.visibility = 'visible'
+  if (composition && overview && video.readyState >= 2 && video.videoWidth > 0 && video.clientWidth > 0) {
+    const context = overview.getContext('2d')
+    if (context) {
+      // Use export geometry even on a small preview; only the final canvas is scaled.
+      const pixels = compositionPixels(composition, { width: video.videoWidth, height: video.videoHeight }, 1080, 1920)
+      if (pixels.length) {
+        const ratio = Math.min(window.devicePixelRatio || 1, 2)
+        const width = Math.max(2, Math.round(video.clientWidth * ratio))
+        const height = Math.max(2, Math.round(video.clientHeight * ratio))
+        if (overview.width !== width) overview.width = width
+        if (overview.height !== height) overview.height = height
+        overview.style.height = `${video.clientHeight}px`
+        overview.style.display = 'block'
+        context.setTransform(width / 1080, 0, 0, height / 1920, 0, 0)
+        context.fillStyle = '#000'
+        context.fillRect(0, 0, 1080, 1920)
+        for (const { source: s, target: d } of pixels) {
+          context.drawImage(video, s.x, s.y, s.width, s.height, d.x, d.y, d.width, d.height)
+        }
+        video.style.visibility = 'hidden'
+        zoomLayer.style.transform = 'none'
+        return
+      }
+    }
+  }
   const focusX = previewObjectPosition(plan, t, video.videoWidth, video.videoHeight, video.clientWidth, video.clientHeight)
   const zoom = previewZoom(plan, t)
   const isCrop = previewIsCrop(plan, t)

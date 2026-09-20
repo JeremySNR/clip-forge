@@ -95,6 +95,8 @@ export interface ClipEditState {
   aspect: AspectRatio
   reframeMode: ReframeMode
   framing: FramingMode
+  /** A user choice; automatic analysis must not overwrite it. */
+  compositionPreference?: 'auto' | 'content-first' | 'stacked' | 'content-only'
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
   tightenCuts: boolean
   /**
@@ -161,12 +163,14 @@ export interface Clip {
   }
   /** Source-frame review; conservative layout constraints for the inspected interval. */
   visualLayout?: {
+    /** Incremented by manual source-region edits; protects them from in-flight analysis. */
+    revision?: number
     start: number
     end: number
     preserveContext: boolean
     allowZoom: boolean
     reason: string
-    shots?: Array<{ start: number; end: number; mode: 'crop' | 'fit'; region?: ContentRegion; overview?: boolean }>
+    shots?: LayoutShot[]
   }
   hashtags: string[]
   thumbnailPath: string | null
@@ -188,6 +192,25 @@ export interface Clip {
 
 /** Normalized source rectangle; fit it intact instead of discarding its edges. */
 export interface ContentRegion { x: number; y: number; width: number; height: number }
+
+/** Independent crops of one source frame, rendered on one playback clock. */
+export interface Composition {
+  version: 1
+  preset: 'content-first' | 'stacked' | 'content-only'
+  layers: Array<{ role: 'content' | 'presenter'; source: ContentRegion; target: ContentRegion }>
+  captionY: number
+}
+
+export interface LayoutShot {
+  start: number
+  end: number
+  mode: 'crop' | 'fit'
+  region?: ContentRegion
+  overview?: boolean
+  composition?: Composition
+  /** Sampled layout review only, never a claim of verified editorial quality. */
+  review?: { status: 'checked' | 'needs-review'; reason: string }
+}
 
 export interface Project {
   /** Increments on relink so in-flight analysis of an older source cannot land. */

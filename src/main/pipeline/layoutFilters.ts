@@ -1,5 +1,22 @@
-import type { ContentRegion } from '@shared/types'
+import type { Composition, ContentRegion } from '@shared/types'
 import { contentRegionPixels, detailPanelGeometry } from '@shared/contentRegion'
+import { compositionPixels } from '@shared/composition'
+
+/** One decoded stream, bounded branches, identical fit geometry to the preview. */
+export function compositionGraph(
+  input: string, output: string, prefix: string, source: { width: number; height: number },
+  width: number, height: number, composition: Composition
+): string {
+  const layers = compositionPixels(composition, source, width, height)
+  if (!layers.length) throw new Error('Invalid composition')
+  const parts = [`[${input}]split=${layers.length + 1}[${prefix}BaseInput]${layers.map((_, i) => `[${prefix}Input${i}]`).join('')}`,
+    `[${prefix}BaseInput]scale=2:2,pad=${width}:${height}:0:0:color=black,drawbox=color=black:t=fill[${prefix}Base]`]
+  for (const [i, { source: s, target: d }] of layers.entries()) {
+    parts.push(`[${prefix}Input${i}]crop=${s.width}:${s.height}:${s.x}:${s.y},scale=${d.width}:${d.height}:flags=lanczos,setsar=1[${prefix}Layer${i}]`)
+    parts.push(`[${i === 0 ? `${prefix}Base` : `${prefix}Out${i - 1}`}][${prefix}Layer${i}]overlay=${d.x}:${d.y}:eof_action=pass[${i === layers.length - 1 ? output : `${prefix}Out${i}`}]`)
+  }
+  return parts.join(';')
+}
 
 /** Identical fit/overview graph for final exports and the model's review images. */
 export function fitRegionGraph(

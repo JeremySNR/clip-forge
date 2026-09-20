@@ -9,6 +9,7 @@ import type { ReadableStream as WebReadableStream } from 'node:stream/web'
 import { app } from 'electron'
 import type { GpuEncoderStatus, ImportProgress, QualityPreference } from '@shared/types'
 import { FFMPEG_PATH, runBinary } from './ffmpeg'
+import { mediaThreads } from './mediaJobs'
 
 /**
  * Hardware (NVENC) export support. The bundled ffmpeg-static binary is built
@@ -138,7 +139,7 @@ export function encoderArgs(kind: 'nvenc' | 'cpu', quality: QualityPreference): 
     case 'cpu': {
       const preset = quality === 'draft' ? 'veryfast' : quality === 'high' ? 'slow' : 'medium'
       const crf = quality === 'draft' ? '23' : quality === 'high' ? '17' : '19'
-      return ['-c:v', 'libx264', '-preset', preset, '-crf', crf, '-pix_fmt', 'yuv420p']
+      return ['-c:v', 'libx264', '-threads', String(mediaThreads()), '-preset', preset, '-crf', crf, '-pix_fmt', 'yuv420p']
     }
     case 'nvenc': {
       const preset = quality === 'draft' ? 'p4' : quality === 'high' ? 'p7' : 'p5'
@@ -187,6 +188,7 @@ export function sizeTargetedVideoArgs(
 ): string[] {
   return [
     '-c:v', 'libx264',
+    '-threads', String(mediaThreads()),
     '-preset', 'slow',
     '-b:v', `${videoKbps}k`,
     '-pass', String(pass),

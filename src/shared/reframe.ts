@@ -58,7 +58,7 @@ export function mergeClipSave(incoming: Clip, saved: Clip, videoType: VideoType)
 }
 
 /** The layout fields the reframe analysis sets defaults for. */
-const LAYOUT_FIELDS = ['reframeMode', 'framing', 'focusX', 'autoZoom'] as const
+const LAYOUT_FIELDS = ['reframeMode', 'framing', 'focusX', 'autoZoom', 'compositionPreference'] as const
 
 /**
  * Whether a pending clip's layout is still the default it was created with
@@ -89,7 +89,9 @@ export function mergeReframeResult(current: Clip, analysed: Clip, videoType: Vid
     ...current,
     focusTrack: analysed.focusTrack,
     contentType: analysed.contentType,
-    visualLayout: analysed.visualLayout,
+    visualLayout: (current.visualLayout?.revision ?? 0) > 0 &&
+      (current.visualLayout?.revision ?? 0) >= (analysed.visualLayout?.revision ?? 0)
+      ? current.visualLayout : analysed.visualLayout,
     reframeAnalysis: analysed.reframeAnalysis ?? {
       start: analysed.suggestedStart, end: analysed.suggestedEnd, version: 0
     },
