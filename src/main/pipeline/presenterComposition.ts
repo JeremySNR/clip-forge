@@ -4,7 +4,7 @@ import type { ContentRegion, LayoutShot } from '@shared/types'
 import { presenterComposition, usefulComposition, validRectangle } from '@shared/composition'
 import { chatJSON, type ChatContentPart } from './openai'
 import { extractClipFrames } from './visualScore'
-import { probeImageDimensions, runFfmpeg } from './ffmpeg'
+import { probeImageDimensions, probeVideo, runFfmpeg } from './ffmpeg'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
 
 /** Unlike broad content crops, a webcam inset can be much smaller than 20%. */
@@ -31,9 +31,16 @@ export async function reviewPresenterComposition(
     // High-resolution originals retain small inset faces and fine screen labels.
     frames = await extractClipFrames(videoPath, start, end, 7, signal, 1920)
     if (frames.length !== 7) return { review: { status: 'needs-review', reason: 'Incomplete visual samples.' } }
+    // Sample JPEGs may be capped at 1920px; usefulness must use the real frame
+    // size export will crop from, or 4K insets look falsely tiny / over-scaled.
+    const videoSize = await probeVideo(videoPath)
     for (const preset of ['content-first', 'stacked'] as const) {
       const composition = presenterComposition(content, presenter, preset)
       if (!composition) break
+      if (!usefulComposition(composition, videoSize)) {
+        reason = 'Source regions are too small, soft, or insufficiently enlarged.'
+        continue
+      }
       const parts: ChatContentPart[] = [{ type: 'text', text:
         `Review a portrait presenter/content composition. Timed interval ${start.toFixed(2)}–${end.toFixed(2)} seconds. Narration: ${narration.slice(0, 4000)}. ` +
         'Each chronological image contains SOURCE, BEFORE full-frame portrait, AFTER composited portrait. Before and after have identical dimensions. ' +
@@ -41,10 +48,8 @@ export async function reviewPresenterComposition(
         'Check ALL seven samples for webcam movement, panel changes, missing content and clipping. The main content and presenter are independent crops of the same frame. ' +
         'The empty bottom band is reserved for captions. Do not require incidental editor chrome. Reject if there is no genuine separate webcam/presenter panel, if the face is soft, or if a full-width scene has merely been split into arbitrary pieces. ' +
         'List labels actually legible in the AFTER, not inferred from SOURCE. A sampled check cannot certify unseen frames; reject uncertainty. Return a concise concrete reason.' }]
-      let useful = true
       for (const [i, frame] of frames.entries()) {
         const source = await probeImageDimensions(frame)
-        if (!usefulComposition(composition, source)) { useful = false; break }
         const pair = join(dirname(frame), `presenter-${preset}-${i}.jpg`)
         const graph = '[0:v]split=3[a][b][c];[a]scale=640:360:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2[l];' +
           fitRegionGraph('b', 'm', 'before', source, 360, 640) + ';' +
@@ -54,7 +59,6 @@ export async function reviewPresenterComposition(
         await runFfmpeg(['-i', frame, '-filter_complex', graph, '-map', '[out]', '-frames:v', '1', pair], { signal })
         parts.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${(await readFile(pair)).toString('base64')}`, detail: 'high' } })
       }
-      if (!useful) { reason = 'Source regions are too small, soft, or insufficiently enlarged.'; continue }
       const review = await chatJSON<{ accept: boolean; reason: string; legible_labels: string[] }>(
         apiKey, model, [{ role: 'user', content: parts }], 'presenter_composition_review', SCHEMA, signal)
       reason = typeof review.reason === 'string' ? review.reason : reason

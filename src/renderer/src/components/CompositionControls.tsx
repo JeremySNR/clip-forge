@@ -13,7 +13,8 @@ const startingRegions = presenterComposition({ x: .05, y: .35, width: .75, heigh
 
 export default function CompositionControls({ clip }: { clip: Clip }): React.JSX.Element | null {
   const [adding, setAdding] = useState(false)
-  const shot = usePreviewBus(s => clip.visualLayout?.shots?.find(shot => s.time >= shot.start && s.time < shot.end))
+  const shot = usePreviewBus(s => clip.visualLayout?.shots?.find((shot, i, shots) =>
+    s.time >= shot.start && (s.time < shot.end || (i === shots.length - 1 && s.time <= shot.end))))
   const update = useStore(s => s.updateClip)
   const hasComposition = clip.visualLayout?.shots?.some(s => s.composition)
   const issue = layoutReviewMessage(clip)
