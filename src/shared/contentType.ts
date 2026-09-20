@@ -97,8 +97,11 @@ export function protectLayoutRanges(
 
 /** Manual framing and layout choices always override automatic shot composition. */
 export function automaticLayoutShots(clip: Pick<Clip, 'edit' | 'visualLayout'>): NonNullable<NonNullable<Clip['visualLayout']>['shots']> {
-  if (clip.edit.framing !== 'auto' || clip.edit.reframeMode !== 'crop' || clip.edit.aspect === 'original' ||
-    !validLayoutShots(clip.visualLayout, clip.edit.start, clip.edit.end)) return []
+  if (clip.edit.framing !== 'auto' || clip.edit.reframeMode !== 'crop' || clip.edit.aspect === 'original') return []
+  if (!validLayoutShots(clip.visualLayout, clip.edit.start, clip.edit.end)) {
+    return clip.visualLayout?.preserveContext ? [{ start: clip.edit.start, end: clip.edit.end, mode: 'fit',
+      review: { status: 'needs-review', reason: 'Layout does not cover this trim; full source retained. Adjust source regions or choose a layout.' } }] : []
+  }
   const regions = new Set<string>()
   return clip.visualLayout!.shots!.filter((shot) => shot.start < clip.edit.end && shot.end > clip.edit.start).map(shot => {
     let composition = shot.composition
@@ -132,7 +135,7 @@ export function compositionHidesTitle(clip: Pick<Clip, 'edit' | 'visualLayout'>)
 }
 
 export function layoutReviewMessage(clip: Pick<Clip, 'edit' | 'visualLayout'>): string | null {
-  if (!validLayoutShots(clip.visualLayout, clip.edit.start, clip.edit.end)) return null
+  if (!validLayoutShots(clip.visualLayout, clip.edit.start, clip.edit.end)) return automaticLayoutShots(clip)[0]?.review?.reason ?? null
   const shots = clip.edit.framing === 'auto' && clip.edit.reframeMode === 'crop'
     ? automaticLayoutShots(clip) : clip.visualLayout!.shots!.filter(s => s.start < clip.edit.end && s.end > clip.edit.start)
   const issue = shots.find(s => s.review?.status === 'needs-review')

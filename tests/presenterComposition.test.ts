@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Clip, ContentRegion } from '@shared/types'
 import { compositionPixels, presenterComposition, usefulComposition, validComposition } from '@shared/composition'
-import { automaticLayoutShots, compositionHidesTitle, detailCaptionRanges, protectLayoutRanges, validLayoutShots } from '@shared/contentType'
+import { automaticLayoutShots, compositionHidesTitle, detailCaptionRanges, layoutReviewMessage, protectLayoutRanges, validLayoutShots } from '@shared/contentType'
 import { mergeClipSave, mergeReframeResult } from '@shared/reframe'
 
 const content = { x: .2, y: .3, width: .6, height: .6 }
@@ -75,5 +75,22 @@ describe('independent presenter/content composition', () => {
     expect(mergeClipSave(manual, saved, 'auto').visualLayout).toEqual(manual.visualLayout)
     expect(mergeReframeResult(manual, saved, 'auto').visualLayout).toEqual(manual.visualLayout)
     expect(mergeClipSave(saved, manual, 'auto').visualLayout).toEqual(manual.visualLayout)
+  })
+
+  it('keeps the full scene when a manual composition no longer covers an extended trim', () => {
+    const manual = clip(), analysed = clip()
+    manual.visualLayout!.revision = 1
+    manual.edit.end = 25
+    analysed.edit.end = 25
+    analysed.reframeAnalysis = { start: 10, end: 25, version: 1 }
+    analysed.visualLayout!.end = 25
+    analysed.visualLayout!.shots![0].end = 25
+    const merged = mergeReframeResult(manual, analysed, 'auto')
+    expect(merged.visualLayout).toBe(manual.visualLayout)
+    expect(automaticLayoutShots(merged)).toEqual([{ start: 10, end: 25, mode: 'fit',
+      review: expect.objectContaining({ status: 'needs-review' }) }])
+    expect(layoutReviewMessage(merged)).toContain('full source retained')
+    merged.edit.end = 19
+    expect(automaticLayoutShots(merged)[0].composition).toBeDefined()
   })
 })
