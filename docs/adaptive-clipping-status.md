@@ -17,10 +17,10 @@ No new runtime dependencies, service, database or separate renderer were introdu
 
 ## Validation completed locally
 
-- 482 tests pass, plus type checking, lint and production build. Two existing CLI tests require local IPC socket permission outside the sandbox; both passed with that permission.
-- Real video fixtures export presenters from every source corner, check output pixels before/after a layout switch, assert portrait dimensions and one audio stream, and confirm failed exports preserve existing files.
+- 484 tests pass, plus type checking, lint and production build. The complete suite passed with local IPC permission, which two existing CLI tests require.
+- Real video fixtures verify native 4K inset review, downscaled size-limited exports, and presenters from every source corner, check output pixels before/after a layout switch, assert portrait dimensions and one audio stream, and confirm failed exports preserve existing files.
 - Tests cover invalid and contradictory proposals, one bounded alternate attempt, region geometry, trim guards, manual-save races, queue limits/cancellation/failure recovery, disk/memory crop equivalence, and decoder cleanup after abort or consumer failure.
-- An isolated native Electron profile verified the user's screenshot rendered through the production compositor, initial paused pixels, preset switching, manual region creation/correction, persistence, play/pause including clicking the composition, seeking and window resizing. This is a static-image fixture, not a real moving-webcam benchmark.
+- An isolated native Electron profile verified the user's screenshot rendered through the production compositor, initial paused pixels, preset switching, manual region creation/correction, persistence, play/pause including clicking the composition, seeking, window resizing and edits at the trim end without overwriting other shots. This is a static-image fixture, not a real moving-webcam benchmark.
 - Automatic model responses are mocked in regression tests. No paid cloud analysis or audience-retention experiment was used to claim quality.
 
 The release workflow additionally validates packaged Apple Silicon inference and export, builds Windows/macOS/Linux installers, and verifies every installer and update manifest before publication.

@@ -9,6 +9,7 @@ const chat = vi.hoisted(() => vi.fn())
 vi.mock('../src/main/pipeline/openai', () => ({ chatJSON: chat }))
 import { refineComposition } from '../src/main/pipeline/composition'
 import { refineScreenDetails } from '../src/main/pipeline/screenDetail'
+import { reviewPresenterComposition } from '../src/main/pipeline/presenterComposition'
 
 it('renders and verifies a separate presenter from any source corner with bounded repair', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-presenter-'))
@@ -26,6 +27,21 @@ it('renders and verifies a separate presenter from any source corner with bounde
     await refineComposition('unused', 'unused', video, clip, [])
     expect(chat).toHaveBeenCalledTimes(3)
     expect(clip.visualLayout?.shots?.[0]).toMatchObject({ mode: 'fit', composition: { preset: 'stacked' }, review: { status: 'checked' } })
+  } finally { await rm(dir, { recursive: true, force: true }) }
+}, 30000)
+
+it('reviews native 4K inset detail instead of rejecting its smaller thumbnail', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-native-inset-'))
+  try {
+    const video = join(dir, 'source.mp4')
+    await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=3840x2160:rate=5:duration=1', '-c:v', 'mpeg4', video])
+    chat.mockReset()
+    chat.mockResolvedValueOnce({ accept: true, reason: 'Native inset is legible', legible_labels: ['Graph'] })
+    const result = await reviewPresenterComposition('unused', 'unused', video, 0, 1,
+      { x: .05, y: .2, width: .7, height: .7 }, { x: .9, y: .05, width: .04, height: .1 }, 'Graph')
+    expect(result.composition?.preset).toBe('content-first')
+    expect(chat).toHaveBeenCalledTimes(1)
+    expect(chat.mock.calls[0][2][0].content.filter((part: { type: string }) => part.type === 'image_url')).toHaveLength(7)
   } finally { await rm(dir, { recursive: true, force: true }) }
 }, 30000)
 
