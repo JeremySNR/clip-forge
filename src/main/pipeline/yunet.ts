@@ -1,12 +1,11 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import * as ort from 'onnxruntime-node'
+import { runInference } from '../inference/client'
 import { modelsDir } from './detect'
 import { iou, type FaceBox } from './speaker'
 
 /** OpenCV Zoo YuNet, dynamic-shape export; see resources/models/yunet-LICENSE. */
 const MODEL_NAME = 'face-detection-yunet.onnx'
-let sessionPromise: Promise<ort.InferenceSession> | null = null
 
 export function yunetAvailable(): boolean {
   return existsSync(join(modelsDir(), MODEL_NAME))
@@ -71,12 +70,11 @@ export function decodeYuNet(
   return kept
 }
 
-export async function detectFacesYuNet(rgb: Buffer, width: number, height: number): Promise<FaceBox[]> {
-  sessionPromise ??= ort.InferenceSession.create(join(modelsDir(), MODEL_NAME), { logSeverityLevel: 3 })
-  const session = await sessionPromise
+export async function detectFacesYuNet(rgb: Buffer, width: number, height: number, signal?: AbortSignal): Promise<FaceBox[]> {
   const input = yunetInput(rgb, width, height)
-  const outputs = await session.run({ [session.inputNames[0]]:
-    new ort.Tensor('float32', input.data, [1, 3, input.height, input.width]) })
+  const outputs = await runInference(join(modelsDir(), MODEL_NAME), {
+    input: { data: input.data, dims: [1, 3, input.height, input.width] }
+  }, signal)
   return decodeYuNet(Object.fromEntries(Object.entries(outputs).map(([key, value]) =>
     [key, value.data as Float32Array])), input.width, width, height)
 }

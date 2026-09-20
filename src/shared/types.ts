@@ -382,11 +382,13 @@ export interface UpdateCheckResult {
   /** GitHub release page to download the update from. */
   releaseUrl: string | null
   /**
-   * True when the app can download and install the update itself (packaged
-   * build). False when running from a source checkout, where updating means
-   * pulling and rebuilding.
+   * True when the app can download and install the update itself. Unsigned
+   * packaged Macs use a manual download; source checkouts pull and rebuild.
    */
   autoUpdateSupported: boolean
+  /** Download a verified installer; user replaces the unsigned Mac app. */
+  manualDownloadSupported?: boolean
+  availabilityMessage?: string
   /**
    * True when this copy is a git checkout the app can update in place by
    * pulling and rebuilding itself (the one-click path for source installs).
@@ -397,10 +399,12 @@ export interface UpdateCheckResult {
   checkedAt: number
 }
 
-/** Renderer-facing state of an in-app update download. */
-export interface UpdateDownloadProgress {
-  /** 0..1 downloaded fraction. */
+export interface UpdateDownloadState {
+  status: 'idle' | 'downloading' | 'downloaded' | 'error'
   progress: number
+  version?: string
+  mode?: 'restart' | 'manual'
+  error?: string
 }
 
 /** A user-uploaded caption font stored in userData/fonts. */

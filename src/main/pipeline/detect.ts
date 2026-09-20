@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { app } from 'electron'
-import * as ort from 'onnxruntime-node'
+import { runInference } from '../inference/client'
 import { iou, type FaceBox } from './speaker'
 
 /**
@@ -24,15 +24,6 @@ export function modelsDir(): string {
   return join(base, 'resources', 'models')
 }
 
-let sessionPromise: Promise<ort.InferenceSession> | null = null
-
-function getSession(): Promise<ort.InferenceSession> {
-  sessionPromise ??= ort.InferenceSession.create(join(modelsDir(), 'ultraface-rfb-320.onnx'), {
-    logSeverityLevel: 3
-  })
-  return sessionPromise
-}
-
 function nms(boxes: FaceBox[]): FaceBox[] {
   const sorted = [...boxes].sort((a, b) => b.score - a.score)
   const kept: FaceBox[] = []
@@ -45,9 +36,9 @@ function nms(boxes: FaceBox[]): FaceBox[] {
 /** Run UltraFace on one raw RGB frame (MODEL_W x MODEL_H). */
 export async function detectFaces(
   rgb: Buffer,
-  confidence: number = DEFAULT_CONFIDENCE
+  confidence: number = DEFAULT_CONFIDENCE,
+  signal?: AbortSignal
 ): Promise<FaceBox[]> {
-  const session = await getSession()
   const size = MODEL_W * MODEL_H
   const input = new Float32Array(3 * size)
   // HWC uint8 RGB -> CHW float32, (v - 127) / 128
@@ -56,9 +47,9 @@ export async function detectFaces(
     input[size + i] = (rgb[i * 3 + 1] - 127) / 128
     input[2 * size + i] = (rgb[i * 3 + 2] - 127) / 128
   }
-  const output = await session.run({
-    input: new ort.Tensor('float32', input, [1, 3, MODEL_H, MODEL_W])
-  })
+  const output = await runInference(join(modelsDir(), 'ultraface-rfb-320.onnx'), {
+    input: { data: input, dims: [1, 3, MODEL_H, MODEL_W] }
+  }, signal)
   const scores = output.scores.data as Float32Array
   const boxes = output.boxes.data as Float32Array
   const candidates: FaceBox[] = []

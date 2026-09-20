@@ -6,6 +6,8 @@ import { registerIpcHandlers } from './ipc'
 import { isMediaPathAllowed, serveMediaFile } from './mediaAccess'
 import { initialWindowSize, MIN_WINDOW } from './windowSize'
 import { resolveUserDataPath } from './userData'
+import { stopInference } from './inference/client'
+import { validatePackage } from './packageValidation'
 
 app.setName('Cutawan')
 app.setPath('userData', resolveUserDataPath(app.getPath('appData'), process.env.CUTAWAN_USER_DATA))
@@ -62,6 +64,31 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   await sleep(2500)
   if (process.env.CUTAWAN_SMOKE_WIZARD) {
     await shot('setup-wizard')
+    app.quit()
+    return
+  }
+  if (process.env.CUTAWAN_SMOKE_UPDATES) {
+    await click('[data-testid="update-notification"]')
+    const valid = await win.webContents.executeJavaScript(`
+      document.body.innerText.includes('Download Mac installer') &&
+      !document.body.innerText.includes('Pulls the latest code') &&
+      !document.body.innerText.includes('Download and install')
+    `)
+    if (!valid) throw new Error('Unsigned Mac update route did not offer a manual download')
+    await shot('manual-update')
+    // Exercise notifications and UI recovery without opening a real installer.
+    win.webContents.send('update:state', { status: 'downloading', progress: 0.42, mode: 'manual', version: '99.0.0' })
+    await sleep(300)
+    if (!await win.webContents.executeJavaScript("document.body.innerText.includes('42%')")) throw new Error('Missing download progress')
+    await shot('update-downloading')
+    win.webContents.send('update:state', { status: 'error', progress: 0, mode: 'manual', version: '99.0.0', error: 'Test download interruption' })
+    await sleep(300)
+    if (!await win.webContents.executeJavaScript("document.body.innerText.includes('Retry download')")) throw new Error('Missing download retry')
+    await shot('update-retry')
+    win.webContents.send('update:state', { status: 'downloaded', progress: 1, mode: 'manual', version: '99.0.0' })
+    await sleep(300)
+    if (!await win.webContents.executeJavaScript("document.body.innerText.includes('Installer ready') && document.body.innerText.includes('Open installer for v99.0.0')")) throw new Error('Missing installer ready notification')
+    await shot('update-ready')
     app.quit()
     return
   }
@@ -177,6 +204,14 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.env.CUTAWAN_PACKAGE_CHECK) {
+    void validatePackage(process.env.CUTAWAN_PACKAGE_CHECK).then(() => app.quit()).catch(error => {
+      console.error('Packaged validation failed:', error)
+      stopInference()
+      app.exit(1)
+    })
+    return
+  }
   // The UI is a dark, near-monochrome design and (on macOS) leans on native
   // vibrancy showing through translucent surfaces. Under the system's light
   // appearance that blur turns the window a washed-out grey, so we pin the
@@ -205,3 +240,5 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+app.on('before-quit', stopInference)

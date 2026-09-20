@@ -25,7 +25,8 @@ import { ensureClipReframe } from './pipeline/reframe'
 import { generateSocialCaption } from './pipeline/socialCaption'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
 import { clearImportCookiesFile, installImportCookiesFile } from './cookies'
-import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource } from './updates'
+import { checkForUpdates, downloadUpdate, installUpdate, updateFromSource, getUpdateDownloadState, onUpdateDownloadState, openUpdateInstaller, cancelUpdateDownload } from './updates'
+import { UpdateActivity } from './updateActivity'
 import { isMediaPathAllowed } from './mediaAccess'
 import { sanitizeFileName, uniqueOutputPath } from './exportPath'
 import { deleteProject, listProjects, loadProject, updateProject } from './projects'
@@ -64,11 +65,23 @@ async function pickVideoFile(sender: Electron.WebContents, title: string): Promi
 }
 
 export function registerIpcHandlers(): void {
-  ipcMain.handle('dialog:selectVideo', async (event) => {
+  const activity = new UpdateActivity()
+  const handle: typeof ipcMain.handle = (channel, listener) => {
+    ipcMain.handle(channel, async (event, ...args) => {
+      if (channel.startsWith('updates:')) return listener(event, ...args)
+      return activity.run(() => listener(event, ...args))
+    })
+  }
+  onUpdateDownloadState((state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send('update:state', state)
+    }
+  })
+  handle('dialog:selectVideo', async (event) => {
     return pickVideoFile(event.sender, 'Choose a video')
   })
 
-  ipcMain.handle('dialog:selectDirectory', async (event) => {
+  handle('dialog:selectDirectory', async (event) => {
     // Headless/CI hook (like CUTAWAN_SMOKE): skip the native dialog.
     if (process.env.CUTAWAN_EXPORT_DIR) return process.env.CUTAWAN_EXPORT_DIR
     const win = BrowserWindow.fromWebContents(event.sender)
@@ -79,17 +92,17 @@ export function registerIpcHandlers(): void {
     return result.canceled ? null : result.filePaths[0]
   })
 
-  ipcMain.handle('project:create', async (_e, videoPath: string) => {
+  handle('project:create', async (_e, videoPath: string) => {
     return createProject(videoPath)
   })
 
-  ipcMain.handle('project:createFromUrl', async (event, url: string) => {
+  handle('project:createFromUrl', async (event, url: string) => {
     return createProjectFromUrl(url, (p) => {
       if (!event.sender.isDestroyed()) event.sender.send('import:progress', p)
     })
   })
 
-  ipcMain.handle('project:analyze', async (event, projectId: string, options: AnalyzeOptions) => {
+  handle('project:analyze', async (event, projectId: string, options: AnalyzeOptions) => {
     if (runningAnalyses.has(projectId)) {
       throw new Error('This project is already being analyzed.')
     }
@@ -118,7 +131,7 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle(
+  handle(
     'project:captionWholeVideo',
     async (event, projectId: string, options: CaptionVideoOptions) => {
       // Shares the analysis lock and cancel path: both flows own the same
@@ -152,15 +165,15 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle('project:cancelAnalyze', async (_e, projectId: string) => {
+  handle('project:cancelAnalyze', async (_e, projectId: string) => {
     runningAnalyses.get(projectId)?.abort()
   })
 
-  ipcMain.handle('project:list', async () => listProjects())
-  ipcMain.handle('project:load', async (_e, id: string) => loadProject(id))
-  ipcMain.handle('project:delete', async (_e, id: string) => deleteProject(id))
+  handle('project:list', async () => listProjects())
+  handle('project:load', async (_e, id: string) => loadProject(id))
+  handle('project:delete', async (_e, id: string) => deleteProject(id))
 
-  ipcMain.handle('project:updateClip', async (_e, projectId: string, clip: Clip) => {
+  handle('project:updateClip', async (_e, projectId: string, clip: Clip) => {
     return updateProject(projectId, (project) => {
       const idx = project.clips.findIndex((c) => c.id === clip.id)
       if (idx === -1) throw new Error('Clip not found')
@@ -172,17 +185,17 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  ipcMain.handle('clip:ensureReframe', async (_e, projectId: string, clipId: string) => {
+  handle('clip:ensureReframe', async (_e, projectId: string, clipId: string) => {
     return ensureClipReframe(projectId, clipId)
   })
 
-  ipcMain.handle('project:rename', async (_e, projectId: string, name: string) => {
+  handle('project:rename', async (_e, projectId: string, name: string) => {
     return updateProject(projectId, (project) => {
       project.name = name.trim() || project.name
     })
   })
 
-  ipcMain.handle(
+  handle(
     'project:updateTranscriptWord',
     async (_e, projectId: string, segmentId: number, wordIndex: number, text: string) => {
       return updateProject(projectId, (project) => {
@@ -199,7 +212,7 @@ export function registerIpcHandlers(): void {
     }
   )
 
-  ipcMain.handle('project:relinkVideo', async (event, projectId: string) => {
+  handle('project:relinkVideo', async (event, projectId: string) => {
     const project = await loadProject(projectId)
     const picked = await pickVideoFile(event.sender, `Locate "${project.video.fileName}"`)
     if (!picked) return project
@@ -221,7 +234,7 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  ipcMain.handle('clip:export', async (event, projectId: string, opts: ExportOptions) => {
+  handle('clip:export', async (event, projectId: string, opts: ExportOptions) => {
     let project: Project = await loadProject(projectId)
     const found = project.clips.find((c) => c.id === opts.clipId)
     if (!found) throw new Error('Clip not found')
@@ -292,11 +305,11 @@ export function registerIpcHandlers(): void {
     }
   })
 
-  ipcMain.handle('clip:cancelExport', async (_e, clipId: string) => {
+  handle('clip:cancelExport', async (_e, clipId: string) => {
     runningExports.get(clipId)?.abort()
   })
 
-  ipcMain.handle('clip:generateCaption', async (_e, projectId: string, clipId: string) => {
+  handle('clip:generateCaption', async (_e, projectId: string, clipId: string) => {
     const project = await loadProject(projectId)
     const clip = project.clips.find((c) => c.id === clipId)
     if (!clip) throw new Error('Clip not found')
@@ -318,34 +331,34 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  ipcMain.handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {
+  handle('video:timeline', async (_e, videoPath: string, startSec: number, endSec: number) => {
     // Same trust boundary as media://: only registered project media.
     if (!isMediaPathAllowed(videoPath)) throw new Error('Not a project video')
     return getTimeline(videoPath, startSec, endSec)
   })
 
-  ipcMain.handle('settings:downloadGpuFfmpeg', async (event) => {
+  handle('settings:downloadGpuFfmpeg', async (event) => {
     return downloadGpuFfmpeg((p) => {
       if (!event.sender.isDestroyed()) event.sender.send('gpu:progress', p)
     })
   })
 
-  ipcMain.handle('settings:checkSubscription', () => checkSubscriptionSetup())
-  ipcMain.handle('settings:checkLocalWhisper', () => checkLocalWhisperSetup())
-  ipcMain.handle('settings:installLocalWhisper', async (event, model: LocalWhisperModel, pythonPath: string) => {
+  handle('settings:checkSubscription', () => checkSubscriptionSetup())
+  handle('settings:checkLocalWhisper', () => checkLocalWhisperSetup())
+  handle('settings:installLocalWhisper', async (event, model: LocalWhisperModel, pythonPath: string) => {
     const result = await installLocalWhisper(model, pythonPath, progress => {
       if (!event.sender.isDestroyed()) event.sender.send('whisper:installProgress', progress)
     })
     await updateSettings({ subscription: { pythonPath: result.pythonPath, whisperModelPath: result.modelPath } })
     return result
   })
-  ipcMain.handle('settings:cancelLocalWhisperInstall', () => cancelLocalWhisperInstall())
-  ipcMain.handle('settings:get', async () => getSettings())
-  ipcMain.handle('settings:update', async (_e, update: SettingsUpdate) => updateSettings(update))
+  handle('settings:cancelLocalWhisperInstall', () => cancelLocalWhisperInstall())
+  handle('settings:get', async () => getSettings())
+  handle('settings:update', async (_e, update: SettingsUpdate) => updateSettings(update))
 
-  ipcMain.handle('fonts:list', async () => listCustomFonts())
+  handle('fonts:list', async () => listCustomFonts())
 
-  ipcMain.handle('fonts:add', async (event) => {
+  handle('fonts:add', async (event) => {
     // Headless/CI hook (like CUTAWAN_SELECT_VIDEO): skip the native dialog.
     let paths: string[]
     if (process.env.CUTAWAN_SELECT_FONTS) {
@@ -363,9 +376,9 @@ export function registerIpcHandlers(): void {
     return addCustomFonts(paths)
   })
 
-  ipcMain.handle('fonts:remove', async (_e, fileName: string) => removeCustomFont(fileName))
+  handle('fonts:remove', async (_e, fileName: string) => removeCustomFont(fileName))
 
-  ipcMain.handle('cookies:import', async (event) => {
+  handle('cookies:import', async (event) => {
     if (process.env.CUTAWAN_COOKIES_FILE) {
       await installImportCookiesFile(process.env.CUTAWAN_COOKIES_FILE)
       return getSettings()
@@ -381,12 +394,12 @@ export function registerIpcHandlers(): void {
     return getSettings()
   })
 
-  ipcMain.handle('cookies:clear', async () => {
+  handle('cookies:clear', async () => {
     await clearImportCookiesFile()
     return getSettings()
   })
 
-  ipcMain.handle('branding:selectLogo', async (event) => {
+  handle('branding:selectLogo', async (event) => {
     // Headless/CI hook: skip the native dialog.
     let picked: string | null
     if (process.env.CUTAWAN_SELECT_LOGO) {
@@ -415,23 +428,22 @@ export function registerIpcHandlers(): void {
     return updateSettings({ branding: { imagePath: dest, enabled: true } })
   })
 
-  ipcMain.handle('updates:check', async () => checkForUpdates())
+  handle('updates:check', async () => checkForUpdates())
 
-  ipcMain.handle('updates:download', async (event) => {
-    return downloadUpdate((p) => {
-      if (!event.sender.isDestroyed()) event.sender.send('update:downloadProgress', p)
-    })
-  })
+  handle('updates:state', () => getUpdateDownloadState())
+  handle('updates:download', () => downloadUpdate())
+  handle('updates:cancel', () => cancelUpdateDownload())
+  handle('updates:openInstaller', () => openUpdateInstaller())
+  handle('updates:install', () => { activity.requireIdle(); installUpdate() })
 
-  ipcMain.handle('updates:install', async () => installUpdate())
-
-  ipcMain.handle('updates:updateFromSource', async (event) => {
+  handle('updates:updateFromSource', async (event) => {
+    activity.requireIdle()
     return updateFromSource((p) => {
       if (!event.sender.isDestroyed()) event.sender.send('update:sourceProgress', p)
     })
   })
 
-  ipcMain.handle('shell:showItemInFolder', async (_e, path: string) => {
+  handle('shell:showItemInFolder', async (_e, path: string) => {
     shell.showItemInFolder(path)
   })
 }

@@ -6,6 +6,27 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.10.3] - 2026-09-20
+
+### Fixed
+
+- Isolate native face and speaker inference in a child process, and process speaker-model inputs in bounded batches to reduce Mac memory spikes and keep native inference failures from closing the editor.
+- Bundle an Apple Silicon native ffprobe and fix audio channel-layout negotiation during Mac exports.
+- Prevent update restarts while saves, imports, analysis or exports are active, and show installation failures with a retryable action.
+
+### Improved
+
+- Check for updates on launch and every six hours, with retries after failed checks or reconnection. The toolbar opens Updates directly and shows download progress and readiness.
+- Download and SHA-256 verify the correct Mac installer inside the app, with cancel, retry, cached-download recovery and an Open installer action. Mac releases remain unsigned: quit Cutawan and replace the app in Applications to finish; saved projects and settings remain separate.
+- Keep update download state in the main process so closing and reopening the window does not lose progress. Windows/Linux installation requires an explicit restart.
+- Build and verify all platform installers and update manifests before publishing a release. Verify uploaded installer checksums before making the draft public.
+
+### Validation and requirements
+
+- Unit tests, type checking, lint, packaged Mac inference/export checks and update UI checks passed locally. A real GitHub Mac installer download passed size and checksum verification.
+- A full 86-second speaker-analysis segment completed in the isolated worker with a measured peak of approximately 272 MB.
+- Mac builds target Apple Silicon and are not Developer ID signed or notarized. Windows/Linux installer replacement still requires an actual old-to-new upgrade test; library lifecycle tests do not replace that validation.
+
 ## [0.10.2] - 2026-09-19
 
 ### Fixed

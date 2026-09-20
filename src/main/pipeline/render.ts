@@ -70,7 +70,9 @@ export function speechSafeFade(transcript: Transcript | null, start: number, end
 }
 
 function audioChain(clipDuration: number, loudness: LoudnessStats | null, tailSec = 0): string {
-  const master = `${loudnormFilter(loudness)},aresample=48000`
+  // FFmpeg 6 on macOS cannot always infer a layout after loudnorm's resampler.
+  // Exports use stereo AAC; constrain the filter link too, before the fade.
+  const master = `${loudnormFilter(loudness)},aresample=48000,aformat=channel_layouts=stereo`
   const fade = Math.min(END_FADE_SEC, Math.max(0, tailSec))
   if (fade < 0.01 || clipDuration <= fade * 3) return master
   const st = (clipDuration - fade).toFixed(3)

@@ -12,6 +12,7 @@ export default function TopBar(): React.JSX.Element {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const settings = useStore((s) => s.settings)
   const updateCheck = useStore((s) => s.updateCheck)
+  const download = useStore((s) => s.updateDownload)
 
   const showBack = screen === 'clips' || screen === 'editor'
   // A full-video edit with no AI clips behind it goes back to the setup screen.
@@ -66,14 +67,18 @@ export default function TopBar(): React.JSX.Element {
             New video
           </button>
         )}
-        {updateCheck?.updateAvailable && updateCheck.releaseUrl && (
+        {(updateCheck?.updateAvailable || download.status !== 'idle') && (
           <button
-            onClick={() => setSettingsOpen(true)}
-            title={`Cutawan v${updateCheck.latestVersion} is available — update from Settings`}
+            onClick={() => setSettingsOpen(true, 'updates')}
+            data-testid="update-notification"
+            aria-live="polite"
+            title="Open app updates"
             className="flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 transition hover:bg-emerald-500/25"
           >
             <ArrowUpCircle size={14} />
-            Update available
+            {download.status === 'downloading' ? `Downloading update… ${Math.round(download.progress * 100)}%`
+              : download.status === 'downloaded' ? (download.mode === 'manual' ? 'Installer ready' : 'Restart to update')
+              : download.status === 'error' ? 'Update needs attention' : 'Update available'}
           </button>
         )}
         {settings && settings.subscription.provider === 'api' && !settings.hasApiKey && (

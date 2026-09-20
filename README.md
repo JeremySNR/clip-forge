@@ -30,7 +30,7 @@
 
 The ChatGPT/Codex option is a beta integration with your plan's Codex allowance, not an included OpenAI API. It needs the Codex CLI signed in with ChatGPT and Python 3.10+; the wizard can install local faster-whisper and a speech model after you choose it. AI clip finding still needs either Codex or an API connection. Builds before v0.10.0 do not show the wizard; configure the connection in **Settings → General → AI connection** instead.
 
-The macOS build is currently unsigned, so first launch may require right-clicking the app and choosing **Open**. [Platform-specific install notes](docs/getting-started.md#install-the-app) cover that and the Windows/Linux paths.
+The macOS download supports **Apple Silicon (M1 or newer)**. It is currently unsigned and not notarized, so macOS may require **System Settings → Privacy & Security → Open Anyway** after the first launch attempt. Intel Macs do not currently have a published installer. [Platform-specific install notes](docs/getting-started.md#install-the-app) cover the available builds.
 
 ## Why Cutawan instead of Opus Clip?
 
@@ -94,7 +94,7 @@ On the default API route, a typical estimate is **~$0.36/hour of video** for Whi
 
 - **Export** H.264/AAC MP4s with burned-in captions. Loudness-normalised to -14 LUFS, gentle audio tail fade, three quality tiers, NVIDIA NVENC GPU encoding with automatic CPU fallback. Optionally encode once to fit under a megabyte cap (Discord, email, WhatsApp).
 - **AI post captions.** One click writes a scroll-stopping TikTok/Reels/Shorts caption (hook-first line, one engagement driver, niche hashtags). Copy it and jump straight to TikTok Studio upload.
-- **In-app updates.** Packaged builds download and install updates themselves. Source checkouts update with one click (pull, rebuild, relaunch).
+- **Update notifications.** Windows/Linux packages download and install updates in the app. Unsigned Mac builds download and verify the installer in the app, then guide you through replacing it in Applications. Source checkouts update with one click (pull, rebuild, relaunch).
 
 ## Website
 
@@ -123,7 +123,11 @@ git push --follow-tags   # pushes the commit and the vX.Y.Z tag
 
 Windows packages can also be listed on [winget](docs/winget.md) after a one-off first submit.
 
-Once a user has installed any build, later releases install themselves automatically. The macOS app is **not code-signed yet**, so on first launch the user right-clicks the app and chooses **Open** to get past Gatekeeper (a one-time step). Signing + notarization removes that prompt and is what enables fully silent macOS auto-updates — add an Apple Developer ID certificate and wire the signing secrets into the workflow when you're ready.
+Windows/Linux packages support in-app installation of later releases. The macOS app is **not Developer ID signed or notarized**, so it downloads and verifies a Mac installer, then offers **Open installer**. Quit Cutawan and replace the app in Applications; projects and settings remain in the app-data folder. Proper Mac signing/notarization requires Apple Developer Program membership. Before enabling Mac auto-updates, wire the signing credentials into the workflow and verify an upgrade between two signed releases.
+
+Updates are checked on launch and every six hours, with retries after a failed check or reconnection. The toolbar shows download progress and readiness, and opens Settings → Updates directly. Windows/Linux installation requires an explicit restart and is blocked while work is active. The release workflow verifies every platform’s installer and manifest before publishing a completed draft.
+
+The Mac release is built for Apple Silicon. CI and the release workflow run `bash scripts/check-mac-package.sh` against the packaged app before publication. This checks native binary architecture, isolated inference, speaker-model batch parity, saved projects, captioned export, first-run setup, and the assisted-update UI (available, downloading, retry, and ready states). Run GUI checks from a normal macOS GUI session; an agent's restricted shell can fail in Launch Services before Electron starts. Native ONNX processing runs in a child process with bounded frontend batches so a native failure cannot terminate the editor.
 
 Building from source needs **Node.js 20+**. The local speech routes need Python 3.10+; the wizard can install faster-whisper and a speech model into Cutawan's app-data folder. FFmpeg is bundled. On Windows, `winget install JeremySNR.Cutawan` will work once the [winget package](docs/winget.md) is listed.
 
@@ -244,8 +248,8 @@ footage you did not create, and note that AI B-roll pulls from Wikipedia and
 Openverse, whose images carry their own licences.
 
 **macOS says the app cannot be opened. Why?**
-The macOS builds are not code-signed yet, so Gatekeeper objects on first
-launch. Right-click the app and choose **Open**, which is a one-time step.
+The macOS builds are not code-signed yet, so Gatekeeper may block first
+launch. After trying to open the app, use **System Settings → Privacy & Security → Open Anyway**.
 Signing and notarisation are wanted; see
 [CONTRIBUTING.md](CONTRIBUTING.md) if you can help.
 

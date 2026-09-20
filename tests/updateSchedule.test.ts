@@ -1,0 +1,30 @@
+import { afterEach, expect, it, vi } from 'vitest'
+import { startUpdateChecks } from '../src/shared/updateSchedule'
+
+afterEach(() => vi.useRealTimers())
+it('checks on launch and every six hours, without checking on every focus', async () => {
+  vi.useFakeTimers()
+  const events = new EventTarget()
+  const check = vi.fn().mockResolvedValue(true)
+  const stop = startUpdateChecks(check, events)
+  await vi.advanceTimersByTimeAsync(60_000)
+  events.dispatchEvent(new Event('focus'))
+  expect(check).toHaveBeenCalledTimes(1)
+  await vi.advanceTimersByTimeAsync(6 * 60 * 60_000 - 60_000)
+  expect(check).toHaveBeenCalledTimes(2)
+  stop()
+  await vi.advanceTimersByTimeAsync(12 * 60 * 60_000)
+  events.dispatchEvent(new Event('online'))
+  expect(check).toHaveBeenCalledTimes(2)
+})
+it('retries offline failures on reconnect and after fifteen minutes', async () => {
+  vi.useFakeTimers()
+  const events = new EventTarget()
+  const check = vi.fn().mockResolvedValue(false)
+  const stop = startUpdateChecks(check, events)
+  await vi.advanceTimersByTimeAsync(60_000)
+  events.dispatchEvent(new Event('online'))
+  await vi.advanceTimersByTimeAsync(15 * 60_000)
+  expect(check).toHaveBeenCalledTimes(3)
+  stop()
+})
