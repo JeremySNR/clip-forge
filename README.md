@@ -82,6 +82,7 @@ On the default API route, a typical estimate is **~$0.36/hour of video** for Whi
 
 **Making them good**
 
+- **Presenter + content layouts.** Separate a webcam inset from a screen recording and compose both into 9:16, with content-first, stacked and content-only choices. Set source regions manually offline or use sampled AI layout review. Uncertain layouts keep the full scene and ask for review; moving insets still need careful checking. [Scope and remaining work](docs/adaptive-clipping-status.md).
 - **Auto zoom.** Scene-aware punch-ins on the speaker's most energetic lines, jump zooms that cover cuts, and slow creep on static stretches. The kind of thing top short-form editors do to keep people watching.
 - **Tighten cuts.** Pauses and filler words ("um", "uh") get removed automatically. Captions, B-roll, zoom and the face track all remap to the shorter timeline.
 - **Speaker-aware auto-reframe.** On-device audio-visual active speaker detection (UltraFace face tracking + the LR-ASD model via ONNX Runtime, no cloud) checks every face's lip movement against the actual soundtrack, so the crop stays on the person talking — not whoever moves or gestures. The 9:16 crop cuts between speakers like a camera switch.

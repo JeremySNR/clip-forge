@@ -23,6 +23,7 @@ import { needsReframe } from '@shared/reframe'
 import { automaticLayoutShots, validLayoutShots } from '@shared/contentType'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
+import CompositionControls from './CompositionControls'
 import TrimBar from './TrimBar'
 import ScoreBadge from './ScoreBadge'
 import TranscriptEditor from './TranscriptEditor'
@@ -232,6 +233,7 @@ export default function EditorScreen(): React.JSX.Element {
               </button>
             ))}
           </div>
+          <CompositionControls clip={clip} />
           {!cropDisabled && (
             <>
               <div className="mt-3 grid grid-cols-3 gap-1.5">

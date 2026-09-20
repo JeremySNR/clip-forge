@@ -9,7 +9,7 @@ import {
   wordsInRange
 } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
-import { automaticLayoutShots, clipAllowsAutoZoom, detailCaptionRanges } from '@shared/contentType'
+import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges } from '@shared/contentType'
 import { captionPositionAt } from '@shared/contentRegion'
 import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
@@ -144,6 +144,20 @@ export default function PreviewPlayer({
     return () => observer.disconnect()
   }, [applyFrame])
 
+  // loadeddata can precede Chromium making the decoded frame drawable. Refresh
+  // paused canvases on frame delivery too (initial load and completed seeks).
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+    let handle: number
+    const delivered = (): void => {
+      if (video.paused) applyFrame(video.currentTime)
+      handle = video.requestVideoFrameCallback(delivered)
+    }
+    handle = video.requestVideoFrameCallback(delivered)
+    return () => video.cancelVideoFrameCallback(handle)
+  }, [applyFrame])
+
   // Let the sidebar (timeline, transcript) seek the preview.
   useEffect(() => {
     setSeekHandler((t: number) => {
@@ -274,16 +288,16 @@ export default function PreviewPlayer({
             className="absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-2xl brightness-75"
           />
         )}
-        <div ref={zoomLayerRef} className="absolute inset-0 will-change-transform">
+        <div ref={zoomLayerRef} className="absolute inset-0 will-change-transform" onClick={togglePlay}>
           <video
             ref={videoRef}
             src={src}
             poster={clip.thumbnailPath ? window.cutawan.mediaUrl(clip.thumbnailPath) : undefined}
             className="h-full w-full"
             style={{ objectFit: isCrop ? 'cover' : 'contain' }}
-            onClick={togglePlay}
             onEnded={() => setPlaying(false)}
             onSeeked={handleSeeked}
+            onLoadedData={() => applyFrame(videoRef.current?.currentTime ?? start)}
             preload="auto"
           />
         </div>
@@ -298,7 +312,7 @@ export default function PreviewPlayer({
             aspectRatio={aspectStyle}
           />
         )}
-        {clip.edit.showTitle && (clip.hook || clip.title) && time - start < Math.min(4, duration) && (
+        {clip.edit.showTitle && !compositionHidesTitle(clip) && (clip.hook || clip.title) && time - start < Math.min(4, duration) && (
           <HookOverlay clip={clip} />
         )}
         {!playing && (

@@ -19,6 +19,7 @@ import MissingSourceBanner from './MissingSourceBanner'
 import type { Clip } from '@shared/types'
 import { findWholeVideoClip, highlightClips } from '@shared/wholeVideo'
 import { editedClipDuration } from '@shared/tighten'
+import { layoutReviewMessage } from '@shared/contentType'
 
 export default function ClipsScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
@@ -168,6 +169,9 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
 
       <div className="p-4">
         <div className="line-clamp-1 text-sm font-semibold">{clip.title}</div>
+        {layoutReviewMessage(clip) && (
+          <p className="mt-1 text-xs text-amber-300" title={layoutReviewMessage(clip)!}>Review layout</p>
+        )}
         <p className="mt-1.5 line-clamp-2 min-h-[2.2rem] text-xs leading-relaxed text-zinc-500">
           {clip.summary}
         </p>

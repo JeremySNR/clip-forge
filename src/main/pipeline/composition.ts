@@ -11,20 +11,28 @@ import { clipFrameTimes, extractClipFrames } from './visualScore'
 import { probeImageDimensions, runFfmpeg } from './ffmpeg'
 import { mapLimit } from './concurrency'
 import { refineScreenDetails } from './screenDetail'
+import { reviewPresenterComposition, sourceRectangle } from './presenterComposition'
+import { mediaJobs } from './mediaJobs'
 
 const SCHEMA = {
-  type: 'object', additionalProperties: false, required: ['mode', 'reason', 'region', 'screen_detail'],
+  type: 'object', additionalProperties: false, required: ['mode', 'reason', 'region', 'screen_detail', 'presenter'],
   properties: {
     mode: { type: 'string', enum: ['crop', 'fit'] },
     reason: { type: 'string' },
     screen_detail: { type: 'boolean', description: 'True only for screen UI, slides or diagrams whose necessary text/controls are too small in full-frame portrait fit and need an enlarged detail with an overview.' },
+    presenter: { type: 'object', additionalProperties: false, required: ['left', 'top', 'right', 'bottom'],
+      properties: { left: { type: 'integer' }, top: { type: 'integer' }, right: { type: 'integer' }, bottom: { type: 'integer' } } },
     region: { type: 'object', additionalProperties: false, required: ['left', 'top', 'right', 'bottom'],
       properties: { left: { type: 'integer' }, top: { type: 'integer' }, right: { type: 'integer' }, bottom: { type: 'integer' } } }
   }
 } as const
 
 /** Check proposed crops within stable shots, including a single static shot. */
-export async function refineComposition(
+export function refineComposition(...args: Parameters<typeof compose>): Promise<void> {
+  return mediaJobs.run(() => compose(...args), args[5])
+}
+
+async function compose(
   apiKey: string, model: string, videoPath: string, clip: Clip,
   sceneCuts: number[] | undefined, signal?: AbortSignal, focusTrack?: FocusKeyframe[] | null,
   transitions: Array<{ start: number; end: number }> = [],
@@ -38,19 +46,23 @@ export async function refineComposition(
     t > clip.edit.start + 0.04 && t < clip.edit.end - 0.04))].sort((a, b) => a - b)
   bounds.push(clip.edit.end)
   // Very rapid montages keep the safe whole-clip layout rather than an oversized graph.
-  if (bounds.length > 49) return
+  if (bounds.length > 49) {
+    clip.visualLayout = { ...assessment, shots: [{ start: clip.edit.start, end: clip.edit.end, mode: 'fit',
+      review: { status: 'needs-review', reason: 'Rapid scene changes; full source retained for review.' } }] }
+    return
+  }
   const shots: NonNullable<NonNullable<Clip['visualLayout']>['shots']> = bounds.slice(0, -1).map((start, i) => ({ start, end: bounds[i + 1], mode: 'fit' }))
   const detailPlans = new Map<(typeof shots)[number], typeof shots>()
-  await mapLimit(shots, 2, async (shot) => {
+  await mapLimit(shots, 1, async (shot) => {
     signal?.throwIfAborted()
     if (shot.end - shot.start < 0.25) return
     if (transitions.some((range) => shot.start < range.end && shot.end > range.start)) return
     let frames: string[] = []
     try {
-      frames = await extractClipFrames(videoPath, shot.start, shot.end, 3, signal)
+      frames = await extractClipFrames(videoPath, shot.start, shot.end, 3, signal, 1280)
       const parts: ChatContentPart[] = [{ type: 'text', text:
         `Clip topic: ${clip.title}. Earlier whole-clip concern (a hypothesis to check, not a requirement): ${assessment.reason}.\nEach image is a pair: LEFT is the full source frame, RIGHT is the proposed portrait crop. Face tracking available: ${Boolean(focusTrack?.length)}. All three pairs are from ONE camera shot. Choose crop only when tracking is available and the RIGHT images communicate this shot clearly and keep the speaking face comfortably visible. Ordinary explanatory hand gestures, an incidental lectern, set furniture, background monitors used as decoration, or a listener outside the crop do not by themselves require fit. Choose fit when the proposed crop loses a demonstrated object, important hands-on action, essential text/slide/UI, or cuts significantly into the face.\nFor fit, propose a single REGION in normalized 0–1000 coordinates of the FULL SOURCE FRAME (not the pair canvas): left/top/right/bottom. It will be fitted INTACT into the output. Remove empty borders or irrelevant space to enlarge the essential content. Keep the whole demonstrated object, moving hands, required labels and meaningful relationships across ALL three frames. Leave movement margins. Do not reduce a screen to a tiny control without its context or cut a puzzle/mechanism into fragments. If a stable useful region cannot be established, return the full frame 0,0,1000,1000. For crop also return the full-frame region. This proposal will be checked on additional frames.` }]
-      parts.push({ type: 'text', text: 'FIRST: three unpadded ORIGINAL SOURCE images. Use these image boundaries for region coordinates. The comparison pairs follow afterward.' })
+      parts.push({ type: 'text', text: 'If this is screen content plus a genuinely separate webcam/presenter inset, return screen_detail=true and presenter=the entire inset rectangle in source 0–1000 coordinates, regardless of its corner. In that case region must contain the relevant graph/slide/UI WITHOUT the webcam; both will be composed independently. Preserve graph labels and relationships. Prefer stable panel boundaries, never a tight face box. If panels move, overlap essential content or cannot be separated consistently across the samples, return presenter=0,0,0,0. For ordinary footage without an inset also return zeros. FIRST: three unpadded ORIGINAL SOURCE images. Use these image boundaries for region coordinates. The comparison pairs follow afterward.' })
       for (const path of frames) parts.push({ type: 'image_url', image_url: {
         url: `data:image/jpeg;base64,${(await readFile(path)).toString('base64')}`, detail: 'high'
       } })
@@ -67,9 +79,24 @@ export async function refineComposition(
           url: `data:image/jpeg;base64,${(await readFile(pair)).toString('base64')}`, detail: 'low'
         } })
       }
-      const result = await chatJSON<{ mode: string; reason: string; screen_detail?: boolean; region?: { left: number; top: number; right: number; bottom: number } }>(apiKey, model,
+      const result = await chatJSON<{ mode: string; reason: string; screen_detail?: boolean; region?: { left: number; top: number; right: number; bottom: number }; presenter?: { left: number; top: number; right: number; bottom: number } }>(apiKey, model,
         [{ role: 'user', content: parts }], 'shot_composition', SCHEMA, signal)
       shot.mode = result.mode === 'crop' && focusTrack?.length ? 'crop' : 'fit'
+      const presenter = sourceRectangle(result.presenter)
+      const content = sourceRectangle(result.region)
+      const insetRequested = result.screen_detail && result.presenter && Object.values(result.presenter).some(value => value !== 0)
+      if (insetRequested) shot.mode = 'fit'
+      if (insetRequested && (!presenter || !content || clip.edit.aspect !== '9:16')) {
+        shot.review = { status: 'needs-review', reason: 'Separate source panels could not be composed safely in this format.' }
+        return
+      }
+      if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {
+        const narration = transcript?.segments.flatMap(s => s.words).filter(w => w.start >= shot.start && w.start < shot.end).map(w => w.text).join(' ') ?? clip.title
+        Object.assign(shot, await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal))
+        if (shot.composition) return
+        // A rejected separate-panel proposal cannot safely be reused as a single crop.
+        return
+      }
       const region = shot.mode === 'fit' ? proposedContentRegion(result.region) : undefined
       if (region && await verifyContentRegion(apiKey, model, videoPath, clip.title, shot.start, shot.end, region, signal)) shot.region = region
       if (shot.mode === 'fit' && !shot.region && result.screen_detail === true && transcript) {
@@ -80,6 +107,7 @@ export async function refineComposition(
       throwIfSubscriptionError(error)
       if (signal?.aborted) throw error
       console.error('Shot composition review failed; preserving the full shot:', error)
+      shot.review = { status: 'needs-review', reason: 'Layout analysis failed; full source retained. Retry or choose a layout.' }
     } finally {
       if (frames.length) await rm(dirname(frames[0]), { recursive: true, force: true }).catch(() => undefined)
     }

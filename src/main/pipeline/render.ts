@@ -1,4 +1,4 @@
-import { writeFile, mkdir, rm, stat } from 'node:fs/promises'
+import { writeFile, mkdir, rm, stat, rename } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -16,8 +16,8 @@ import type {
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
-import { automaticLayoutShots, clipAllowsAutoZoom, detailCaptionRanges } from '@shared/contentType'
-import { fitRegionGraph } from './layoutFilters'
+import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges } from '@shared/contentType'
+import { compositionGraph, fitRegionGraph } from './layoutFilters'
 import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
@@ -25,6 +25,7 @@ import { FFMPEG_PATH, probeVideo, runFfmpegWith } from './ffmpeg'
 import { loudnormFilter, measureLoudness, normalisationMode, type LoudnessStats } from './loudness'
 import { buildAss, fontsDir } from './captions'
 import { fontMetricsForFamily } from '../fonts'
+import { mediaJobs } from './mediaJobs'
 import {
   audioArgs,
   encoderArgs,
@@ -257,14 +258,16 @@ function reframeGraph(
       .replace('[reframed]', '[layoutCrop]')
     const groups = new Map<string, typeof fitShots>()
     for (const shot of fitShots) {
-      const key = JSON.stringify([shot.region ?? null, shot.overview ?? false])
+      const key = JSON.stringify([shot.region ?? null, shot.overview ?? false, shot.composition])
       groups.set(key, [...(groups.get(key) ?? []), shot])
     }
     const parts = [`[${inputLabel}]split=${groups.size + 1}[layoutCropInput]${[...groups.keys()].map((_, i) => `[layoutFitInput${i}]`).join('')}`, cropped]
     let current = 'layoutCrop'
     for (const [i, shots] of [...groups.values()].entries()) {
       const region = shots[0].region
-      parts.push(fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
+      parts.push(shots[0].composition
+        ? compositionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, shots[0].composition)
+        : fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
       const enabled = shots.map((shot) =>
         `gte(t,${Math.max(0, shot.start - clip.edit.start).toFixed(3)})*lt(t,${(shot.end - clip.edit.start).toFixed(3)})`).join('+')
       const output = i === groups.size - 1 ? 'reframed' : `layoutOverlay${i}`
@@ -471,7 +474,7 @@ export function buildFilterGraph(
   // safe when there is no other crop to hit.
   const allowFocusCommands =
     Boolean(options?.focusCommandsPath) && !items.some((b) => b.mode === 'fullscreen') &&
-    !automaticLayoutShots(clip).some(shot => shot.region)
+    !automaticLayoutShots(clip).some(shot => shot.region || shot.composition)
   const focus = buildFocusPlan(clip, allowFocusCommands)
   const focusCommandsPath = focus.commands ? options?.focusCommandsPath : undefined
 
@@ -596,7 +599,27 @@ export interface RenderResult {
   sizePlan: UploadEncodePlan | null
 }
 
-export async function renderClip(job: RenderJob): Promise<RenderResult> {
+export function renderClip(job: RenderJob): Promise<RenderResult> {
+  return mediaJobs.run(async () => {
+    const temporary = `${job.outputPath}.partial-${randomUUID()}.mp4`
+    try {
+      const result = await render({ ...job, outputPath: temporary,
+        onProgress: progress => job.onProgress?.(progress * .95) })
+      // Preserve any previous export until the new file passes a complete decode.
+      await runFfmpegWith(FFMPEG_PATH, ['-v', 'error', '-xerror', '-i', temporary,
+        '-map', '0:v:0', '-map', '0:a?', '-f', 'null', '-'], { signal: job.signal,
+        onProgress: seconds => job.onProgress?.(.95 + .05 * Math.min(1, seconds / Math.max(.1, job.clip.edit.end - job.clip.edit.start))) })
+      job.signal?.throwIfAborted()
+      await rename(temporary, job.outputPath)
+      job.onProgress?.(1)
+      return { ...result, outputPath: job.outputPath }
+    } finally {
+      await rm(temporary, { force: true }).catch(() => undefined)
+    }
+  }, job.signal, 1)
+}
+
+async function render(job: RenderJob): Promise<RenderResult> {
   const { clip, transcript } = job
   // Projects store probe results; refresh them for rotated or relinked source
   // files before translating normalized regions into decoded-frame pixels.
@@ -666,7 +689,7 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
       height: h,
       clipStart: captionStart,
       clipEnd: captionEnd,
-      title: clip.edit.showTitle ? clip.hook || clip.title : undefined,
+      title: clip.edit.showTitle && !compositionHidesTitle(effectiveClip) ? clip.hook || clip.title : undefined,
       fontFamily: clip.edit.captionFontFamily ?? undefined,
       brandColors: job.branding?.colors,
       positionRanges: detailCaptionRanges(effectiveClip)
@@ -866,5 +889,10 @@ export async function renderClip(job: RenderJob): Promise<RenderResult> {
     )
   }
   const bytes = (await stat(job.outputPath)).size
+  const exported = await probeVideo(job.outputPath)
+  if (exported.width !== w || exported.height !== h || exported.hasAudio !== source.hasAudio ||
+    Math.abs(exported.durationSec - outputDuration) > Math.max(.25, 2 / Math.max(1, source.fps))) {
+    throw new Error('Export validation failed: unexpected dimensions, duration or audio stream.')
+  }
   return { outputPath: job.outputPath, bytes, sizePlan: plan }
 }

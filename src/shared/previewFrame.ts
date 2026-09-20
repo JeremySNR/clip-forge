@@ -1,4 +1,4 @@
-import type { Clip, ContentRegion, FocusKeyframe } from './types'
+import type { Clip, FocusKeyframe, LayoutShot } from './types'
 import { contentRegionPixels, detailPanelGeometry, validContentRegion } from './contentRegion'
 import type { ZoomEvent } from './zoom'
 import { cropSourceWidth, faceCentreCropLeft, focusAt } from './focusTrack'
@@ -26,7 +26,7 @@ export interface PreviewFramePlan {
   framing: Clip['edit']['framing']
   manualFocusX: number
   isCrop: boolean
-  fitRanges?: Array<{ start: number; end: number; region?: ContentRegion; overview?: boolean }>
+  fitRanges?: Array<Omit<LayoutShot, 'mode'>>
 }
 
 /**

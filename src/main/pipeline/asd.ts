@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { runInference } from '../inference/client'
-import { encodeFaceTrack } from './asdFrontend'
+import { encodeFaceTrack, type FaceCrops } from './asdFrontend'
+import { FaceCropStore } from './faceCropStore'
 import { runFfmpeg, streamRawFrames, probeVideo } from './ffmpeg'
 import { computeMfcc, MFCC_COEFFS } from './mfcc'
 import { buildFaceTracks, type FaceTrack } from './facetracks'
@@ -253,9 +254,9 @@ async function runCropPass(
   tracks: FaceTrack[],
   cropW: number,
   cropH: number,
+  crops: FaceCropStore,
   signal?: AbortSignal
-): Promise<Uint8Array[][]> {
-  const crops: Uint8Array[][] = tracks.map(() => [])
+): Promise<void> {
   await streamRawFrames(
     [
       '-ss', startSec.toFixed(3),
@@ -266,7 +267,7 @@ async function runCropPass(
       '-pix_fmt', 'gray'
     ],
     cropW * cropH,
-    (frame, f) => {
+    async (frame, f) => {
       signal?.throwIfAborted()
       for (let t = 0; t < tracks.length; t++) {
         const track = tracks[t]
@@ -278,12 +279,12 @@ async function runCropPass(
         const size = Math.max(w, h)
         const cx = ((box.x1 + box.x2) / 2) * cropW
         const cy = ((box.y1 + box.y2) / 2) * cropH + CROP_DOWN_SHIFT * size
-        crops[t].push(cropFace(frame, cropW, cropH, cx, cy, Math.max(4, size * CROP_SIDE_FACTOR)))
+        await crops.push(t, cropFace(frame, cropW, cropH, cx, cy, Math.max(4, size * CROP_SIDE_FACTOR)))
+        if (i === track.boxes.length - 1) await crops.finish(t)
       }
     },
     signal
   )
-  return crops
 }
 
 /** Extract clip audio as 16 kHz mono PCM and compute MFCC features. */
@@ -351,7 +352,7 @@ function smoothScores(scores: Float32Array): number[] {
 
 /** Run the LR-ASD model over one face track, returning per-frame logits. */
 async function scoreTrack(
-  crops: Uint8Array[],
+  crops: FaceCrops,
   mfcc: Float32Array | null,
   trackStart: number,
   signal?: AbortSignal
@@ -452,30 +453,31 @@ export async function analyzeClipASD(
     2,
     2 * Math.round((cropW * (info.height || cropW)) / Math.max(1, info.width || cropW) / 2)
   )
-  const [crops, mfcc] = await Promise.all([
-    runCropPass(videoPath, startSec, duration, tracks, cropW, cropH, signal),
-    info.hasAudio ? extractMfcc(videoPath, startSec, duration, signal) : Promise.resolve(null)
-  ])
-
+  const crops = await FaceCropStore.create(tracks.map(track => track.boxes.length))
   const scored: ScoredFaceTrack[] = []
-  for (let t = 0; t < tracks.length; t++) {
-    signal?.throwIfAborted()
-    const track = tracks[t]
-    const frames = Math.min(track.boxes.length, crops[t].length)
-    if (frames < 2) continue
-    const scores = await scoreTrack(
-      crops[t].slice(0, frames),
-      mfcc,
-      track.start,
-      signal
-    )
-    scored.push({
-      start: track.start,
-      centres: track.boxes.slice(0, frames).map((b) => (b.x1 + b.x2) / 2),
-      areas: track.boxes.slice(0, frames).map((b) => (b.x2 - b.x1) * (b.y2 - b.y1)),
-      scores
-    })
-  }
+  try {
+    // Settle both processes before cleaning up their files on cancellation/failure.
+    const [cropResult, audioResult] = await Promise.allSettled([
+      runCropPass(videoPath, startSec, duration, tracks, cropW, cropH, crops, signal),
+      info.hasAudio ? extractMfcc(videoPath, startSec, duration, signal) : Promise.resolve(null)
+    ])
+    if (cropResult.status === 'rejected') throw cropResult.reason
+    if (audioResult.status === 'rejected') throw audioResult.reason
+    const mfcc = audioResult.value
+    for (let t = 0; t < tracks.length; t++) {
+      signal?.throwIfAborted()
+      const track = tracks[t]
+      const scores = await crops.read(t, frames => frames.length < 2 ? Promise.resolve([]) : scoreTrack(frames, mfcc, track.start, signal))
+      const frames = scores.length
+      if (frames < 2) continue
+      scored.push({
+        start: track.start,
+        centres: track.boxes.slice(0, frames).map((b) => (b.x1 + b.x2) / 2),
+        areas: track.boxes.slice(0, frames).map((b) => (b.x2 - b.x1) * (b.y2 - b.y1)),
+        scores
+      })
+    }
+  } finally { await crops.close() }
   return {
     tracks: scored,
     frameCount: detection.frameCount,

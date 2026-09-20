@@ -6,6 +6,7 @@ import type { Clip, FocusKeyframe, ClipContentType, ClipEditState, VideoType } f
 import { applyVisualLayout, classifyClipContent, protectLayoutRanges } from '@shared/contentType'
 import { applyVideoTypeLayout, resolveContentType } from '@shared/videoType'
 import { mapLimit } from './concurrency'
+import { mediaJobs } from './mediaJobs'
 import { runFfmpeg } from './ffmpeg'
 import { analyzeClipASD } from './asd'
 import { detectFaces, frameDifference, MODEL_H, MODEL_W, SCENE_CUT_THRESHOLD } from './detect'
@@ -216,7 +217,11 @@ export interface ClipFocusAnalysis {
  * footage has no usable faces (e.g. screencasts) so the UI can fall back to
  * manual / letterbox framing.
  */
-export async function analyzeClipFocus(
+export function analyzeClipFocus(...args: Parameters<typeof analyzeFocus>): Promise<ClipFocusAnalysis> {
+  return mediaJobs.run(() => analyzeFocus(...args), args[3])
+}
+
+async function analyzeFocus(
   videoPath: string,
   startSec: number,
   endSec: number,

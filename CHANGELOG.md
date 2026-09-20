@@ -6,6 +6,27 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.11.0] - 2026-09-20
+
+### Added
+
+- Compose a separate presenter inset and screen content into a 9:16 clip, regardless of the inset's source corner. Choose content-first, stacked or content-only layouts, or enter source regions manually without an AI connection.
+- Review automatic compositions using actual rendered sample frames, with one alternate layout attempt. Reject invalid regions, excessive presenter enlargement and insufficient content enlargement; uncertain results keep the full scene and show a review notice.
+- Keep preview and export on the same crop geometry and one video/audio clock. Reserve space for captions and hide hook titles that would cover the presenter.
+
+### Improved
+
+- Bound concurrent face-analysis, composition and export jobs across projects according to available memory and CPU capacity. Limit FFmpeg threads and prioritize queued exports.
+- Spill large face-crop collections to temporary files while retaining the speaker model's temporal context. Stop decoders and clean up temporary crops on cancellation or consumer failure.
+- Validate export dimensions, duration, audio presence and complete decoding before replacing an existing output file.
+- Preserve manual source-region corrections when background analysis finishes. Refresh paused composition previews when decoded frames arrive.
+
+### Validation and limitations
+
+- 481 automated tests, type checking, lint and production build pass locally. Real FFmpeg tests cover all four inset corners, timed layout switching, single audio output and failed-export preservation. Native Electron checks cover paused preview, manual creation, layout changes, saved corrections, playback, seeking and resizing.
+- AI decisions are mocked in automated tests; sampled model review does not certify every frame or editorial quality. Moving/resizing insets, broad category benchmarks and audience-retention improvements remain unproven. Existing completed clips are not automatically reanalysed.
+- See [implementation status and remaining work](docs/adaptive-clipping-status.md). The broader adaptive-clipping roadmap remains in progress.
+
 ## [0.10.3] - 2026-09-20
 
 ### Fixed
