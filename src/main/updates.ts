@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { app } from 'electron'
+import { app, shell } from 'electron'
+import { EventEmitter } from 'node:events'
+import { downloadMacInstaller, macInstaller, verifyInstaller, type ReleaseAsset } from './macUpdate'
 import { autoUpdater } from 'electron-updater'
-import type { ImportProgress, UpdateCheckResult, UpdateDownloadProgress } from '@shared/types'
+import type { ImportProgress, UpdateCheckResult, UpdateDownloadState } from '@shared/types'
 
 /**
  * Update checking and in-app updating.
@@ -23,6 +25,7 @@ interface GithubRelease {
   html_url?: string
   draft?: boolean
   prerelease?: boolean
+  assets?: ReleaseAsset[]
 }
 
 /**
@@ -53,7 +56,18 @@ export function compareVersions(a: string, b: string): number {
  * from a source checkout via electron-updater's dev-update config.
  */
 export function isAutoUpdateSupported(): boolean {
-  return app?.isPackaged === true || process.env.CUTAWAN_FORCE_DEV_UPDATES === '1'
+  return updateCapabilities(app?.isPackaged === true, process.platform,
+    process.env.CUTAWAN_FORCE_DEV_UPDATES === '1').autoUpdateSupported
+}
+
+/** Mac releases are unsigned: use a verified installer download, never Squirrel or git. */
+export function updateCapabilities(packaged: boolean, platform: NodeJS.Platform, forceDev = false): {
+  autoUpdateSupported: boolean; sourceUpdateSupported: boolean
+} {
+  return {
+    autoUpdateSupported: forceDev || (packaged && platform !== 'darwin'),
+    sourceUpdateSupported: !packaged && !forceDev
+  }
 }
 
 /**
@@ -76,7 +90,7 @@ export function findGitRoot(start: string): string | null {
  * `.git` lives — so we walk upward from several likely starting points.
  */
 export function resolveSourceRepoRoot(): string | null {
-  if (isAutoUpdateSupported()) return null
+  if (!isSourceUpdateSupported()) return null
   const starts = new Set<string>([process.cwd()])
   const appPath = app?.getAppPath?.()
   if (appPath) starts.add(appPath)
@@ -99,7 +113,8 @@ export function resolveSourceRepoRoot(): string | null {
  * source installs, where a packaged-style swap is impossible).
  */
 export function isSourceUpdateSupported(): boolean {
-  return !isAutoUpdateSupported()
+  return updateCapabilities(app?.isPackaged === true, process.platform,
+    process.env.CUTAWAN_FORCE_DEV_UPDATES === '1').sourceUpdateSupported
 }
 
 /** Pure decision step, separated from the network fetch for tests. */
@@ -132,12 +147,11 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   // Test hook: force a fake latest version without hitting the network.
   const fake = process.env.CUTAWAN_FAKE_LATEST
   if (fake) {
-    return evaluateUpdate(
-      currentVersion(),
-      { tag_name: fake, html_url: RELEASES_PAGE },
-      isAutoUpdateSupported(),
-      isSourceUpdateSupported()
-    )
+    return {
+      ...evaluateUpdate(currentVersion(), { tag_name: fake, html_url: RELEASES_PAGE },
+        isAutoUpdateSupported(), isSourceUpdateSupported()),
+      manualDownloadSupported: app?.isPackaged === true && process.platform === 'darwin'
+    }
   }
 
   const version = currentVersion()
@@ -163,12 +177,23 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
     if (!res.ok) {
       throw new Error(`GitHub responded with HTTP ${res.status}`)
     }
-    return evaluateUpdate(
-      version,
-      (await res.json()) as GithubRelease,
-      isAutoUpdateSupported(),
-      isSourceUpdateSupported()
-    )
+    const release = (await res.json()) as GithubRelease
+    const result = evaluateUpdate(version, release, isAutoUpdateSupported(), isSourceUpdateSupported())
+    if (app?.isPackaged && process.platform === 'darwin') {
+      const asset = macInstaller(release.assets ?? [], result.latestVersion ?? '', process.arch)
+      result.manualDownloadSupported = !!asset
+      if (asset && result.updateAvailable && downloadState.status === 'idle') {
+        const path = join(app.getPath('userData'), 'updates', asset.name)
+        if (await verifyInstaller(path, asset) && downloadState.status === 'idle') {
+          macDownload = { path, asset }
+          setDownloadState({ status: 'downloaded', progress: 1, mode: 'manual', version: result.latestVersion! })
+        }
+      }
+      if (result.updateAvailable && !result.manualDownloadSupported) {
+        result.availabilityMessage = 'A verified installer for this Mac is not available yet. Check again later or view the release.'
+      }
+    }
+    return result
   } catch (err) {
     return {
       currentVersion: version,
@@ -183,62 +208,106 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   }
 }
 
-let downloading = false
-let downloadedVersion: string | null = null
+const downloadEvents = new EventEmitter()
+let downloadState: UpdateDownloadState = { status: 'idle', progress: 0 }
+let macDownload: { path: string; asset: ReleaseAsset } | null = null
+let macAbort: AbortController | null = null
+let updaterConfigured = false
+
+export function getUpdateDownloadState(): UpdateDownloadState { return { ...downloadState } }
+export function onUpdateDownloadState(listener: (state: UpdateDownloadState) => void): () => void {
+  downloadEvents.on('state', listener)
+  return () => { downloadEvents.off('state', listener) }
+}
+function setDownloadState(state: UpdateDownloadState): void {
+  downloadState = state
+  downloadEvents.emit('state', getUpdateDownloadState())
+}
 
 function configureAutoUpdater(): typeof autoUpdater {
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
+  // Installation happens only after the explicit, guarded restart action.
+  autoUpdater.autoInstallOnAppQuit = false
   autoUpdater.fullChangelog = false
-  if (process.env.CUTAWAN_FORCE_DEV_UPDATES === '1') {
-    // Dev/test only: read the feed from dev-app-update.yml instead of the
-    // packaged app-update.yml.
-    autoUpdater.forceDevUpdateConfig = true
+  if (!updaterConfigured) {
+    autoUpdater.on('error', (error: Error) => {
+      if (downloadState.status === 'downloaded') {
+        setDownloadState({ ...downloadState, error: `Could not install the update: ${error.message}` })
+      }
+    })
+    updaterConfigured = true
   }
+  if (process.env.CUTAWAN_FORCE_DEV_UPDATES === '1') autoUpdater.forceDevUpdateConfig = true
   return autoUpdater
 }
 
-/**
- * Download the pending update in the background. Resolves with the version
- * that is ready to install; the renderer then offers "Restart to update".
- */
-export async function downloadUpdate(
-  onProgress: (p: UpdateDownloadProgress) => void
-): Promise<string> {
-  if (!isAutoUpdateSupported()) {
-    throw new Error(
-      'This copy runs from a source checkout and cannot update itself — run "git pull", then rebuild.'
-    )
-  }
-  if (downloading) throw new Error('An update download is already running.')
-  if (downloadedVersion) return downloadedVersion
+export function cancelUpdateDownload(): void { macAbort?.abort() }
 
-  const updater = configureAutoUpdater()
-  downloading = true
+/** The main process owns state, including when the renderer window is closed. */
+export async function downloadUpdate(): Promise<UpdateDownloadState> {
+  if (downloadState.status === 'downloading') return getUpdateDownloadState()
+  if (downloadState.status === 'downloaded') return getUpdateDownloadState()
+  const manual = app?.isPackaged && process.platform === 'darwin' && !isAutoUpdateSupported()
+  if (!manual && !isAutoUpdateSupported()) throw new Error('Use the release page to update this copy.')
+  setDownloadState({ status: 'downloading', progress: 0, mode: manual ? 'manual' : 'restart' })
   try {
-    const check = await updater.checkForUpdates()
-    const next = check?.updateInfo?.version
-    if (!next || compareVersions(next, currentVersion()) <= 0) {
-      throw new Error('No newer packaged build is available to download yet.')
+    if (manual) {
+      macAbort = new AbortController()
+      const response = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+        headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Cutawan/${currentVersion()}` },
+        signal: AbortSignal.any([macAbort.signal, AbortSignal.timeout(CHECK_TIMEOUT_MS)])
+      })
+      if (!response.ok) throw new Error(`Could not read the release (HTTP ${response.status}).`)
+      const release = await response.json() as GithubRelease
+      const result = evaluateUpdate(currentVersion(), release)
+      const asset = macInstaller(release.assets ?? [], result.latestVersion ?? '', process.arch)
+      if (!result.updateAvailable || !asset) throw new Error('No newer verified installer for this Mac is available yet.')
+      setDownloadState({ ...downloadState, version: result.latestVersion! })
+      const path = await downloadMacInstaller(asset, join(app.getPath('userData'), 'updates'),
+        (progress) => setDownloadState({ ...downloadState, progress }), macAbort.signal)
+      macDownload = { path, asset }
+    } else {
+      const updater = configureAutoUpdater()
+      const check = await updater.checkForUpdates()
+      const next = check?.updateInfo?.version
+      if (!next || compareVersions(next, currentVersion()) <= 0) {
+        throw new Error('No newer packaged build is available to download yet.')
+      }
+      setDownloadState({ ...downloadState, version: next })
+      const listener = (p: { percent: number }): void =>
+        setDownloadState({ ...downloadState, progress: Math.max(0, Math.min(1, p.percent / 100)) })
+      updater.on('download-progress', listener)
+      try { await updater.downloadUpdate() }
+      finally { updater.removeListener('download-progress', listener) }
     }
-    const progressListener = (p: { percent: number }): void =>
-      onProgress({ progress: Math.min(1, p.percent / 100) })
-    updater.on('download-progress', progressListener)
-    try {
-      await updater.downloadUpdate()
-    } finally {
-      updater.removeListener('download-progress', progressListener)
-    }
-    downloadedVersion = next
-    return next
-  } finally {
-    downloading = false
+    setDownloadState({ ...downloadState, status: 'downloaded', progress: 1 })
+  } catch (error) {
+    if (macAbort?.signal.aborted) setDownloadState({ status: 'idle', progress: 0 })
+    else setDownloadState({ ...downloadState, status: 'error', progress: 0,
+      error: error instanceof Error ? error.message : String(error) })
+  } finally { macAbort = null }
+  return getUpdateDownloadState()
+}
+
+export async function openUpdateInstaller(): Promise<void> {
+  if (!macDownload || downloadState.status !== 'downloaded') throw new Error('Download the installer first.')
+  if (!await verifyInstaller(macDownload.path, macDownload.asset)) {
+    macDownload = null
+    setDownloadState({ ...downloadState, status: 'error', error: 'Installer changed or was removed. Please download it again.' })
+    throw new Error('Installer verification failed. Please download it again.')
+  }
+  const error = await shell.openPath(macDownload.path)
+  if (error) {
+    shell.showItemInFolder(macDownload.path)
+    throw new Error(`Could not open the installer: ${error}. The file has been revealed in Finder.`)
   }
 }
 
-/** Quit and swap in the downloaded update (no-op if none is downloaded). */
 export function installUpdate(): void {
-  if (!downloadedVersion) throw new Error('No downloaded update to install.')
+  if (downloadState.status !== 'downloaded' || downloadState.mode !== 'restart') {
+    throw new Error('No downloaded update to install.')
+  }
+  setDownloadState({ ...downloadState, error: undefined })
   configureAutoUpdater().quitAndInstall()
 }
 

@@ -101,7 +101,7 @@ export default function SettingsModal(): React.JSX.Element {
   const [saving, setSaving] = useState(false)
   const [gpuProgress, setGpuProgress] = useState<ImportProgress | null>(null)
   const [gpuError, setGpuError] = useState<string | null>(null)
-  const [section, setSection] = useState<SectionId>('general')
+  const [section, setSection] = useState<SectionId>(useStore.getState().settingsInitialSection)
 
   useEffect(() => window.cutawan.onGpuProgress(setGpuProgress), [])
 
@@ -830,6 +830,11 @@ function UpdatesSection(): React.JSX.Element {
   const updateDownload = useStore((s) => s.updateDownload)
   const downloadUpdate = useStore((s) => s.downloadUpdate)
   const installUpdate = useStore((s) => s.installUpdate)
+  const openInstaller = useStore((s) => s.openUpdateInstaller)
+  const cancelDownload = useStore((s) => s.cancelUpdateDownload)
+  const busy = useStore((s) => s.screen === 'processing' || s.importProgress !== null ||
+    Object.values(s.exports).some((e) => e.status === 'exporting') ||
+    Object.values(s.reframeBusy).some(Boolean) || Object.values(s.captionBusy).some(Boolean))
 
   return (
     <div className="max-w-xl">
@@ -838,39 +843,42 @@ function UpdatesSection(): React.JSX.Element {
         App updates
       </label>
       <p className="mt-1 text-xs text-zinc-500">
-        Cutawan v{settings?.appVersion ?? '…'} — updates are checked automatically on launch.
+        Cutawan v{settings?.appVersion ?? '…'} — updates are checked on launch and every six hours.
       </p>
 
-      {updateCheck?.updateAvailable && updateCheck.releaseUrl ? (
-        updateCheck.autoUpdateSupported ? (
-          <UpdateInstaller
-            latestVersion={updateCheck.latestVersion ?? ''}
-            releaseUrl={updateCheck.releaseUrl}
-            download={updateDownload}
-            onDownload={() => void downloadUpdate()}
-            onInstall={() => void installUpdate()}
-          />
+      {updateDownload.status !== 'idle' || (updateCheck?.updateAvailable &&
+        (updateCheck.autoUpdateSupported || updateCheck.manualDownloadSupported)) ? (
+        <UpdateInstaller
+          latestVersion={updateDownload.version ?? updateCheck?.latestVersion ?? ''}
+          releaseUrl={updateCheck?.releaseUrl ?? 'https://github.com/JeremySNR/cutawan/releases/latest'}
+          download={updateDownload}
+          manual={updateDownload.mode === 'manual' || !!updateCheck?.manualDownloadSupported}
+          busy={busy}
+          onDownload={() => void downloadUpdate()}
+          onInstall={() => void installUpdate()}
+          onOpen={() => void openInstaller()}
+          onCancel={() => void cancelDownload()}
+        />
+      ) : updateCheck?.updateAvailable && updateCheck.releaseUrl ? (
+        updateCheck.sourceUpdateSupported ? (
+          <SourceUpdater latestVersion={updateCheck.latestVersion ?? ''} releaseUrl={updateCheck.releaseUrl} />
         ) : (
-          <SourceUpdater
-            latestVersion={updateCheck.latestVersion ?? ''}
-            releaseUrl={updateCheck.releaseUrl}
-          />
+          <div className="mt-2.5 rounded-lg border border-surface-600 px-3 py-2.5 text-xs text-zinc-300">
+            <p>{updateCheck.availabilityMessage ?? `Cutawan v${updateCheck.latestVersion} is available.`}</p>
+            <a href={updateCheck.releaseUrl} target="_blank" rel="noreferrer"
+              className="mt-2 inline-flex font-medium text-accent-400 underline">View release on GitHub</a>
+          </div>
         )
-      ) : (
-        updateCheck &&
-        !checking && (
-          <p
-            className={`mt-2.5 rounded-lg px-3 py-2 text-xs leading-relaxed ${
-              updateCheck.error ? 'bg-amber-500/10 text-amber-400' : 'bg-surface-850 text-zinc-400'
-            }`}
-          >
-            {updateCheck.error ??
-              (updateCheck.latestVersion
-                ? `You're up to date (latest release is v${updateCheck.latestVersion}).`
-                : "You're up to date — no newer release has been published.")}
-          </p>
-        )
-      )}
+      ) : updateCheck && !checking && !updateCheck.error ? (
+        <p className="mt-2.5 rounded-lg bg-surface-850 px-3 py-2 text-xs text-zinc-400">
+          {updateCheck.latestVersion ? `You're up to date (latest release is v${updateCheck.latestVersion}).`
+            : 'No published release was found.'}
+        </p>
+      ) : null}
+      {updateCheck?.error && <p role="status" className="mt-2 text-xs text-amber-400">{updateCheck.error}</p>}
+      {updateCheck && <p className="mt-2 text-[11px] text-zinc-500">
+        Last check: {new Date(updateCheck.checkedAt).toLocaleString()}
+      </p>}
 
       <button
         onClick={() => void checkForUpdates()}
@@ -968,75 +976,58 @@ function SourceUpdater({
   }
 }
 
-function UpdateInstaller({
-  latestVersion,
-  releaseUrl,
-  download,
-  onDownload,
-  onInstall
-}: {
+function UpdateInstaller({ latestVersion, releaseUrl, download, manual, busy, onDownload, onInstall, onOpen, onCancel }: {
   latestVersion: string
   releaseUrl: string
-  download: { status: 'idle' | 'downloading' | 'downloaded' | 'error'; progress: number; error?: string }
+  download: import('@shared/types').UpdateDownloadState
+  manual: boolean
+  busy: boolean
   onDownload: () => void
   onInstall: () => void
+  onOpen: () => void
+  onCancel: () => void
 }): React.JSX.Element {
-  switch (download.status) {
-    case 'downloading':
-      return (
-        <div className="mt-2.5 rounded-lg border border-surface-600 px-3 py-2.5">
-          <div className="flex items-center gap-2 text-xs text-zinc-300">
-            <Loader2 size={13} className="animate-spin" />
-            Downloading v{latestVersion}… {Math.round(download.progress * 100)}%
+  const buttonClass = 'mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 disabled:opacity-50'
+  return (
+    <div className="mt-2.5" aria-live="polite">
+      {download.status === 'downloading' ? (
+        <div className="rounded-lg border border-surface-600 px-3 py-2.5">
+          <p className="text-xs text-zinc-300">Downloading {latestVersion && `v${latestVersion}`}… {Math.round(download.progress * 100)}%</p>
+          <div role="progressbar" aria-label="Update download" aria-valuemin={0} aria-valuemax={100}
+            aria-valuenow={Math.round(download.progress * 100)} className="mt-2 h-1 overflow-hidden rounded-full bg-surface-700">
+            <div className="h-full bg-emerald-400" style={{ width: `${Math.round(download.progress * 100)}%` }} />
           </div>
-          <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-700">
-            <div
-              className="h-full rounded-full bg-emerald-400 transition-all"
-              style={{ width: `${Math.round(download.progress * 100)}%` }}
-            />
-          </div>
+          {manual && <button onClick={onCancel} className="mt-2 text-xs text-zinc-400 underline">Cancel download</button>}
         </div>
-      )
-    case 'downloaded':
-      return (
-        <button
-          onClick={onInstall}
-          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/20 px-3 py-2.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-500/30"
-        >
-          <RefreshCw size={13} />
-          Restart to finish updating to v{latestVersion}
-        </button>
-      )
-    case 'error':
-      return (
+      ) : download.status === 'downloaded' ? (
         <>
-          <p className="mt-2.5 rounded-lg bg-red-500/10 px-3 py-2 text-xs leading-relaxed text-red-400">
-            {download.error}
-          </p>
-          <a
-            href={releaseUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-lg border border-surface-600 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:bg-surface-800"
-          >
-            <ExternalLink size={13} />
-            Get v{latestVersion} from the release page instead
-          </a>
+          <p className="text-xs text-zinc-300">{manual ? 'Installer verified and ready.' : `Cutawan v${latestVersion} is ready to install.`}</p>
+          <button onClick={manual ? onOpen : onInstall} disabled={!manual && busy} className={buttonClass}>
+            {manual ? <Download size={13} /> : <RefreshCw size={13} />}
+            {manual ? `Open installer for v${latestVersion}` : `Restart to update to v${latestVersion}`}
+          </button>
+          {!manual && busy && <p className="mt-2 text-xs text-amber-400">Finish your current processing or export before restarting.</p>}
+          {manual && <p className="mt-2 text-xs leading-relaxed text-zinc-400">
+            Open the installer, quit Cutawan when your work is finished, then drag Cutawan into Applications and choose Replace.
+            Reopen Cutawan from Applications. Your saved projects and settings stay in place.
+            macOS may ask you to allow the app in System Settings → Privacy &amp; Security.
+          </p>}
         </>
-      )
-    case 'idle':
-      return (
-        <button
-          onClick={onDownload}
-          className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-2.5 text-xs font-semibold text-emerald-400 transition hover:bg-emerald-500/25"
-        >
-          <Download size={13} />
-          Download and install v{latestVersion}
-        </button>
-      )
-    default: {
-      const exhaustive: never = download.status
-      return exhaustive
-    }
-  }
+      ) : (
+        <>
+          <button onClick={onDownload} className={buttonClass} data-testid="download-update">
+            <Download size={13} />
+            {download.status === 'error' ? 'Retry download' : `Download ${manual ? 'Mac installer' : 'update'} v${latestVersion}`}
+          </button>
+          <p className="mt-2 text-xs text-zinc-500">{manual
+            ? 'Downloads and verifies the installer here. You will replace the app in Applications.'
+            : 'Keep working while it downloads. You choose when to restart and install.'}</p>
+        </>
+      )}
+      {download.error && <p role="alert" className="mt-2 text-xs text-red-400">{download.error}</p>}
+      <a href={releaseUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs text-zinc-400 underline">
+        Release notes and other downloads
+      </a>
+    </div>
+  )
 }

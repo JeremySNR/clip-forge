@@ -9,10 +9,12 @@ Download the current build from [GitHub Releases](https://github.com/JeremySNR/c
 | Platform | Choose | First launch |
 | --- | --- | --- |
 | Windows | `.exe` installer | Run the installer. The build is not code-signed yet, so Windows may show a SmartScreen warning; verify that you downloaded it from this repository before proceeding. |
-| macOS | `.dmg` | Move Cutawan to Applications. The build is not signed or notarised yet. Right-click Cutawan and choose **Open** on first launch. |
+| macOS, Apple Silicon (M1 or newer) | `arm64.dmg` | Move Cutawan to Applications. The build is not signed or notarised yet. After trying to open it, macOS may require **System Settings → Privacy & Security → Open Anyway**. Intel Macs do not currently have a published installer. |
 | Linux | `.AppImage` | Make it executable, then run it. For example, in a terminal: `chmod +x Cutawan*.AppImage` and `./Cutawan*.AppImage`. |
 
 Signing and notarisation are planned. Until then, only download installers from the [official release page](https://github.com/JeremySNR/cutawan/releases/latest), not a reposted copy. Builds before v0.10.0 do not have the first-run wizard; use **Settings → General → AI connection** for setup instead.
+
+**Mac updates:** The toolbar notifies you when a release is available. Click it to open Updates, then choose **Download Mac installer**. The app shows progress, verifies the download, and offers **Open installer**. Quit Cutawan, then replace the app in Applications. Your projects and settings are stored separately and are preserved. The current unsigned Mac updater requires this final replacement step. Update checks run on launch and every six hours; failed checks retry automatically.
 
 ## Choose a connection
 

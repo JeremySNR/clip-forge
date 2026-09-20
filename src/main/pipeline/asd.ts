@@ -3,7 +3,8 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
-import * as ort from 'onnxruntime-node'
+import { runInference } from '../inference/client'
+import { encodeFaceTrack } from './asdFrontend'
 import { runFfmpeg, streamRawFrames, probeVideo } from './ffmpeg'
 import { computeMfcc, MFCC_COEFFS } from './mfcc'
 import { buildFaceTracks, type FaceTrack } from './facetracks'
@@ -71,31 +72,9 @@ const SCOUT_STRIDE = 12 // at most 0.48 seconds to reacquire a returning face
  */
 const MIN_TRACK_COVERAGE = 0.25
 
-let sessionsPromise: Promise<{
-  frontend: ort.InferenceSession
-  backend: ort.InferenceSession
-} | null> | null = null
-
-/** Load the LR-ASD sessions, or null when the model files are not bundled. */
-function getSessions(): Promise<{
-  frontend: ort.InferenceSession
-  backend: ort.InferenceSession
-} | null> {
-  sessionsPromise ??= (async () => {
-    const frontendPath = join(modelsDir(), 'lr-asd-frontend.onnx')
-    const backendPath = join(modelsDir(), 'lr-asd-backend.onnx')
-    if (!existsSync(frontendPath) || !existsSync(backendPath)) return null
-    const [frontend, backend] = await Promise.all([
-      ort.InferenceSession.create(frontendPath, { logSeverityLevel: 3 }),
-      ort.InferenceSession.create(backendPath, { logSeverityLevel: 3 })
-    ])
-    return { frontend, backend }
-  })()
-  return sessionsPromise
-}
-
 export function asdAvailable(): Promise<boolean> {
-  return getSessions().then((s) => s !== null)
+  return Promise.resolve(['lr-asd-frontend.onnx', 'lr-asd-backend.onnx']
+    .every(name => existsSync(join(modelsDir(), name))))
 }
 
 export interface ScoredFaceTrack {
@@ -207,7 +186,7 @@ export async function runDetectionPass(
       const cut = difference > ASD_SCENE_CUT_THRESHOLD
       if (cut) rawCuts.push(f)
       if (shouldDetectFaces(f, lastFaceFrame, cut)) {
-        const faces = highResolution ? await detectFacesYuNet(frame, width, height) : await detectFaces(frame)
+        const faces = highResolution ? await detectFacesYuNet(frame, width, height, signal) : await detectFaces(frame, undefined, signal)
         facesPerFrame.push(faces)
         facePresent = faces.length > 0
         if (facePresent) {
@@ -372,38 +351,31 @@ function smoothScores(scores: Float32Array): number[] {
 
 /** Run the LR-ASD model over one face track, returning per-frame logits. */
 async function scoreTrack(
-  sessions: { frontend: ort.InferenceSession; backend: ort.InferenceSession },
   crops: Uint8Array[],
   mfcc: Float32Array | null,
   trackStart: number,
   signal?: AbortSignal
 ): Promise<number[]> {
   const frames = crops.length
-  const video = new Float32Array(frames * CROP_SIZE * CROP_SIZE)
-  for (let f = 0; f < frames; f++) {
-    const crop = crops[f]
-    const base = f * CROP_SIZE * CROP_SIZE
-    for (let i = 0; i < crop.length; i++) video[base + i] = crop[i]
-  }
   const audio = mfcc
     ? mfccSlice(mfcc, trackStart, frames)
     : new Float32Array(frames * 4 * MFCC_COEFFS)
 
-  const embeds = await sessions.frontend.run({
-    audio: new ort.Tensor('float32', audio, [1, frames * 4, MFCC_COEFFS]),
-    video: new ort.Tensor('float32', video, [1, frames, CROP_SIZE, CROP_SIZE])
-  })
+  const { embedA, embedV } = await encodeFaceTrack(join(modelsDir(), 'lr-asd-frontend.onnx'), crops, audio, signal)
   signal?.throwIfAborted()
-  const embedA = embeds.embedA.data as Float32Array
-  const embedV = embeds.embedV.data as Float32Array
 
   if (!mfcc) {
-    // No soundtrack: use the visual-only head (frame-wise, no windowing).
-    const out = await sessions.backend.run({
-      embedA: new ort.Tensor('float32', embedA, [1, frames, 128]),
-      embedV: new ort.Tensor('float32', embedV, [1, frames, 128])
-    })
-    return smoothScores(out.scoresV.data as Float32Array)
+    // No soundtrack: use the visual-only head in bounded frame-wise batches.
+    const scores = new Float32Array(frames)
+    for (let from = 0; from < frames; from += 150) {
+      const len = Math.min(150, frames - from)
+      const out = await runInference(join(modelsDir(), 'lr-asd-backend.onnx'), {
+        embedA: { data: embedA.slice(from * 128, (from + len) * 128), dims: [1, len, 128] },
+        embedV: { data: embedV.slice(from * 128, (from + len) * 128), dims: [1, len, 128] }
+      }, signal)
+      scores.set(out.scoresV.data, from)
+    }
+    return smoothScores(scores)
   }
 
   const sum = new Float32Array(frames)
@@ -413,18 +385,10 @@ async function scoreTrack(
     for (let from = 0; from < frames; from += window) {
       signal?.throwIfAborted()
       const len = Math.min(window, frames - from)
-      const out = await sessions.backend.run({
-        embedA: new ort.Tensor(
-          'float32',
-          embedA.subarray(from * 128, (from + len) * 128),
-          [1, len, 128]
-        ),
-        embedV: new ort.Tensor(
-          'float32',
-          embedV.subarray(from * 128, (from + len) * 128),
-          [1, len, 128]
-        )
-      })
+      const out = await runInference(join(modelsDir(), 'lr-asd-backend.onnx'), {
+        embedA: { data: embedA.slice(from * 128, (from + len) * 128), dims: [1, len, 128] },
+        embedV: { data: embedV.slice(from * 128, (from + len) * 128), dims: [1, len, 128] }
+      }, signal)
       const scores = out.scoresAV.data as Float32Array
       for (let i = 0; i < len; i++) sum[from + i] += scores[i]
     }
@@ -448,8 +412,7 @@ export async function analyzeClipASD(
   signal?: AbortSignal,
   comparison?: { detector?: 'ultraface' | 'yunet'; cropWidth?: number }
 ): Promise<AsdAnalysis | null> {
-  const sessions = await getSessions()
-  if (!sessions) return null
+  if (!(await asdAvailable())) return null
 
   const duration = Math.max(0.1, endSec - startSec)
   const info = await probeVideo(videoPath)
@@ -501,7 +464,6 @@ export async function analyzeClipASD(
     const frames = Math.min(track.boxes.length, crops[t].length)
     if (frames < 2) continue
     const scores = await scoreTrack(
-      sessions,
       crops[t].slice(0, frames),
       mfcc,
       track.start,

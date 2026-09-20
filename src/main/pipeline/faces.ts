@@ -92,7 +92,7 @@ async function sampleFaceCentres(
     const facesPerFrame: FaceBox[][] = new Array(frameCount).fill(null).map(() => [])
     await mapLimit(frames, FACE_INFERENCE_CONCURRENCY, async (frame, f) => {
       signal?.throwIfAborted()
-      facesPerFrame[f] = await detectFaces(frame)
+      facesPerFrame[f] = await detectFaces(frame, undefined, signal)
     })
 
     // Mouth-movement activity per face — the visual speech signal that lets

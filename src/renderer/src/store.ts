@@ -11,7 +11,8 @@ import type {
   ProjectMode,
   ProjectSummary,
   SettingsUpdate,
-  UpdateCheckResult
+  UpdateCheckResult,
+  UpdateDownloadState
 } from '@shared/types'
 
 import { findWholeVideoClip, highlightClips, isWholeVideoClip } from '@shared/wholeVideo'
@@ -76,6 +77,7 @@ interface AppState {
   projects: ProjectSummary[]
   settings: AppSettings | null
   settingsOpen: boolean
+  settingsInitialSection: 'general' | 'updates'
   pipelineProgress: PipelineProgress | null
   pipelineError: string | null
   /** Which flow the processing screen is showing, so it lists the right stages. */
@@ -89,11 +91,7 @@ interface AppState {
   customFonts: CustomFont[]
   updateCheck: UpdateCheckResult | null
   checkingForUpdates: boolean
-  updateDownload: {
-    status: 'idle' | 'downloading' | 'downloaded' | 'error'
-    progress: number
-    error?: string
-  }
+  updateDownload: UpdateDownloadState
   sourceUpdate: { status: 'idle' | 'running' | 'error'; message: string; error?: string }
 
   init: () => Promise<void>
@@ -106,7 +104,7 @@ interface AppState {
   relinkVideo: () => Promise<void>
   goHome: () => void
   newProject: () => void
-  setSettingsOpen: (open: boolean) => void
+  setSettingsOpen: (open: boolean, section?: 'general' | 'updates') => void
   saveSettings: (update: SettingsUpdate) => Promise<void>
   refreshSettings: () => Promise<void>
   analyze: (options: AnalyzeOptions) => Promise<void>
@@ -137,9 +135,11 @@ interface AppState {
   importCookiesFile: () => Promise<void>
   clearCookiesFile: () => Promise<void>
   selectBrandingLogo: () => Promise<void>
-  checkForUpdates: (silent?: boolean) => Promise<void>
+  checkForUpdates: (silent?: boolean) => Promise<boolean>
   downloadUpdate: () => Promise<void>
   installUpdate: () => Promise<void>
+  openUpdateInstaller: () => Promise<void>
+  cancelUpdateDownload: () => Promise<void>
   updateFromSource: () => Promise<void>
 }
 
@@ -149,6 +149,7 @@ export const useStore = create<AppState>((set, get) => ({
   projects: [],
   settings: null,
   settingsOpen: false,
+  settingsInitialSection: 'general',
   pipelineProgress: null,
   pipelineError: null,
   pipelineMode: 'clips',
@@ -174,9 +175,6 @@ export const useStore = create<AppState>((set, get) => ({
     ])
     set({ settings, projects, customFonts })
     void registerFonts(customFonts)
-    // Automatic update check on launch; failures stay silent here and are
-    // only surfaced when the user checks manually from Settings.
-    void get().checkForUpdates(true)
     window.cutawan.onPipelineProgress((p) => set({ pipelineProgress: p }))
     window.cutawan.onImportProgress((p) => {
       if (get().importProgress !== null) set({ importProgress: p })
@@ -259,7 +257,7 @@ export const useStore = create<AppState>((set, get) => ({
   // remains in "Recent projects".
   newProject: () => set({ project: null, screen: 'home', selectedClipId: null, pipelineError: null }),
 
-  setSettingsOpen: (open) => set({ settingsOpen: open }),
+  setSettingsOpen: (open, section = 'general') => set({ settingsOpen: open, settingsInitialSection: section }),
 
   saveSettings: async (update) => {
     const settings = await window.cutawan.updateSettings(update)
@@ -546,42 +544,57 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   checkForUpdates: async (silent = false) => {
-    if (get().checkingForUpdates) return
+    if (get().checkingForUpdates) return false
     set({ checkingForUpdates: true })
     try {
       const updateCheck = await window.cutawan.checkForUpdates()
-      if (!silent || !updateCheck.error) set({ updateCheck })
-    } finally {
-      set({ checkingForUpdates: false })
-    }
+      const previous = get().updateCheck
+      if (updateCheck.error && previous?.updateAvailable) {
+        set({ updateCheck: { ...previous, error: updateCheck.error, checkedAt: updateCheck.checkedAt } })
+      } else if (!silent || !updateCheck.error || !previous) set({ updateCheck })
+      return !updateCheck.error
+    } catch (err) {
+      const previous = get().updateCheck
+      set({ updateCheck: {
+        currentVersion: get().settings?.appVersion ?? '', latestVersion: null, releaseUrl: null,
+        updateAvailable: false, autoUpdateSupported: false, sourceUpdateSupported: false,
+        ...previous, checkedAt: Date.now(),
+        error: `Could not check for updates: ${err instanceof Error ? cleanIpcError(err.message) : String(err)}`
+      } })
+      return false
+    } finally { set({ checkingForUpdates: false }) }
   },
 
   downloadUpdate: async () => {
     if (get().updateDownload.status === 'downloading') return
-    set({ updateDownload: { status: 'downloading', progress: 0 } })
-    const unsubscribe = window.cutawan.onUpdateDownloadProgress((p) => {
-      if (get().updateDownload.status === 'downloading') {
-        set({ updateDownload: { status: 'downloading', progress: p.progress } })
-      }
-    })
+    try { set({ updateDownload: await window.cutawan.downloadUpdate() }) }
+    catch (err) {
+      set({ updateDownload: { ...get().updateDownload, status: 'error',
+        error: err instanceof Error ? cleanIpcError(err.message) : String(err) } })
+    }
+  },
+
+  cancelUpdateDownload: async () => {
+    try { await window.cutawan.cancelUpdateDownload() }
+    catch (err) { set({ updateDownload: { ...get().updateDownload, error: String(err) } }) }
+  },
+
+  openUpdateInstaller: async () => {
     try {
-      await window.cutawan.downloadUpdate()
-      set({ updateDownload: { status: 'downloaded', progress: 1 } })
+      await window.cutawan.openUpdateInstaller()
+      set({ updateDownload: { ...get().updateDownload, error: undefined } })
     } catch (err) {
-      set({
-        updateDownload: {
-          status: 'error',
-          progress: 0,
-          error: err instanceof Error ? cleanIpcError(err.message) : String(err)
-        }
-      })
-    } finally {
-      unsubscribe()
+      set({ updateDownload: { ...get().updateDownload,
+        error: err instanceof Error ? cleanIpcError(err.message) : String(err) } })
     }
   },
 
   installUpdate: async () => {
-    await window.cutawan.installUpdate()
+    try { await window.cutawan.installUpdate() }
+    catch (err) {
+      set({ updateDownload: { ...get().updateDownload,
+        error: err instanceof Error ? cleanIpcError(err.message) : String(err) } })
+    }
   },
 
   updateFromSource: async () => {

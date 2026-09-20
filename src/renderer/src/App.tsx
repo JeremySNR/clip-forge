@@ -7,6 +7,7 @@ import EditorScreen from './components/EditorScreen'
 import SettingsModal from './components/SettingsModal'
 import TopBar from './components/TopBar'
 import SetupWizard from './components/SetupWizard'
+import { startUpdateChecks } from '@shared/updateSchedule'
 
 function ScreenView({ screen }: { screen: Screen }): React.JSX.Element {
   switch (screen) {
@@ -47,6 +48,20 @@ export default function App(): React.JSX.Element {
       window.removeEventListener('drop', preventNav)
     }
   }, [init])
+
+  useEffect(() => {
+    let alive = true
+    let receivedEvent = false
+    const unsubscribe = window.cutawan.onUpdateDownloadState((state) => {
+      receivedEvent = true
+      useStore.setState({ updateDownload: state })
+    })
+    void window.cutawan.getUpdateDownloadState().then((state) => {
+      if (alive && !receivedEvent) useStore.setState({ updateDownload: state })
+    }).catch(() => undefined)
+    const stop = startUpdateChecks(() => useStore.getState().checkForUpdates(true), window)
+    return () => { alive = false; stop(); unsubscribe() }
+  }, [])
 
   return (
     <div className="flex h-full flex-col">

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import ffmpegStatic from 'ffmpeg-static'
-import ffprobeStatic from 'ffprobe-static'
+import ffprobeStatic from '@ffprobe-installer/ffprobe'
 import type { VideoInfo } from '@shared/types'
 
 /** When packaged inside app.asar, binaries live in the unpacked twin directory. */

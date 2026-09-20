@@ -16,7 +16,7 @@ import type {
   SettingsUpdate,
   TimelineData,
   UpdateCheckResult,
-  UpdateDownloadProgress
+  UpdateDownloadState
 } from '@shared/types'
 
 const api = {
@@ -78,7 +78,10 @@ const api = {
   clearCookiesFile: (): Promise<AppSettings> => ipcRenderer.invoke('cookies:clear'),
   selectBrandingLogo: (): Promise<AppSettings> => ipcRenderer.invoke('branding:selectLogo'),
   checkForUpdates: (): Promise<UpdateCheckResult> => ipcRenderer.invoke('updates:check'),
-  downloadUpdate: (): Promise<string> => ipcRenderer.invoke('updates:download'),
+  downloadUpdate: (): Promise<UpdateDownloadState> => ipcRenderer.invoke('updates:download'),
+  getUpdateDownloadState: (): Promise<UpdateDownloadState> => ipcRenderer.invoke('updates:state'),
+  openUpdateInstaller: (): Promise<void> => ipcRenderer.invoke('updates:openInstaller'),
+  cancelUpdateDownload: (): Promise<void> => ipcRenderer.invoke('updates:cancel'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('updates:install'),
   updateFromSource: (): Promise<void> => ipcRenderer.invoke('updates:updateFromSource'),
   onSourceUpdateProgress: (cb: (p: ImportProgress) => void): (() => void) => {
@@ -86,10 +89,10 @@ const api = {
     ipcRenderer.on('update:sourceProgress', listener)
     return () => ipcRenderer.removeListener('update:sourceProgress', listener)
   },
-  onUpdateDownloadProgress: (cb: (p: UpdateDownloadProgress) => void): (() => void) => {
-    const listener = (_e: Electron.IpcRendererEvent, p: UpdateDownloadProgress): void => cb(p)
-    ipcRenderer.on('update:downloadProgress', listener)
-    return () => ipcRenderer.removeListener('update:downloadProgress', listener)
+  onUpdateDownloadState: (cb: (p: UpdateDownloadState) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, p: UpdateDownloadState): void => cb(p)
+    ipcRenderer.on('update:state', listener)
+    return () => ipcRenderer.removeListener('update:state', listener)
   },
   downloadGpuFfmpeg: (): Promise<GpuEncoderStatus> => ipcRenderer.invoke('settings:downloadGpuFfmpeg'),
   onGpuProgress: (cb: (p: ImportProgress) => void): (() => void) => {

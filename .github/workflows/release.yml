@@ -8,10 +8,9 @@ name: Release
 #      the environment can't push tags). electron-builder derives the release
 #      tag (vX.Y.Z) from package.json either way.
 #
-# electron-builder uploads the .dmg / .exe / .AppImage plus the update
-# manifests (latest*.yml) the in-app updater reads. Once a user has installed
-# any build, every later release installs itself automatically — no more
-# `npm run dev`, no manual re-sends.
+# electron-builder builds the .dmg / .exe / .AppImage plus the update
+# manifests (latest*.yml) the in-app updater reads. Unsigned macOS builds use
+# assisted downloads and manual replacement; Windows/Linux support in-app installation.
 #
 # Uses the built-in GITHUB_TOKEN, so no extra secrets are required as long as
 # releases publish to this same repo (see the `publish` block in package.json).
@@ -23,6 +22,10 @@ on:
     branches:
       - main
   workflow_dispatch: {}
+
+concurrency:
+  group: cutawan-release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -47,40 +50,72 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Build and publish
-        run: npm run package -- --publish always
+      - name: Validate packaged Mac before publishing
+        if: runner.os == 'macOS'
+        run: |
+          npm run package:dir -- --arm64
+          bash scripts/check-mac-package.sh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: Build installers
+        run: npm run package -- --publish never ${{ runner.os == 'macOS' && '--arm64' || '' }}
+        env:
           # The app is not code-signed yet: stop electron-builder from hunting
           # for a Developer ID certificate (and failing) on the macOS runner.
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-  # electron-builder creates the release but leaves the body empty, so fill it
-  # in from CHANGELOG.md once the builds have uploaded. Runs once, not per OS.
-  notes:
-    name: publish release notes
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+            release/*.blockmap
+            release/latest*.yml
+
+  publish:
+    name: publish complete release
     needs: release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set release notes from CHANGELOG
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: release
+          merge-multiple: true
+      - name: Verify all platforms and publish together
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
+          set -euo pipefail
+          node scripts/verify-release.mjs release
           version=$(node -p "require('./package.json').version")
           node scripts/changelog-section.mjs "$version" > notes.md
-          if [ -s notes.md ]; then
-            gh release edit "v$version" --notes-file notes.md
-            echo "Release notes set for v$version"
+          if gh release view "v$version" --json isDraft > release-state.json; then
+            node -e 'if (!require("./release-state.json").isDraft) throw new Error("This version is already published; bump the version before releasing.")'
           else
-            echo "No CHANGELOG.md section for $version; leaving notes as they are"
+            gh release create "v$version" --draft --target "$GITHUB_SHA" --title "v$version" --notes-file notes.md
           fi
+          gh release upload "v$version" release/* --clobber
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/v$version" > uploaded-release.json
+          node scripts/verify-release.mjs release uploaded-release.json
+          gh release edit "v$version" --notes-file notes.md --draft=false --latest
 
   # After the first listing exists on winget-pkgs (see docs/winget.md), later
   # releases open an update PR automatically. Skip until the package id is set.
   winget:
     name: publish winget
-    needs: notes
+    needs: publish
     if: ${{ vars.WINGET_PACKAGE_ID != '' }}
     runs-on: windows-latest
     steps:

@@ -8,8 +8,21 @@ import {
   findGitRoot,
   isPullNoOp,
   resolveSourceRepoRoot,
-  spawnStepOptions
+  spawnStepOptions,
+  updateCapabilities
 } from '../src/main/updates'
+
+describe('update installation routes', () => {
+  it('never offers Squirrel or git updating for an unsigned packaged Mac', () => {
+    expect(updateCapabilities(true, 'darwin')).toEqual({ autoUpdateSupported: false, sourceUpdateSupported: false })
+  })
+  it('retains packaged Windows/Linux and source-checkout updating', () => {
+    for (const platform of ['win32', 'linux'] as const) {
+      expect(updateCapabilities(true, platform)).toEqual({ autoUpdateSupported: true, sourceUpdateSupported: false })
+    }
+    expect(updateCapabilities(false, 'darwin')).toEqual({ autoUpdateSupported: false, sourceUpdateSupported: true })
+  })
+})
 
 describe('findGitRoot', () => {
   it('walks up from a nested directory to the repo root', () => {
