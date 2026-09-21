@@ -9,6 +9,7 @@ import { extractThumbnail, probeVideo } from './ffmpeg'
 import { ensureTranscript } from './projectTranscript'
 import { detectHighlights, maxDurationFor } from './highlights'
 import { analyzeClipLayout } from './clipLayout'
+import { LayoutMemory } from './layoutMemory'
 import { mergeReframeResult, selectEagerReframeIds } from '@shared/reframe'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { completeVisualStory } from './visualStory'
@@ -218,6 +219,7 @@ export async function analyzeProject(
     if (!clips.length) throw new Error('The candidate clips did not form complete, self-contained stories. Try a longer clip length or a different source.')
     clips.sort((a, b) => b.viralityScore - a.viralityScore)
 
+    const layoutMemory = new LayoutMemory(project.video.path, project.clips)
     for (const clip of clips) clip.reframeStatus = 'pending'
     project.clips = clips
     project.prompt = options.prompt
@@ -239,7 +241,7 @@ export async function analyzeProject(
       await mapLimit(eagerClips, 2, async (clip) => {
         signal?.throwIfAborted()
         await analyzeClipLayout(project.video.path, clip, options.videoType,
-          apiKey, settings.analysisModel, transcript, signal)
+          apiKey, settings.analysisModel, transcript, signal, layoutMemory)
         // Persist each completed clip, including when a later request fails or
         // the user cancels. Merge with edits made while analysis was running.
         await updateProject(project.id, (fresh) => {

@@ -1,12 +1,14 @@
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import type { ContentRegion, LayoutShot } from '@shared/types'
+import type { Composition, ContentRegion, LayoutShot } from '@shared/types'
 import { presenterComposition, usefulComposition, validRectangle } from '@shared/composition'
 import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes } from './visualScore'
-import { probeVideo, runFfmpeg } from './ffmpeg'
+import { probeVideo, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
+import { cutsContentEdge } from './contentEdges'
+import { fontsDir } from './captions'
 
 /** Unlike broad content crops, a webcam inset can be much smaller than 20%. */
 export function sourceRectangle(box: { left: number; top: number; right: number; bottom: number } | undefined): ContentRegion | undefined {
@@ -20,6 +22,14 @@ const SCHEMA = { type: 'object', additionalProperties: false, required: ['accept
   accept: { type: 'boolean' }, reason: { type: 'string' },
   legible_labels: { type: 'array', items: { type: 'string' } }
 } } as const
+
+/** Escape the option value, then the filter graph; shell quoting is irrelevant
+ * because FFmpeg receives an argv array. Do not wrap the escaped value again. */
+export function reviewPanelLabels(fontPath: string): string {
+  const font = fontPath.replace(/\\/g, '/').replace(/[':]/g, '\\$&').replace(/[\\'[\],;]/g, '\\$&')
+  return [['SOURCE reference', 12], ['BEFORE', 652], ['AFTER - judge here', 1012]]
+    .map(([text, x]) => `drawtext=fontfile=${font}:text='${text}':x=${x}:y=5:fontsize=18:fontcolor=white`).join(',')
+}
 
 /** Models often draw a tight box around the current labels. Leave room for
  * nearby line endpoints and label movement before reviewing rendered pixels,
@@ -37,44 +47,69 @@ export async function reviewPresenterComposition(
   apiKey: string, model: string, videoPath: string, start: number, end: number,
   content: ContentRegion, presenter: ContentRegion, narration: string, signal?: AbortSignal
 ): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
+  // Apply containment margins exactly once, not again when reusing a checked
+  // composition as a new proposal.
+  const inset = { x: presenter.x + presenter.width * .03, y: presenter.y + presenter.height * .03,
+    width: presenter.width * .94, height: presenter.height * .94 }
+  const candidates = (['content-first', 'stacked'] as const)
+    .map(preset => presenterComposition(contentMargin(content, presenter), inset, preset))
+    .filter((c): c is Composition => Boolean(c))
+  return reviewCompositions(apiKey, model, videoPath, start, end, candidates, narration, signal)
+}
+
+/** Retrieved geometry has no authority until checked against the new interval. */
+export function reviewExistingComposition(
+  apiKey: string, model: string, videoPath: string, start: number, end: number,
+  composition: Composition, narration: string, signal?: AbortSignal
+): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
+  return reviewCompositions(apiKey, model, videoPath, start, end, [composition], narration, signal, true)
+}
+
+async function reviewCompositions(
+  apiKey: string, model: string, videoPath: string, start: number, end: number,
+  candidates: Composition[], narration: string, signal?: AbortSignal, checkEdges = false
+): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
   const source = await probeVideo(videoPath)
   const directory = await mkdtemp(join(tmpdir(), 'cutawan-presenter-review-'))
+  const labels = reviewPanelLabels(join(fontsDir(), 'Poppins-Medium.ttf'))
   let reason = 'No readable presenter/content layout could be established.'
   try {
-    // Source boxes are approximate: slight overscan removes webcam borders
-    // and neighbouring UI slivers. The proof below must still retain the
-    // complete head and mouth; tiny/too-tight insets fail the usual checks.
-    const inset = { x: presenter.x + presenter.width * .03, y: presenter.y + presenter.height * .03,
-      width: presenter.width * .94, height: presenter.height * .94 }
-    for (const preset of ['content-first', 'stacked'] as const) {
-      const composition = presenterComposition(contentMargin(content, presenter), inset, preset)
-      if (!composition) break
+    for (const composition of candidates) {
+      const preset = composition.preset
       if (!usefulComposition(composition, source)) { reason = 'Source regions are too small, soft, or insufficiently enlarged.'; continue }
       const parts: ChatContentPart[] = [{ type: 'text', text:
         `Review a portrait presenter/content composition. Timed interval ${start.toFixed(2)}–${end.toFixed(2)} seconds. Narration: ${narration.slice(0, 4000)}. ` +
         'Each chronological image contains SOURCE, BEFORE full-frame portrait, AFTER composited portrait. Before and after have identical dimensions. ' +
+        'The panels are labelled. Count presenter duplicates only WITHIN the rightmost AFTER panel: the same person appearing in the SOURCE and BEFORE references is expected and is not duplication in the output. ' +
         'Accept only if the AFTER improves content readability and retains the complete relevant graph/UI/diagram and its labels, preserves the presenter head and mouth with movement margin, and never includes unrelated background fragments in the presenter panel. ' +
         'Check ALL seven samples for webcam movement, panel changes, missing content and clipping. The main content and presenter are independent crops of the same frame. ' +
         'The empty bottom band is reserved for captions. Do not require incidental editor chrome. Reject if there is no genuine separate webcam/presenter panel, if the face is soft, or if a full-width scene has merely been split into arbitrary pieces. ' +
         'List labels actually legible in the AFTER, not inferred from SOURCE. A sampled check cannot certify unseen frames; reject uncertainty. Return a concise concrete reason.' }]
       for (const [i, time] of clipFrameTimes(start, end, 7).entries()) {
         const pair = join(directory, `presenter-${preset}-${i}.jpg`)
+        const edges = join(directory, 'edges.gray')
         const graph = '[0:v]split=3[a][b][c];[a]scale=640:360:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2[l];' +
           fitRegionGraph('b', 'm', 'before', source, 360, 640) + ';' +
           // Render at output size before evaluating the phone-size view.
           compositionGraph('c', 'composed', 'after', source, 1080, 1920, composition) +
-          ';[composed]scale=360:640[r];[l][m][r]hstack=inputs=3[out]'
+          `;[composed]scale=360:640[r];[l][m][r]hstack=inputs=3,pad=iw:ih+32:0:32:color=0x202020,${labels}[out]`
         // Crop native pixels before resizing: a 4K inset must not be judged from
         // an already-downscaled thumbnail. Decode only one frame per proof.
         let bytes: Buffer | undefined
         // Low-FPS media can have no timestamp after the last requested sample.
         // Step back within this shot only; never validate a neighbouring scene.
         for (const seek of new Set([time, time - .25, time - .5, time - 1].map(t => Math.max(start, t)))) {
-          await runFfmpeg(['-ss', seek.toFixed(3), '-i', videoPath, '-filter_complex', graph, '-map', '[out]', '-frames:v', '1', pair], { signal })
+          await rm(pair, { force: true })
+          await rm(edges, { force: true })
+          await runFfmpeg(['-ss', seek.toFixed(3), '-i', videoPath, '-filter_complex', graph, '-map', '[out]', '-frames:v', '1', pair,
+            ...(checkEdges ? ['-map', '0:v:0', '-vf', 'scale=640:360', '-pix_fmt', 'gray', '-frames:v', '1', '-f', 'rawvideo', edges] : [])], { signal })
           bytes = await readFile(pair).catch(() => undefined)
           if (bytes?.length) break
         }
         if (!bytes?.length) throw new Error(`Incomplete composition sample near ${time.toFixed(3)}s`)
+        if (checkEdges && cutsContentEdge(await readFile(edges), composition.layers.find(layer => layer.role === 'content')!.source)) {
+          return { review: { status: 'needs-review', reason: 'A source feature touches the reused content crop; request fresh bounds.' } }
+        }
         parts.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${bytes.toString('base64')}`, detail: 'high' } })
       }
       const review = await chatJSON<{ accept: boolean; reason: string; legible_labels: string[] }>(

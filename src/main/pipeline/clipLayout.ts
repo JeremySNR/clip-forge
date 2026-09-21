@@ -5,11 +5,12 @@ import { analyzeClipFocus, applyFocusAnalysis, type ClipFocusAnalysis } from './
 import { refineComposition } from './composition'
 import { assessClipVisuals } from './visualScore'
 import { screenTransitions } from './screenCuts'
+import type { LayoutMemory } from './layoutMemory'
 
 /** One route for initial analysis and on-demand/legacy projects. */
 export async function analyzeClipLayout(
   videoPath: string, clip: Clip, videoType: VideoType,
-  apiKey: string, model: string, transcript?: Transcript, signal?: AbortSignal
+  apiKey: string, model: string, transcript?: Transcript, signal?: AbortSignal, memory?: LayoutMemory
 ): Promise<void> {
   const started = performance.now()
   // Old saved assessments lack layout evidence. Refresh it once, rather than
@@ -29,7 +30,7 @@ export async function analyzeClipLayout(
   }
   if (apiKey && videoType !== 'talking-head') {
     await refineComposition(apiKey, model, videoPath, clip, analysis.sceneCuts, signal,
-      analysis.focusTrack, analysis.sceneTransitions, transcript)
+      analysis.focusTrack, analysis.sceneTransitions, transcript, memory)
     // A single panel proposal may fail because the source changes midway.
     // Try shot-specific regions once, only when real screen changes exist.
     if (screen && clip.visualLayout?.panels &&
@@ -38,13 +39,14 @@ export async function analyzeClipLayout(
       if (analysis.sceneTransitions.length) {
         clip.visualLayout = { ...clip.visualLayout, panels: undefined }
         await refineComposition(apiKey, model, videoPath, clip, undefined, signal,
-          null, analysis.sceneTransitions, transcript)
+          null, analysis.sceneTransitions, transcript, memory)
       }
     }
   }
   signal?.throwIfAborted()
   applyFocusAnalysis(clip, analysis, videoType)
   markReframeComplete(clip)
+  memory?.remember(clip)
   console.info('[layout]', JSON.stringify({ clipId: clip.id, route: screen ? 'screen' : 'camera',
     seconds: Math.round((performance.now() - started) / 100) / 10,
     composed: clip.visualLayout?.shots?.filter(s => s.composition).length ?? 0,

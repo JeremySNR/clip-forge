@@ -34,6 +34,9 @@ export class MediaQueue {
 }
 
 const GiB = 1024 ** 3
+/** Network waits never occupy the local decoder/inference budget. Share this
+ * ceiling across providers, including a settings change while work is active. */
+export const analysisRequests = new MediaQueue(() => totalmem() >= 8 * GiB ? 2 : 1)
 export const mediaJobs = new MediaQueue(() =>
   totalmem() >= 12 * GiB && freemem() >= 4 * GiB && availableParallelism() >= 8 ? 2 : 1)
 

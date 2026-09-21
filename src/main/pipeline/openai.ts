@@ -2,6 +2,7 @@ import { usesSubscription, usesLocalTranscription, subscriptionJSON, transcribeL
 import { readFile } from 'node:fs/promises'
 import { basename } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { analysisRequests } from './mediaJobs'
 
 /**
  * Minimal OpenAI REST client using Node's built-in fetch, so the app has no
@@ -262,14 +263,14 @@ export async function chatJSON<T>(
   if (usesSubscription()) return subscriptionJSON<T>(messages, schema, signal)
   return withRetries(
     async () => {
-      const content = await completeChatContent(
+      const content = await analysisRequests.run(() => completeChatContent(
         apiKey,
         model,
         messages,
         schemaName,
         schema,
         signal
-      )
+      ), signal)
       try {
         return JSON.parse(content) as T
       } catch {

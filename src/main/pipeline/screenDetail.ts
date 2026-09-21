@@ -5,7 +5,7 @@ import type { Clip, ContentRegion, Transcript } from '@shared/types'
 import { detailEnlargement, MIN_DETAIL_GAIN, proposedContentRegion } from '@shared/contentRegion'
 import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes, extractClipFrames } from './visualScore'
-import { probeImageDimensions, runFfmpeg } from './ffmpeg'
+import { probeImageDimensions, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 import { fitRegionGraph } from './layoutFilters'
 
 type Shots = NonNullable<NonNullable<Clip['visualLayout']>['shots']>

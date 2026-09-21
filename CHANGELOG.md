@@ -6,6 +6,18 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.11.2] - 2026-09-21
+
+### Improved
+
+- Let independent layout reviews overlap without occupying local decoding/inference slots while waiting for cloud responses. Bound analysis requests across API and ChatGPT providers separately from local processing.
+- Reuse checked screen compositions from the same source as proposals for recurring layouts. Every candidate requires fresh rendered verification; rejected candidates fall back to ordinary analysis.
+- Veto reused crops when sampled local pixels indicate a feature cut at the content boundary. Label comparison panels explicitly to reduce confusion between source references and the actual output.
+
+### Validation
+
+- Tested recurring and changing graph content plus three rearranged presenter-corner variants from the original T3.GG footage. A moving-title failure found by inspection drove the edge guard. Measurements, failed trials and remaining limitations are recorded in `docs/layout-reuse-validation.md`; arbitrary-video quality is not established.
+
 ## [0.11.1] - 2026-09-21
 
 ### Fixed

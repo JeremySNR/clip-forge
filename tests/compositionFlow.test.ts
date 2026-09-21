@@ -10,6 +10,78 @@ vi.mock('../src/main/pipeline/openai', () => ({ chatJSON: chat }))
 import { refineComposition } from '../src/main/pipeline/composition'
 import { refineScreenDetails } from '../src/main/pipeline/screenDetail'
 import { reviewPresenterComposition } from '../src/main/pipeline/presenterComposition'
+import { LayoutMemory } from '../src/main/pipeline/layoutMemory'
+import { mediaJobs } from '../src/main/pipeline/mediaJobs'
+import { presenterComposition } from '@shared/composition'
+
+it('releases the media slot during cloud review so another clip and export can proceed', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-review-concurrency-'))
+  let release!: () => void
+  const cloud = new Promise<void>(resolve => { release = resolve })
+  const pending: Promise<void>[] = []
+  try {
+    const video = join(dir, 'source.mp4')
+    await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=320x180:rate=5:duration=1', '-c:v', 'mpeg4', video])
+    chat.mockReset()
+    chat.mockImplementation(async () => { await cloud; return { mode: 'fit', screen_detail: false } })
+    const clip = { title: 'Demo', edit: { start: 0, end: 1 }, visualLayout: {
+      start: 0, end: 1, preserveContext: true, allowZoom: false, reason: 'demo' } } as Clip
+    pending.push(refineComposition('unused', 'unused', video, structuredClone(clip), []))
+    await vi.waitFor(() => expect(chat).toHaveBeenCalledOnce(), { timeout: 8000 })
+    pending.push(refineComposition('unused', 'unused', video, structuredClone(clip), []))
+    let admitted = false
+    pending.push(mediaJobs.run(async () => { admitted = true }, undefined, 1))
+    await vi.waitFor(() => { expect(admitted).toBe(true); expect(chat).toHaveBeenCalledTimes(2) }, { timeout: 8000 })
+  } finally {
+    release()
+    await Promise.all(pending)
+    await rm(dir, { recursive: true, force: true })
+  }
+}, 20000)
+
+it.each([true, false])('requires fresh rendered verification of a reused layout and repairs rejection: %s', async accept => {
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-reused-layout-'))
+  try {
+    const video = join(dir, 'source.mp4')
+    await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=5:d=1',
+      '-vf', 'drawbox=x=320:y=300:w=400:h=200:color=blue:t=fill', '-c:v', 'mpeg4', video])
+    const example = presenterComposition({ x: .2, y: .3, width: .6, height: .6 },
+      { x: .82, y: .02, width: .16, height: .26 })!
+    const memory = new LayoutMemory(video)
+    vi.spyOn(memory, 'propose').mockResolvedValue(example)
+    const clip = { title: 'New narration', edit: { start: 0, end: 1, aspect: '9:16' }, visualLayout: {
+      kind: 'screen', start: 0, end: 1, preserveContext: true, allowZoom: false, reason: 'demo' } } as Clip
+    chat.mockReset()
+    chat.mockResolvedValueOnce({ accept, reason: 'New interval checked', legible_labels: accept ? ['Graph'] : [] })
+      .mockResolvedValueOnce({ mode: 'fit', screen_detail: false })
+    await refineComposition('unused', 'unused', video, clip, [], undefined, null, [], undefined, memory)
+    expect(chat.mock.calls[0][3]).toBe('presenter_composition_review')
+    expect(chat.mock.calls[0][2][0].content.filter((p: { type: string }) => p.type === 'image_url')).toHaveLength(7)
+    expect(chat).toHaveBeenCalledTimes(accept ? 1 : 2)
+    expect(clip.visualLayout!.shots![0].composition).toEqual(accept ? example : undefined)
+    if (!accept) expect(chat.mock.calls[1][3]).toBe('shot_composition')
+  } finally { await rm(dir, { recursive: true, force: true }) }
+}, 20000)
+
+it('vetoes a clipped title in a retrieved crop before spending a review request', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-reuse-edge-'))
+  try {
+    const video = join(dir, 'source.mp4')
+    await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=5:d=1',
+      '-vf', 'drawbox=x=480:y=208:w=260:h=24:color=white:t=fill', '-c:v', 'mpeg4', video])
+    const memory = new LayoutMemory(video)
+    vi.spyOn(memory, 'propose').mockResolvedValue(presenterComposition(
+      { x: .2, y: .3, width: .6, height: .6 }, { x: .82, y: .02, width: .16, height: .26 }))
+    const clip = { title: 'Moved title', edit: { start: 0, end: 1, aspect: '9:16' }, visualLayout: {
+      kind: 'screen', start: 0, end: 1, preserveContext: true, allowZoom: false, reason: 'demo' } } as Clip
+    chat.mockReset()
+    chat.mockResolvedValue({ mode: 'fit', screen_detail: false })
+    await refineComposition('unused', 'unused', video, clip, [], undefined, null, [], undefined, memory)
+    expect(chat).toHaveBeenCalledOnce()
+    expect(chat.mock.calls[0][3]).toBe('shot_composition')
+    expect(clip.visualLayout!.shots![0].composition).toBeUndefined()
+  } finally { await rm(dir, { recursive: true, force: true }) }
+}, 15000)
 
 it('renders and verifies a separate presenter from any source corner with bounded repair', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-presenter-'))
