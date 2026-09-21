@@ -396,12 +396,13 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (get().reframeError[clipId] && !retry) return
     const clip = project.clips.find((c) => c.id === clipId)
-    if (!clip || !needsReframe(clip)) return
+    if (!clip || (!retry && !needsReframe(clip))) return
+    const retryLayout = retry && !needsReframe(clip)
     const errors = { ...get().reframeError }
     delete errors[clipId]
     set({ reframeBusy: { ...get().reframeBusy, [clipId]: true }, reframeError: errors })
     try {
-      const updated = await window.cutawan.ensureReframe(project.id, clipId)
+      const updated = await window.cutawan.ensureReframe(project.id, clipId, retryLayout)
       const fresh = updated.clips.find((c) => c.id === clipId)
       const current = get().project
       // Graft only what the analysis owns: edits made while it ran stay.
@@ -410,7 +411,7 @@ export const useStore = create<AppState>((set, get) => ({
           project: {
             ...current,
             clips: current.clips.map((c) =>
-              c.id === clipId ? mergeReframeResult(c, fresh, updated.videoType) : c
+              c.id === clipId ? mergeReframeResult(c, fresh, updated.videoType, retryLayout) : c
             )
           }
         })

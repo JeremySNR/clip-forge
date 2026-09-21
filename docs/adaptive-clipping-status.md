@@ -10,6 +10,8 @@ See [real-video validation](layout-first-validation.md). Screen evidence is reus
 
 The subsequent [layout reuse](layout-reuse-validation.md) and [temporal review](temporal-layout-validation.md) increments add checked proposal reuse, concurrent cloud review, earlier screen segmentation and targeted samples for transient crop-edge alerts. They do not complete the roadmap below.
 
+The [rejected-bounds recovery](rejected-layout-repair.md) follow-up adds bounded geometry repair and per-clip automatic retry. A real two-webcam email demo remains unresolved; the broader quality claim is still unproven.
+
 - Versioned composition data lives in existing project JSON. Each shot can contain independent content and presenter source rectangles, fitted into disjoint destination panels. Regions are independent of the inset's original corner.
 - Preview and FFmpeg export consume the same even-pixel crop and destination geometry. Preview uses one video element and a canvas; export splits one decoded source. Audio is not duplicated. Timed compositions participate in the existing trim and tightening timeline.
 - Automatic screen-content analysis proposes a separate inset and content region. Geometric checks reject overlap, invalid bounds, tiny faces, excessive enlargement and insufficient content gain. Seven actual rendered samples compare the candidate with full-scene fit; one alternate template is attempted after rejection. A rejected proposal preserves the full shot. Samples are evidence, not continuous motion verification.

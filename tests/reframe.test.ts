@@ -45,6 +45,26 @@ function clip(id: string, score: number, overrides: Partial<Clip> = {}): Clip {
 }
 
 describe('selectEagerReframeIds', () => {
+  it('replaces a previous automatic fallback on explicit retry but preserves concurrent manual choices', () => {
+    const current = clip('retry', 80, { reframeStatus: 'done', reframeAnalysis: { start: 0, end: 30, version: 2 } })
+    current.edit = { ...current.edit, framing: 'manual', reframeMode: 'fit-letterbox', autoZoom: false }
+    const analysed = { ...current, edit: { ...current.edit, framing: 'auto' as const, reframeMode: 'crop' as const } }
+    expect(mergeReframeResult(current, analysed, 'auto').edit.reframeMode).toBe('fit-letterbox')
+    expect(mergeReframeResult(current, analysed, 'auto', true).edit.reframeMode).toBe('crop')
+    const retried = { ...analysed, reframeAnalysis: { ...analysed.reframeAnalysis!, revision: 1 } }
+    const lateSave = { ...current, title: 'Edited while retrying', edit: { ...current.edit, captionStyleId: 'classic' } }
+    const saved = mergeClipSave(lateSave, retried, 'auto')
+    expect(saved.edit.reframeMode).toBe('crop')
+    expect(saved.title).toBe(lateSave.title)
+    expect(saved.edit.captionStyleId).toBe('classic')
+    const chosen = { ...current, edit: { ...current.edit, layoutChosen: true } }
+    expect(mergeReframeResult(chosen, analysed, 'auto', true).edit).toEqual(chosen.edit)
+    expect(mergeClipSave(chosen, retried, 'auto').edit).toEqual(chosen.edit)
+    const regions = { ...current, visualLayout: { start: 0, end: 30, preserveContext: true, allowZoom: false, reason: 'Manual', revision: 1 } }
+    expect(mergeReframeResult(regions, analysed, 'auto', true).visualLayout).toEqual(regions.visualLayout)
+    expect(mergeReframeResult(regions, analysed, 'auto', true).edit).toEqual(regions.edit)
+  })
+
   it('always takes the top clips however they score', () => {
     const ranked = Array.from({ length: 20 }, (_, i) => clip(`c${i}`, 50 - i))
     const eager = selectEagerReframeIds(ranked)

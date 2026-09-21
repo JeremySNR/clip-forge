@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { Composition, ContentRegion, LayoutShot } from '@shared/types'
-import { presenterComposition, usefulComposition, validRectangle } from '@shared/composition'
+import { compositionIssue, presenterComposition, usefulComposition, validRectangle } from '@shared/composition'
 import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes } from './visualScore'
 import { probeVideo, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
@@ -23,7 +23,7 @@ const SCHEMA = { type: 'object', additionalProperties: false, required: ['accept
   legible_labels: { type: 'array', items: { type: 'string' } }
 } } as const
 
-type CompositionReview = Pick<LayoutShot, 'composition' | 'review'> & { retryTimes?: number[] }
+type CompositionReview = Pick<LayoutShot, 'composition' | 'review'> & { retryTimes?: number[]; repairBounds?: boolean }
 
 /** Models often draw a tight box around the current labels. Leave room for
  * nearby line endpoints and label movement before reviewing rendered pixels,
@@ -64,10 +64,13 @@ async function reviewCompositions(
   candidates: Composition[], narration: string, signal?: AbortSignal, checkEdges = false
 ): Promise<CompositionReview> {
   const source = await probeVideo(videoPath)
+  const candidate = candidates.find(c => usefulComposition(c, source))
+  if (!candidate) return { repairBounds: true, review: { status: 'needs-review', reason: candidates.length
+    ? compositionIssue(candidates[0], source)!
+    : 'Content and presenter bounds overlap or are invalid. Locate the actual webcam rectangle separately from the relevant screen content.' } }
   const directory = await mkdtemp(join(tmpdir(), 'cutawan-presenter-review-'))
   let reason = 'No readable presenter/content layout could be established.'
   try {
-    const candidate = candidates.find(c => usefulComposition(c, source))
     let retryTimes: number[] = []
     if (candidate) {
       retryTimes = await temporalEdgeTimes(videoPath, start, end,

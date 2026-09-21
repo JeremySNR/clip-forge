@@ -185,8 +185,8 @@ export function registerIpcHandlers(): void {
     })
   })
 
-  handle('clip:ensureReframe', async (_e, projectId: string, clipId: string) => {
-    return ensureClipReframe(projectId, clipId)
+  handle('clip:ensureReframe', async (_e, projectId: string, clipId: string, retryLayout?: boolean) => {
+    return ensureClipReframe(projectId, clipId, undefined, retryLayout === true)
   })
 
   handle('project:rename', async (_e, projectId: string, name: string) => {
@@ -259,9 +259,10 @@ export function registerIpcHandlers(): void {
         if (!event.sender.isDestroyed()) {
           event.sender.send('export:progress', { clipId: clip.id, progress: 0, message: 'Analysing framing…' })
         }
-        project = await ensureClipReframe(projectId, clip.id, controller.signal)
-        clip = project.clips.find((c) => c.id === opts.clipId) ?? clip
       }
+      // Also join explicit retries of already-completed layouts.
+      project = await ensureClipReframe(projectId, clip.id, controller.signal)
+      clip = project.clips.find((c) => c.id === opts.clipId) ?? clip
       const rendered = await renderClip({
         clip,
         source: project.video,

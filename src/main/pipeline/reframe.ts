@@ -14,6 +14,7 @@ import { LayoutMemory } from './layoutMemory'
 interface Run {
   promise: Promise<Project>
   controller: AbortController
+  retryLayout: boolean
   /** Callers still interested in the result; the run aborts only when none are left. */
   waiters: number
 }
@@ -38,17 +39,23 @@ const inFlight = new Map<string, Run>()
 export function ensureClipReframe(
   projectId: string,
   clipId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  retryLayout = false
 ): Promise<Project> {
   if (signal?.aborted) return Promise.reject(abortError(signal))
   const key = `${projectId}:${clipId}`
   let run = inFlight.get(key)
+  if (run && retryLayout && !run.retryLayout) {
+    // A normal no-op load must not swallow a simultaneous explicit retry.
+    return joinRun(run, signal).then(() => ensureClipReframe(projectId, clipId, signal, true))
+  }
   if (!run) {
     const controller = new AbortController()
     const started: Run = {
       controller,
+      retryLayout,
       waiters: 0,
-      promise: analyseAndPersist(projectId, clipId, controller.signal).finally(() =>
+      promise: analyseAndPersist(projectId, clipId, controller.signal, retryLayout).finally(() =>
         inFlight.delete(key)
       )
     }
@@ -94,12 +101,16 @@ function joinRun(run: Run, signal?: AbortSignal): Promise<Project> {
 async function analyseAndPersist(
   projectId: string,
   clipId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  retryLayout = false
 ): Promise<Project> {
   const project = await loadProject(projectId)
   signal?.throwIfAborted()
   const clip = project.clips.find((c) => c.id === clipId)
-  if (!clip || !needsReframe(clip)) return project
+  if (!clip || (!retryLayout && !needsReframe(clip))) return project
+  if (retryLayout && (clip.edit.layoutChosen || clip.visualLayout?.revision)) {
+    throw new Error('Automatic layout retry cannot replace manually chosen framing or source regions.')
+  }
   if (project.sourceMissing) {
     throw new Error(
       `The source video is missing (${project.video.path}). Relink it before framing this clip.`
@@ -114,18 +125,22 @@ async function analyseAndPersist(
     new LayoutMemory(project.video.path, project.clips))
   signal?.throwIfAborted()
 
+  if (retryLayout && analysed.reframeAnalysis) {
+    analysed.reframeAnalysis.revision = (clip.reframeAnalysis?.revision ?? 0) + 1
+  }
+
   const updated = await updateProject(projectId, (fresh) => {
     const idx = fresh.clips.findIndex((c) => c.id === clipId)
     // Regenerated away while we were analysing: nothing to attach it to.
     if (idx === -1) return
     if (fresh.video.path !== project.video.path ||
       (fresh.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
-    fresh.clips[idx] = mergeReframeResult(fresh.clips[idx], analysed, fresh.videoType)
+    fresh.clips[idx] = mergeReframeResult(fresh.clips[idx], analysed, fresh.videoType, retryLayout)
   })
   signal?.throwIfAborted()
   const latest = updated.clips.find((c) => c.id === clipId)
   // A trim extension saved during inference needs another pass before export.
   return latest && needsReframe(latest)
-    ? analyseAndPersist(projectId, clipId, signal)
+    ? analyseAndPersist(projectId, clipId, signal, retryLayout)
     : updated
 }

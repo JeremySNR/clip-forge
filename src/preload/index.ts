@@ -50,8 +50,8 @@ const api = {
     ipcRenderer.invoke('project:relinkVideo', projectId),
   updateClip: (projectId: string, clip: Clip): Promise<Project> =>
     ipcRenderer.invoke('project:updateClip', projectId, clip),
-  ensureReframe: (projectId: string, clipId: string): Promise<Project> =>
-    ipcRenderer.invoke('clip:ensureReframe', projectId, clipId),
+  ensureReframe: (projectId: string, clipId: string, retryLayout = false): Promise<Project> =>
+    ipcRenderer.invoke('clip:ensureReframe', projectId, clipId, retryLayout),
   updateTranscriptWord: (
     projectId: string,
     segmentId: number,
