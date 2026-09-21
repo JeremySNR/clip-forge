@@ -123,6 +123,11 @@ export async function refineComposition(
         if (insetRequested) shot.mode = 'fit'
         if (insetRequested && (!presenter || !content || clip.edit.aspect !== '9:16')) {
           shot.review = { status: 'needs-review', reason: 'Separate source panels could not be composed safely in this format.' }
+          // Invalid boxes never reach reviewPresenterComposition; still offer one repair.
+          if (clip.edit.aspect === '9:16' && (!presenter || !content) && attempt + 1 < attempts) {
+            parts.push({ type: 'text', text: `Repair these rejected source bounds (0–1000): ${JSON.stringify(result)}. Content and presenter bounds overlap or are invalid. Locate the actual webcam rectangle separately from the relevant screen content.` })
+            continue
+          }
           return
         }
         if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {

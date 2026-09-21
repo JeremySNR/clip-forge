@@ -188,7 +188,7 @@ it('reviews native 4K inset detail instead of rejecting its smaller thumbnail', 
   } finally { await rm(dir, { recursive: true, force: true }) }
 }, 30000)
 
-it('retains the full scene when a contradictory inset proposal has invalid bounds', async () => {
+it('repairs invalid inset bounds once before retaining the full scene', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-invalid-inset-'))
   try {
     const video = join(dir, 'source.mp4')
@@ -200,7 +200,10 @@ it('retains the full scene when a contradictory inset proposal has invalid bound
     const clip = { title: 'Graph', edit: { start: 0, end: 1, aspect: '9:16' },
       visualLayout: { start: 0, end: 1, preserveContext: true, allowZoom: false, reason: 'screen' } } as Clip
     await refineComposition('unused', 'unused', video, clip, [], undefined, [{ t: 0, x: .9 }])
-    expect(chat).toHaveBeenCalledTimes(1)
+    expect(chat).toHaveBeenCalledTimes(2)
+    expect(chat.mock.calls[0][3]).toBe('shot_composition')
+    const repair = chat.mock.calls[1][2][0].content
+    expect(repair.some((p: { text?: string }) => p.text?.includes('Repair these rejected source bounds'))).toBe(true)
     expect(clip.visualLayout?.shots).toEqual([{ start: 0, end: 1, mode: 'fit', review: expect.objectContaining({ status: 'needs-review' }) }])
   } finally { await rm(dir, { recursive: true, force: true }) }
 }, 15000)
