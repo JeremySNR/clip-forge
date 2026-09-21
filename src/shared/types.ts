@@ -97,6 +97,8 @@ export interface ClipEditState {
   framing: FramingMode
   /** A user choice; automatic analysis must not overwrite it. */
   compositionPreference?: 'auto' | 'content-first' | 'stacked' | 'content-only'
+  /** Explicit framing choice, even when its values match generated defaults. */
+  layoutChosen?: boolean
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
   tightenCuts: boolean
   /**

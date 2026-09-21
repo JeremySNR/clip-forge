@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import type { TimelineData } from '@shared/types'
 import { isWholeVideoClip } from '@shared/wholeVideo'
-import { needsReframe } from '@shared/reframe'
+import { needsReframe, userClipEdit } from '@shared/reframe'
 import { automaticLayoutShots, validLayoutShots } from '@shared/contentType'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
@@ -107,10 +107,10 @@ export default function EditorScreen(): React.JSX.Element {
   const wholeVideo = isWholeVideoClip(clip)
 
   const set = (edit: Partial<Clip['edit']>): void => {
-    void updateClip({ ...clip, edit: { ...clip.edit, ...edit } })
+    void updateClip({ ...clip, edit: userClipEdit(clip.edit, edit) })
   }
   const setLocal = (edit: Partial<Clip['edit']>): void => {
-    updateClipLocal({ ...clip, edit: { ...clip.edit, ...edit } })
+    updateClipLocal({ ...clip, edit: userClipEdit(clip.edit, edit) })
   }
   const updateBroll = (id: string, patch: Partial<BrollItem>): void => {
     void updateClip({
