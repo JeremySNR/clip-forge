@@ -38,7 +38,7 @@ describe('framing coverage across async edits', () => {
     const result = await running
     expect(state.analyse).toHaveBeenCalledTimes(2)
     expect(state.analyse.mock.calls[1].slice(1, 3)).toEqual([0, 45])
-    expect(result.clips[0].reframeAnalysis).toEqual({ start: 0, end: 45, version: 1 })
+    expect(result.clips[0].reframeAnalysis).toEqual({ start: 0, end: 45, version: 2 })
     expect(needsReframe(result.clips[0])).toBe(false)
   })
 

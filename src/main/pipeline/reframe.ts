@@ -1,10 +1,8 @@
 import type { Clip, Project } from '@shared/types'
-import { markReframeComplete, mergeReframeResult, needsReframe } from '@shared/reframe'
-import { shouldAnalyzeFaces } from '@shared/videoType'
-import { analyzeClipFocus, applyFocusAnalysis, type ClipFocusAnalysis } from './faces'
+import { mergeReframeResult, needsReframe } from '@shared/reframe'
 import { loadProject, updateProject } from '../projects'
 import { getAnalysisCredential, getModelPreferences } from '../settings'
-import { refineComposition } from './composition'
+import { analyzeClipLayout } from './clipLayout'
 
 /**
  * On-demand reframe analysis for clips the pipeline left 'pending' (see
@@ -107,19 +105,11 @@ async function analyseAndPersist(
     )
   }
 
-  const analysis: ClipFocusAnalysis = shouldAnalyzeFaces(project.videoType)
-    ? await analyzeClipFocus(project.video.path, clip.edit.start, clip.edit.end, signal)
-    : { focusTrack: null, contentType: 'screencast' }
-
-  // Apply onto a copy: the saved clip may have moved on while the analysis
-  // ran, and mergeReframeResult grafts only the analysis-owned fields.
+  // Work on a copy so concurrent manual edits are preserved by the merge.
   const analysed: Clip = { ...clip, edit: { ...clip.edit } }
-  const apiKey = clip.visualLayout?.preserveContext ? getAnalysisCredential() : ''
-  if (apiKey && project.videoType !== 'talking-head') {
-    await refineComposition(apiKey, getModelPreferences().analysisModel, project.video.path, analysed, analysis.sceneCuts, signal, analysis.focusTrack, analysis.sceneTransitions, project.transcript ?? undefined)
-  }
-  applyFocusAnalysis(analysed, analysis, project.videoType)
-  markReframeComplete(analysed)
+  const apiKey = project.videoType !== 'talking-head' ? getAnalysisCredential() : ''
+  await analyzeClipLayout(project.video.path, analysed, project.videoType,
+    apiKey, getModelPreferences().analysisModel, project.transcript ?? undefined, signal)
   signal?.throwIfAborted()
 
   const updated = await updateProject(projectId, (fresh) => {

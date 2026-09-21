@@ -6,6 +6,21 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.11.1] - 2026-09-21
+
+### Fixed
+
+- Allow up to two independent ChatGPT analysis requests at once on machines with at least 8 GiB RAM; keep daily-budget reservations serialized, ledger writes atomic, and identical requests deduplicated.
+- Screen recordings now choose content and presenter regions during the existing visual review and skip dense active-speaker inference. Camera and mixed footage retain speaker tracking. Proposed panels still require rendered verification.
+- Changing screen layouts use a low-resolution local scene-change pass and per-section narration. Brief app/dialog transitions stay intact instead of triggering repeated AI requests and flickering crops.
+- Enlarge the content area in presenter layouts, with containment margins around automatically proposed content. Avoid treating unrelated application sidebars as essential content.
+- Save each completed clip layout immediately. A later cancellation or failed request keeps those results, and later pipeline saves preserve concurrent framing and manual-region edits.
+- Automatically revisit older generated letterbox results when opened or exported, without replacing accepted compositions, custom crops or manual source corrections. Preserve the upgrade when an ordinary edit saves during analysis.
+
+### Validation
+
+- Exercised the automatic path on the original T3.GG recording, including a graph, calculator, posts and a graph-to-dashboard change. Recorded timings and remaining limits in `docs/layout-first-validation.md`; these are bounded examples, not a guarantee for arbitrary footage or every machine.
+
 ## [0.11.0] - 2026-09-20
 
 ### Added

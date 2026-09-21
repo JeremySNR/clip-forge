@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { DEFAULT_SUBSCRIPTION, normalizeSubscription } from '../src/shared/subscription'
 
-const mock = vi.hoisted(() => ({ root: '', spawn: vi.fn(), login: 'Logged in using ChatGPT', fail: false }))
+const mock = vi.hoisted(() => ({ root: '', spawn: vi.fn(), login: 'Logged in using ChatGPT', fail: false, delay: 0, active: 0, peak: 0 }))
 vi.mock('electron', () => ({ app: { getPath: () => mock.root, getAppPath: () => mock.root, isPackaged: false, once: vi.fn(), removeListener: vi.fn() } }))
 vi.mock('node:child_process', () => ({ spawn: mock.spawn }))
 import { configureSubscription, subscriptionJSON, subscriptionEnvironment, codexArguments, resolveCodexExecutable, SubscriptionError, usesLocalTranscription } from '../src/main/subscription'
@@ -16,13 +16,16 @@ beforeEach(async () => {
   mock.root = await mkdtemp(join(tmpdir(), 'cutawan-subscription-test-'))
   mock.login = 'Logged in using ChatGPT'
   mock.fail = false
+  mock.delay = mock.active = mock.peak = 0
   mock.spawn.mockReset().mockImplementation((_exe: string, args: string[]) => {
     const child = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter(), stdin: Object.assign(new EventEmitter(), { end: vi.fn() }), kill: vi.fn() })
+    if (args[0] === 'exec') { mock.active++; mock.peak = Math.max(mock.peak, mock.active) }
     setTimeout(() => { void (async () => {
       if (args[0] === 'login') child.stderr.emit('data', mock.login)
       else if (!mock.fail) await writeFile(args[args.indexOf('--output-last-message') + 1], JSON.stringify({ title: 'A complete story' }))
+      if (args[0] === 'exec') mock.active--
       child.emit('close', args[0] !== 'login' && mock.fail ? 1 : 0)
-    })() }, 0)
+    })() }, args[0] === 'exec' ? mock.delay : 0)
     return child
   })
   configureSubscription({ ...DEFAULT_SUBSCRIPTION, provider: 'chatgpt', dailyRequestLimit: 1 })
@@ -63,13 +66,13 @@ it('reuses cached analysis with cap zero without invoking Codex again', async ()
   expect(await subscriptionJSON(messages, schema)).toEqual(first)
   expect(mock.spawn).toHaveBeenCalledTimes(2) // login status + one inference
 })
-it('serializes concurrent requests so they cannot overspend the cap', async () => {
+it('serializes budget reservations so concurrent requests cannot overspend the cap', async () => {
   const results = await Promise.allSettled([
     subscriptionJSON(messages, schema),
     subscriptionJSON([{ role: 'user', content: 'Another moment' }], schema)
   ])
-  expect(results.map(r => r.status)).toEqual(['fulfilled', 'rejected'])
-  expect(mock.spawn).toHaveBeenCalledTimes(2)
+  expect(results.map(r => r.status).sort()).toEqual(['fulfilled', 'rejected'])
+  expect(mock.spawn.mock.calls.filter(call => call[1][0] === 'exec')).toHaveLength(1)
   expect(JSON.parse(await readFile(join(mock.root, 'subscription-usage.json'), 'utf8')).requests).toBe(1)
 })
 it('rejects API-key login before inference and without reserving usage', async () => {
@@ -134,4 +137,37 @@ it('stops a running inference on cancellation, including its Windows process tre
     if (process.platform === 'win32') expect(mock.spawn).toHaveBeenCalledWith('taskkill.exe', ['/PID', '1357911', '/T', '/F'], expect.objectContaining({ windowsHide: true, shell: false }))
     else expect(kill).toHaveBeenCalledWith(-1357911, 'SIGTERM')
   } finally { kill.mockRestore() }
+})
+
+
+it('overlaps independent requests with a maximum of two and reserves every request', async () => {
+  configureSubscription({ ...DEFAULT_SUBSCRIPTION, provider: 'chatgpt', dailyRequestLimit: 3 })
+  mock.delay = 50
+  await Promise.all(['one', 'two', 'three'].map(content => subscriptionJSON([{ role: 'user', content }], schema)))
+  // Low-memory hosts intentionally keep the admission limit at one.
+  const { totalmem } = await import('node:os')
+  expect(mock.peak).toBeGreaterThanOrEqual(1)
+  expect(mock.peak).toBeLessThanOrEqual(2)
+  if (totalmem() >= 8 * 1024 ** 3) expect(mock.peak).toBe(2)
+  expect(JSON.parse(await readFile(join(mock.root, 'subscription-usage.json'), 'utf8')).requests).toBe(3)
+})
+it('deduplicates simultaneous identical requests before reserving usage', async () => {
+  mock.delay = 30
+  const results = await Promise.all([subscriptionJSON(messages, schema), subscriptionJSON(messages, schema)])
+  expect(results[0]).toEqual(results[1])
+  expect(mock.spawn.mock.calls.filter(call => call[1][0] === 'exec')).toHaveLength(1)
+  expect(JSON.parse(await readFile(join(mock.root, 'subscription-usage.json'), 'utf8')).requests).toBe(1)
+})
+
+it('cancels a duplicate waiter without cancelling the original request', async () => {
+  mock.delay = 80
+  const first = subscriptionJSON(messages, schema)
+  const controller = new AbortController()
+  const second = subscriptionJSON(messages, schema, controller.signal)
+  controller.abort(new Error('Cancelled duplicate'))
+  await expect(second).rejects.toThrow('Cancelled duplicate')
+  const third = subscriptionJSON(messages, schema)
+  expect(await first).toEqual({ title: 'A complete story' })
+  expect(await third).toEqual({ title: 'A complete story' })
+  expect(mock.spawn.mock.calls.filter(call => call[1][0] === 'exec')).toHaveLength(1)
 })

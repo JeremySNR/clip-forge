@@ -58,26 +58,38 @@ async function compose(
     if (shot.end - shot.start < 0.25) return
     if (transitions.some((range) => shot.start < range.end && shot.end > range.start)) return
     let frames: string[] = []
+    const narration = transcript?.segments.flatMap(s => s.words)
+      .filter(w => w.start >= shot.start && w.start < shot.end).map(w => w.text).join(' ').slice(0, 4000) ?? clip.title
     try {
+      // The editorial pass already inspected source geometry. Reuse its proposal,
+      // but verify the actual output on independent samples before applying it.
+      if (assessment.panels && assessment.kind === 'screen' && clip.edit.aspect === '9:16' &&
+          assessment.start <= shot.start && assessment.end >= shot.end) {
+        const { content, presenter } = assessment.panels
+        Object.assign(shot, await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal))
+        return
+      }
       frames = await extractClipFrames(videoPath, shot.start, shot.end, 3, signal, 1280)
       const parts: ChatContentPart[] = [{ type: 'text', text:
-        `Clip topic: ${clip.title}. Earlier whole-clip concern (a hypothesis to check, not a requirement): ${assessment.reason}.\nEach image is a pair: LEFT is the full source frame, RIGHT is the proposed portrait crop. Face tracking available: ${Boolean(focusTrack?.length)}. All three pairs are from ONE camera shot. Choose crop only when tracking is available and the RIGHT images communicate this shot clearly and keep the speaking face comfortably visible. Ordinary explanatory hand gestures, an incidental lectern, set furniture, background monitors used as decoration, or a listener outside the crop do not by themselves require fit. Choose fit when the proposed crop loses a demonstrated object, important hands-on action, essential text/slide/UI, or cuts significantly into the face.\nFor fit, propose a single REGION in normalized 0–1000 coordinates of the FULL SOURCE FRAME (not the pair canvas): left/top/right/bottom. It will be fitted INTACT into the output. Remove empty borders or irrelevant space to enlarge the essential content. Keep the whole demonstrated object, moving hands, required labels and meaningful relationships across ALL three frames. Leave movement margins. Do not reduce a screen to a tiny control without its context or cut a puzzle/mechanism into fragments. If a stable useful region cannot be established, return the full frame 0,0,1000,1000. For crop also return the full-frame region. This proposal will be checked on additional frames.` }]
+        `Narration in THIS interval: ${narration}. Judge these images only; other parts of the source may show different content.\nThe first three images are original source frames. Comparison pairs (LEFT full source, RIGHT tracked portrait crop) follow only when tracking is available. Face tracking available: ${Boolean(focusTrack?.length)}. All three pairs are from ONE camera shot. Choose crop only when tracking is available and the RIGHT images communicate this shot clearly and keep the speaking face comfortably visible. Ordinary explanatory hand gestures, an incidental lectern, set furniture, background monitors used as decoration, or a listener outside the crop do not by themselves require fit. Choose fit when the proposed crop loses a demonstrated object, important hands-on action, essential text/slide/UI, or cuts significantly into the face.\nFor fit, propose a single REGION in normalized 0–1000 coordinates of the FULL SOURCE FRAME (not the pair canvas): left/top/right/bottom. It will be fitted INTACT into the output. Remove empty borders, toolbars, navigation, and unrelated side panels to enlarge the content this narration actually discusses. An activity feed or sidebar is not essential merely because it is visible. Preserve the relevant post, diagram, poll or demonstrated controls; do not preserve the whole application window by default. Keep the whole demonstrated object, moving hands, required labels and meaningful relationships across ALL three frames. Leave movement margins. Do not reduce a screen to a tiny control without its context or cut a puzzle/mechanism into fragments. If a stable useful region cannot be established, return the full frame 0,0,1000,1000. For crop also return the full-frame region. This proposal will be checked on additional frames.` }]
       parts.push({ type: 'text', text: 'If this is screen content plus a genuinely separate webcam/presenter inset, return screen_detail=true and presenter=the entire inset rectangle in source 0–1000 coordinates, regardless of its corner. In that case region must contain the relevant graph/slide/UI WITHOUT the webcam; both will be composed independently. Preserve graph labels and relationships. Prefer stable panel boundaries, never a tight face box. If panels move, overlap essential content or cannot be separated consistently across the samples, return presenter=0,0,0,0. For ordinary footage without an inset also return zeros. FIRST: three unpadded ORIGINAL SOURCE images. Use these image boundaries for region coordinates. The comparison pairs follow afterward.' })
       for (const path of frames) parts.push({ type: 'image_url', image_url: {
         url: `data:image/jpeg;base64,${(await readFile(path)).toString('base64')}`, detail: 'high'
       } })
-      parts.push({ type: 'text', text: 'NOW: full-source / proposed face-crop pairs. Their extra canvas padding is only for review, not part of the source.' })
-      for (const [i, path] of frames.entries()) {
-        const t = clipFrameTimes(shot.start, shot.end, 3)[i]
-        const x = focusTrack?.length ? focusAt(focusTrack, t) : 0.5
-        const pair = join(dirname(path), `pair-${i}.jpg`)
-        await runFfmpeg(['-i', path, '-filter_complex',
-          `[0:v]split=2[a][b];[a]scale=320:180:force_original_aspect_ratio=decrease,pad=320:320:(ow-iw)/2:(oh-ih)/2[l];` +
-          `[b]crop=w='min(iw,floor(ih*0.5625/2)*2)':h='min(ih,floor(iw/0.5625/2)*2)':x='max(0,min(iw-ow,iw*${x.toFixed(5)}-ow/2))':y='(ih-oh)/2',scale=180:320[r];[l][r]hstack[out]`,
-          '-map', '[out]', '-frames:v', '1', pair], { signal })
-        parts.push({ type: 'image_url', image_url: {
-          url: `data:image/jpeg;base64,${(await readFile(pair)).toString('base64')}`, detail: 'low'
-        } })
+      if (focusTrack?.length) {
+        parts.push({ type: 'text', text: 'NOW: full-source / proposed face-crop pairs. Their extra canvas padding is only for review, not part of the source.' })
+        for (const [i, path] of frames.entries()) {
+          const t = clipFrameTimes(shot.start, shot.end, 3)[i]
+          const x = focusTrack?.length ? focusAt(focusTrack, t) : 0.5
+          const pair = join(dirname(path), `pair-${i}.jpg`)
+          await runFfmpeg(['-i', path, '-filter_complex',
+            `[0:v]split=2[a][b];[a]scale=320:180:force_original_aspect_ratio=decrease,pad=320:320:(ow-iw)/2:(oh-ih)/2[l];` +
+            `[b]crop=w='min(iw,floor(ih*0.5625/2)*2)':h='min(ih,floor(iw/0.5625/2)*2)':x='max(0,min(iw-ow,iw*${x.toFixed(5)}-ow/2))':y='(ih-oh)/2',scale=180:320[r];[l][r]hstack[out]`,
+            '-map', '[out]', '-frames:v', '1', pair], { signal })
+          parts.push({ type: 'image_url', image_url: {
+            url: `data:image/jpeg;base64,${(await readFile(pair)).toString('base64')}`, detail: 'low'
+          } })
+        }
       }
       const result = await chatJSON<{ mode: string; reason: string; screen_detail?: boolean; region?: { left: number; top: number; right: number; bottom: number }; presenter?: { left: number; top: number; right: number; bottom: number } }>(apiKey, model,
         [{ role: 'user', content: parts }], 'shot_composition', SCHEMA, signal)
@@ -91,7 +103,6 @@ async function compose(
         return
       }
       if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {
-        const narration = transcript?.segments.flatMap(s => s.words).filter(w => w.start >= shot.start && w.start < shot.end).map(w => w.text).join(' ') ?? clip.title
         Object.assign(shot, await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal))
         if (shot.composition) return
         // A rejected separate-panel proposal cannot safely be reused as a single crop.

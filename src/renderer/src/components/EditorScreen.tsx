@@ -284,8 +284,8 @@ export default function EditorScreen(): React.JSX.Element {
                   ) : (
                     <>
                       <Loader2 size={12} className="shrink-0 animate-spin" />
-                      Analysing speaker framing… the crop follows whoever is talking once this
-                      lands. Layout choices you make now are kept.
+                      Preparing framing and content layout… You can keep editing while this
+                      finishes. Layout choices you make now are kept.
                     </>
                   )}
                 </p>

@@ -106,3 +106,18 @@ describe('independent presenter/content composition', () => {
     expect(automaticLayoutShots(merged)[0].composition).toBeDefined()
   })
 })
+
+it('applies an upgraded composition to the old generated letterbox defaults', () => {
+  const current = clip(), analysed = clip()
+  current.visualLayout!.shots = [{ start: 10, end: 20, mode: 'fit' }]
+  current.reframeAnalysis = { start: 10, end: 20, version: 1 }
+  Object.assign(current.edit, { reframeMode: 'fit-letterbox', framing: 'manual', focusX: .5, autoZoom: false })
+  analysed.reframeAnalysis = { start: 10, end: 20, version: 2 }
+  const merged = mergeReframeResult(current, analysed, 'auto')
+  expect(merged.edit.reframeMode).toBe('crop')
+  expect(merged.edit.framing).toBe('auto')
+  expect(automaticLayoutShots(merged)[0].composition).toBeDefined()
+  const staleSave = mergeClipSave({ ...current, title: 'New title' }, analysed, 'auto')
+  expect(staleSave.edit.framing).toBe('auto')
+  expect(staleSave.title).toBe('New title')
+})

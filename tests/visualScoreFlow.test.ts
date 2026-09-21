@@ -29,3 +29,17 @@ describe('actual-content visual review',()=>{
   expect(plannedClipTranscriptText({...clip,visualStory:{protectedRanges:[{start:4,end:6}],reason:'Action'}},transcript)).toContain('um')
  })
 })
+
+it('keeps bounded screen-panel proposals as evidence, never as an accepted composition', async () => {
+ vi.mocked(chatJSON).mockResolvedValue({ visual_score: 70, layout_kind: 'screen', preserve_context: false,
+  content_panel: { left: 200, top: 250, right: 800, bottom: 850 },
+  presenter_panel: { left: 830, top: 20, right: 980, bottom: 320 } })
+ const result = await assessClipVisuals('key','model','source.mp4',transcript,clip)
+ expect(result?.visualLayout).toMatchObject({ kind: 'screen', preserveContext: true,
+  panels: { content: { x: .2, y: .25, width: .6, height: .6 } } })
+ expect(result?.visualLayout.shots).toBeUndefined()
+ vi.mocked(chatJSON).mockResolvedValue({ visual_score: 70, layout_kind: 'mixed',
+  content_panel: { left: 0, top: 0, right: 1000, bottom: 1000 },
+  presenter_panel: { left: 830, top: 20, right: 980, bottom: 320 } })
+ expect((await assessClipVisuals('key','model','source.mp4',transcript,clip))?.visualLayout.panels).toBeUndefined()
+})
