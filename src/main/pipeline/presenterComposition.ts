@@ -7,7 +7,7 @@ import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes } from './visualScore'
 import { probeVideo, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
-import { cutsContentEdge } from './contentEdges'
+import { temporalEdgeTimes } from './temporalEdges'
 import { reviewPanelLabels } from './reviewLabels'
 
 /** Unlike broad content crops, a webcam inset can be much smaller than 20%. */
@@ -22,6 +22,8 @@ const SCHEMA = { type: 'object', additionalProperties: false, required: ['accept
   accept: { type: 'boolean' }, reason: { type: 'string' },
   legible_labels: { type: 'array', items: { type: 'string' } }
 } } as const
+
+type CompositionReview = Pick<LayoutShot, 'composition' | 'review'> & { retryTimes?: number[] }
 
 /** Models often draw a tight box around the current labels. Leave room for
  * nearby line endpoints and label movement before reviewing rendered pixels,
@@ -38,7 +40,7 @@ function contentMargin(r: ContentRegion, presenter: ContentRegion): ContentRegio
 export async function reviewPresenterComposition(
   apiKey: string, model: string, videoPath: string, start: number, end: number,
   content: ContentRegion, presenter: ContentRegion, narration: string, signal?: AbortSignal
-): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
+): Promise<CompositionReview> {
   // Apply containment margins exactly once, not again when reusing a checked
   // composition as a new proposal.
   const inset = { x: presenter.x + presenter.width * .03, y: presenter.y + presenter.height * .03,
@@ -53,18 +55,27 @@ export async function reviewPresenterComposition(
 export function reviewExistingComposition(
   apiKey: string, model: string, videoPath: string, start: number, end: number,
   composition: Composition, narration: string, signal?: AbortSignal
-): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
+): Promise<CompositionReview> {
   return reviewCompositions(apiKey, model, videoPath, start, end, [composition], narration, signal, true)
 }
 
 async function reviewCompositions(
   apiKey: string, model: string, videoPath: string, start: number, end: number,
   candidates: Composition[], narration: string, signal?: AbortSignal, checkEdges = false
-): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
+): Promise<CompositionReview> {
   const source = await probeVideo(videoPath)
   const directory = await mkdtemp(join(tmpdir(), 'cutawan-presenter-review-'))
   let reason = 'No readable presenter/content layout could be established.'
   try {
+    const candidate = candidates.find(c => usefulComposition(c, source))
+    let retryTimes: number[] = []
+    if (candidate) {
+      retryTimes = await temporalEdgeTimes(videoPath, start, end,
+        candidate.layers.find(layer => layer.role === 'content')!.source, checkEdges, signal)
+      if (checkEdges && retryTimes.length) return { retryTimes, review: { status: 'needs-review',
+        reason: 'Content touches the proposed crop during the interval; fresh bounds are needed.' } }
+    }
+    const times = [...new Set([...clipFrameTimes(start, end, 7), ...retryTimes])].sort((a, b) => a - b)
     const labels = await reviewPanelLabels(directory)
     for (const composition of candidates) {
       const preset = composition.preset
@@ -74,12 +85,12 @@ async function reviewCompositions(
         'Each chronological image contains SOURCE, BEFORE full-frame portrait, AFTER composited portrait. Before and after have identical dimensions. ' +
         'The panels are labelled. Count presenter duplicates only WITHIN the rightmost AFTER panel: the same person appearing in the SOURCE and BEFORE references is expected and is not duplication in the output. ' +
         'Accept only if the AFTER improves content readability and retains the complete relevant graph/UI/diagram and its labels, preserves the presenter head and mouth with movement margin, and never includes unrelated background fragments in the presenter panel. ' +
-        'Check ALL seven samples for webcam movement, panel changes, missing content and clipping. The main content and presenter are independent crops of the same frame. ' +
+        `Check ALL ${times.length} samples for webcam movement, panel changes, missing content and clipping. The main content and presenter are independent crops of the same frame. ` +
+        (retryTimes.length ? 'Extra samples show a local crop-edge alert. Inspect whether meaningful content is cut; incidental editing guides or cursor handles alone are not a reason to reject. ' : '') +
         'The empty bottom band is reserved for captions. Do not require incidental editor chrome. Reject if there is no genuine separate webcam/presenter panel, if the face is soft, or if a full-width scene has merely been split into arbitrary pieces. ' +
         'List labels actually legible in the AFTER, not inferred from SOURCE. A sampled check cannot certify unseen frames; reject uncertainty. Return a concise concrete reason.' }]
-      for (const [i, time] of clipFrameTimes(start, end, 7).entries()) {
+      for (const [i, time] of times.entries()) {
         const pair = join(directory, `presenter-${preset}-${i}.jpg`)
-        const edges = join(directory, 'edges.gray')
         const graph = '[0:v]split=3[a][b][c];[a]scale=640:360:force_original_aspect_ratio=decrease,pad=640:640:(ow-iw)/2:(oh-ih)/2[l];' +
           fitRegionGraph('b', 'm', 'before', source, 360, 640) + ';' +
           // Render at output size before evaluating the phone-size view.
@@ -92,16 +103,11 @@ async function reviewCompositions(
         // Step back within this shot only; never validate a neighbouring scene.
         for (const seek of new Set([time, time - .25, time - .5, time - 1].map(t => Math.max(start, t)))) {
           await rm(pair, { force: true })
-          await rm(edges, { force: true })
-          await runFfmpeg(['-ss', seek.toFixed(3), '-i', videoPath, '-filter_complex', graph, '-map', '[out]', '-frames:v', '1', pair,
-            ...(checkEdges ? ['-map', '0:v:0', '-vf', 'scale=640:360', '-pix_fmt', 'gray', '-frames:v', '1', '-f', 'rawvideo', edges] : [])], { signal })
+          await runFfmpeg(['-ss', seek.toFixed(3), '-i', videoPath, '-filter_complex', graph, '-map', '[out]', '-frames:v', '1', pair], { signal })
           bytes = await readFile(pair).catch(() => undefined)
           if (bytes?.length) break
         }
         if (!bytes?.length) throw new Error(`Incomplete composition sample near ${time.toFixed(3)}s`)
-        if (checkEdges && cutsContentEdge(await readFile(edges), composition.layers.find(layer => layer.role === 'content')!.source)) {
-          return { review: { status: 'needs-review', reason: 'A source feature touches the reused content crop; request fresh bounds.' } }
-        }
         parts.push({ type: 'image_url', image_url: { url: `data:image/jpeg;base64,${bytes.toString('base64')}`, detail: 'high' } })
       }
       const review = await chatJSON<{ accept: boolean; reason: string; legible_labels: string[] }>(
@@ -111,6 +117,9 @@ async function reviewCompositions(
         review.legible_labels.some(label => typeof label === 'string' && label.trim())) {
         return { composition, review: { status: 'checked', reason } }
       }
+      // Both presets share source bounds. Repair a suspect crop rather than
+      // spending another review on the same collision in a different template.
+      if (retryTimes.length) return { retryTimes, review: { status: 'needs-review', reason } }
     }
     return { review: { status: 'needs-review', reason } }
   } finally {

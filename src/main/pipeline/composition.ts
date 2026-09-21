@@ -7,7 +7,7 @@ import { bridgeTransitionLayouts } from '@shared/contentType'
 import { contentRegionPixels, proposedContentRegion } from '@shared/contentRegion'
 import type { ContentRegion } from '@shared/types'
 import { chatJSON, type ChatContentPart } from './openai'
-import { clipFrameTimes, extractClipFrames } from './visualScore'
+import { clipFrameTimes, extractClipFrames, extractFramesAtTimes } from './visualScore'
 import { probeImageDimensions, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 import { mapLimit } from './concurrency'
 import { refineScreenDetails } from './screenDetail'
@@ -54,6 +54,7 @@ export async function refineComposition(
     if (shot.end - shot.start < 0.25) return
     if (transitions.some((range) => shot.start < range.end && shot.end > range.start)) return
     let frames: string[] = []
+    let retryTimes: number[] = []
     const narration = transcript?.segments.flatMap(s => s.words)
       .filter(w => w.start >= shot.start && w.start < shot.end).map(w => w.text).join(' ').slice(0, 4000) ?? clip.title
     try {
@@ -62,32 +63,37 @@ export async function refineComposition(
       if (assessment.panels && assessment.kind === 'screen' && clip.edit.aspect === '9:16' &&
           assessment.start <= shot.start && assessment.end >= shot.end) {
         const { content, presenter } = assessment.panels
-        Object.assign(shot, await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal))
-        return
+        const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
+        Object.assign(shot, { composition: checked.composition, review: checked.review })
+        retryTimes = checked.retryTimes ?? []
+        if (!retryTimes.length) return
       }
-      if (assessment.kind === 'screen' && clip.edit.aspect === '9:16') {
+      if (!retryTimes.length && assessment.kind === 'screen' && clip.edit.aspect === '9:16') {
         const example = await memory?.propose(shot.start, shot.end, signal)
         if (example) {
           const checked = await reviewExistingComposition(apiKey, model, videoPath,
             shot.start, shot.end, example, narration, signal)
           console.info('[layout-reuse]', JSON.stringify({ start: shot.start, end: shot.end,
             accepted: Boolean(checked.composition), reason: checked.review?.reason }))
-          if (checked.composition) { Object.assign(shot, checked); return }
+          if (checked.composition) { Object.assign(shot, { composition: checked.composition, review: checked.review }); return }
+          retryTimes = checked.retryTimes ?? []
           // A similar screen is not necessarily the same layout. Rejection
           // falls through to the normal proposal path, once per shot.
         }
       }
-      frames = await extractClipFrames(videoPath, shot.start, shot.end, 3, signal, 1280)
+      const times = [...new Set([...clipFrameTimes(shot.start, shot.end, 3), ...retryTimes])].sort((a, b) => a - b)
+      frames = retryTimes.length ? await extractFramesAtTimes(videoPath, times, signal, 1280)
+        : await extractClipFrames(videoPath, shot.start, shot.end, 3, signal, 1280)
       const parts: ChatContentPart[] = [{ type: 'text', text:
-        `Narration in THIS interval: ${narration}. Judge these images only; other parts of the source may show different content.\nThe first three images are original source frames. Comparison pairs (LEFT full source, RIGHT tracked portrait crop) follow only when tracking is available. Face tracking available: ${Boolean(focusTrack?.length)}. All three pairs are from ONE camera shot. Choose crop only when tracking is available and the RIGHT images communicate this shot clearly and keep the speaking face comfortably visible. Ordinary explanatory hand gestures, an incidental lectern, set furniture, background monitors used as decoration, or a listener outside the crop do not by themselves require fit. Choose fit when the proposed crop loses a demonstrated object, important hands-on action, essential text/slide/UI, or cuts significantly into the face.\nFor fit, propose a single REGION in normalized 0–1000 coordinates of the FULL SOURCE FRAME (not the pair canvas): left/top/right/bottom. It will be fitted INTACT into the output. Remove empty borders, toolbars, navigation, and unrelated side panels to enlarge the content this narration actually discusses. An activity feed or sidebar is not essential merely because it is visible. Preserve the relevant post, diagram, poll or demonstrated controls; do not preserve the whole application window by default. Keep the whole demonstrated object, moving hands, required labels and meaningful relationships across ALL three frames. Leave movement margins. Do not reduce a screen to a tiny control without its context or cut a puzzle/mechanism into fragments. If a stable useful region cannot be established, return the full frame 0,0,1000,1000. For crop also return the full-frame region. This proposal will be checked on additional frames.` }]
-      parts.push({ type: 'text', text: 'If this is screen content plus a genuinely separate webcam/presenter inset, return screen_detail=true and presenter=the entire inset rectangle in source 0–1000 coordinates, regardless of its corner. In that case region must contain the relevant graph/slide/UI WITHOUT the webcam; both will be composed independently. Preserve graph labels and relationships. Prefer stable panel boundaries, never a tight face box. If panels move, overlap essential content or cannot be separated consistently across the samples, return presenter=0,0,0,0. For ordinary footage without an inset also return zeros. FIRST: three unpadded ORIGINAL SOURCE images. Use these image boundaries for region coordinates. The comparison pairs follow afterward.' })
+        `Narration in THIS interval: ${narration}. Judge these images only; other parts of the source may show different content.\nThe first ${times.length} images are original source frames. ${retryTimes.length ? "Extra frames show a detected crop-edge collision: widen the relevant bounds to retain that content." : ""} Comparison pairs (LEFT full source, RIGHT tracked portrait crop) follow only when tracking is available. Face tracking available: ${Boolean(focusTrack?.length)}. All pairs are from ONE camera shot. Choose crop only when tracking is available and the RIGHT images communicate this shot clearly and keep the speaking face comfortably visible. Ordinary explanatory hand gestures, an incidental lectern, set furniture, background monitors used as decoration, or a listener outside the crop do not by themselves require fit. Choose fit when the proposed crop loses a demonstrated object, important hands-on action, essential text/slide/UI, or cuts significantly into the face.\nFor fit, propose a single REGION in normalized 0–1000 coordinates of the FULL SOURCE FRAME (not the pair canvas): left/top/right/bottom. It will be fitted INTACT into the output. Remove empty borders, toolbars, navigation, and unrelated side panels to enlarge the content this narration actually discusses. An activity feed or sidebar is not essential merely because it is visible. Preserve the relevant post, diagram, poll or demonstrated controls; do not preserve the whole application window by default. Keep the whole demonstrated object, moving hands, required labels and meaningful relationships across ALL supplied frames. Leave movement margins. Do not reduce a screen to a tiny control without its context or cut a puzzle/mechanism into fragments. If a stable useful region cannot be established, return the full frame 0,0,1000,1000. For crop also return the full-frame region. This proposal will be checked on additional frames.` }]
+      parts.push({ type: 'text', text: 'If this is screen content plus a genuinely separate webcam/presenter inset, return screen_detail=true and presenter=the entire inset rectangle in source 0–1000 coordinates, regardless of its corner. In that case region must contain the relevant graph/slide/UI WITHOUT the webcam; both will be composed independently. Preserve graph labels and relationships. Prefer stable panel boundaries, never a tight face box. If panels move, overlap essential content or cannot be separated consistently across the samples, return presenter=0,0,0,0. For ordinary footage without an inset also return zeros. FIRST: unpadded ORIGINAL SOURCE images. Use these image boundaries for region coordinates. The comparison pairs follow afterward.' })
       for (const path of frames) parts.push({ type: 'image_url', image_url: {
         url: `data:image/jpeg;base64,${(await readFile(path)).toString('base64')}`, detail: 'high'
       } })
       if (focusTrack?.length) {
         parts.push({ type: 'text', text: 'NOW: full-source / proposed face-crop pairs. Their extra canvas padding is only for review, not part of the source.' })
         for (const [i, path] of frames.entries()) {
-          const t = clipFrameTimes(shot.start, shot.end, 3)[i]
+          const t = times[i]
           const x = focusTrack?.length ? focusAt(focusTrack, t) : 0.5
           const pair = join(dirname(path), `pair-${i}.jpg`)
           await runFfmpeg(['-i', path, '-filter_complex',
@@ -111,13 +117,14 @@ export async function refineComposition(
         return
       }
       if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {
-        Object.assign(shot, await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal))
+        const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
+        Object.assign(shot, { composition: checked.composition, review: checked.review })
         if (shot.composition) return
         // A rejected separate-panel proposal cannot safely be reused as a single crop.
         return
       }
       const region = shot.mode === 'fit' ? proposedContentRegion(result.region) : undefined
-      if (region && await verifyContentRegion(apiKey, model, videoPath, clip.title, shot.start, shot.end, region, signal)) shot.region = region
+      if (region && await verifyContentRegion(apiKey, model, videoPath, clip.title, shot.start, shot.end, region, signal)) { shot.region = region; delete shot.review }
       if (shot.mode === 'fit' && !shot.region && result.screen_detail === true && transcript) {
         const details = await refineScreenDetails(apiKey, model, videoPath, clip.title, shot.start, shot.end, transcript, signal)
         if (details) detailPlans.set(shot, details)
