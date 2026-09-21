@@ -8,7 +8,7 @@ import { clipFrameTimes } from './visualScore'
 import { probeVideo, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
 import { cutsContentEdge } from './contentEdges'
-import { fontsDir } from './captions'
+import { reviewPanelLabels } from './reviewLabels'
 
 /** Unlike broad content crops, a webcam inset can be much smaller than 20%. */
 export function sourceRectangle(box: { left: number; top: number; right: number; bottom: number } | undefined): ContentRegion | undefined {
@@ -22,14 +22,6 @@ const SCHEMA = { type: 'object', additionalProperties: false, required: ['accept
   accept: { type: 'boolean' }, reason: { type: 'string' },
   legible_labels: { type: 'array', items: { type: 'string' } }
 } } as const
-
-/** Escape the option value, then the filter graph; shell quoting is irrelevant
- * because FFmpeg receives an argv array. Do not wrap the escaped value again. */
-export function reviewPanelLabels(fontPath: string): string {
-  const font = fontPath.replace(/\\/g, '/').replace(/[':]/g, '\\$&').replace(/[\\'[\],;]/g, '\\$&')
-  return [['SOURCE reference', 12], ['BEFORE', 652], ['AFTER - judge here', 1012]]
-    .map(([text, x]) => `drawtext=fontfile=${font}:text='${text}':x=${x}:y=5:fontsize=18:fontcolor=white`).join(',')
-}
 
 /** Models often draw a tight box around the current labels. Leave room for
  * nearby line endpoints and label movement before reviewing rendered pixels,
@@ -71,9 +63,9 @@ async function reviewCompositions(
 ): Promise<Pick<LayoutShot, 'composition' | 'review'>> {
   const source = await probeVideo(videoPath)
   const directory = await mkdtemp(join(tmpdir(), 'cutawan-presenter-review-'))
-  const labels = reviewPanelLabels(join(fontsDir(), 'Poppins-Medium.ttf'))
   let reason = 'No readable presenter/content layout could be established.'
   try {
+    const labels = await reviewPanelLabels(directory)
     for (const composition of candidates) {
       const preset = composition.preset
       if (!usefulComposition(composition, source)) { reason = 'Source regions are too small, soft, or insufficiently enlarged.'; continue }

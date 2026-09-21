@@ -8,7 +8,7 @@ This is the next increment after v0.11.1, not completion of arbitrary-video supp
 - Each source gets a small layout memory seeded from its saved, automatically checked screen compositions. Pending, manually corrected, rejected, older-analysis and camera examples are excluded. It retains at most 24 examples and compares at most eight nearby examples using 48×27 RGB thumbnails. Images are temporary; no model or dependency was added.
 - An overlapping source interval or a similar thumbnail supplies only a candidate. The proposed geometry is re-rendered on seven samples of the new interval and checked against its narration. Margins are not reapplied cumulatively. Rejection falls through to ordinary proposal/verification once; it never silently applies a cached acceptance.
 - Reused content crops also have a local edge veto. Contrast features touching a crop boundary request fresh bounds before spending a model review. This catches some cut labels and axes; it is deliberately conservative and is not OCR or continuous containment detection.
-- Presenter review images now label SOURCE, BEFORE and AFTER. The prompt explicitly distinguishes expected repeated people across the comparison references from duplication inside the final output.
+- Presenter review images now label SOURCE, BEFORE and AFTER. The prompt explicitly distinguishes expected repeated people across the comparison references from duplication inside the final output. Labels use the already-shipped ASS caption renderer: CI caught that `drawtext` was unavailable in the bundled Linux FFmpeg. Actual rendering tests cover font/subtitle paths containing spaces, apostrophes and filter-graph delimiters.
 
 ## Real-video checks, 2026-09-21
 
