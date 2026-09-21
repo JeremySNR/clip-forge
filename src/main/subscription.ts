@@ -4,8 +4,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import { accessSync, constants, existsSync } from 'node:fs'
 import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { delimiter, dirname, join, resolve } from 'node:path'
-import { totalmem, homedir } from 'node:os'
-import { MediaQueue } from './pipeline/mediaJobs'
+import { homedir } from 'node:os'
+import { analysisRequests as requests } from './pipeline/mediaJobs'
 import { DEFAULT_SUBSCRIPTION, type SubscriptionSettings } from '@shared/subscription'
 import type { ChatMessage, TranscribeFileOptions, WhisperResponse } from './pipeline/openai'
 
@@ -15,9 +15,6 @@ export function throwIfSubscriptionError(error: unknown): void {
 }
 
 let preferences = { ...DEFAULT_SUBSCRIPTION }
-// Network-bound CLI jobs need no inference model. macOS free RAM excludes
-// reclaimable caches, so use installed memory for this small fixed ceiling.
-const requests = new MediaQueue(() => totalmem() >= 8 * 1024 ** 3 ? 2 : 1)
 const pending = new Map<string, Promise<unknown>>()
 let reservations: Promise<unknown> = Promise.resolve()
 export function configureSubscription(value: SubscriptionSettings): void { preferences = { ...value } }

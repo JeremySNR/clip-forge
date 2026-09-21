@@ -8,7 +8,7 @@ import type { Clip, ContentRegion, Transcript } from '@shared/types'
 import { wordsInRange } from '@shared/captionLayout'
 import { computeKeptSegments, editedClipDuration, TimeMap } from '@shared/tighten'
 import { chatJSON, type ChatContentPart } from './openai'
-import { runFfmpeg } from './ffmpeg'
+import { runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 
 /**
  * Editorial review using six source frames and the selected transcript.

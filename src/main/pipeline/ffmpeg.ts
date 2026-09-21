@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import ffmpegStatic from 'ffmpeg-static'
 import ffprobeStatic from '@ffprobe-installer/ffprobe'
 import type { VideoInfo } from '@shared/types'
-import { mediaThreads } from './mediaJobs'
+import { mediaJobs, mediaThreads } from './mediaJobs'
 
 /** When packaged inside app.asar, binaries live in the unpacked twin directory. */
 function unpacked(p: string): string {
@@ -63,6 +63,12 @@ export async function runBinary(bin: string, args: string[], opts: RunOptions = 
 
 export function runFfmpeg(args: string[], opts: RunOptions = {}): Promise<string> {
   return runFfmpegWith(FFMPEG_PATH, args, opts)
+}
+
+/** Admit only the local work, never an enclosing cloud request. Do not nest
+ * this inside a mediaJobs task (inference/export already own their slot). */
+export function runAnalysisFfmpeg(args: string[], opts: RunOptions = {}): Promise<string> {
+  return mediaJobs.run(() => runFfmpeg(args, opts), opts.signal)
 }
 
 /**

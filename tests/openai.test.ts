@@ -144,4 +144,23 @@ describe('chatJSON', () => {
     ).rejects.toThrow(/rejected the API key/)
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
+
+  it('bounds API analysis across callers and cancels a queued request before sending it', async () => {
+    let active = 0, peak = 0
+    const fetchMock = vi.fn(async () => {
+      active++; peak = Math.max(peak, active)
+      await new Promise(resolve => setTimeout(resolve, 30))
+      active--
+      return new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const running = Array.from({ length: 4 }, () => chatJSON('key', 'model', [], 'test', schema))
+    const controller = new AbortController()
+    const cancelled = chatJSON('key', 'model', [], 'test', schema, controller.signal)
+    controller.abort()
+    await expect(cancelled).rejects.toThrow()
+    await Promise.all(running)
+    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(peak).toBeLessThanOrEqual(2)
+  })
 })

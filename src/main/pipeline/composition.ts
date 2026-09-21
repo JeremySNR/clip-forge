@@ -8,11 +8,11 @@ import { contentRegionPixels, proposedContentRegion } from '@shared/contentRegio
 import type { ContentRegion } from '@shared/types'
 import { chatJSON, type ChatContentPart } from './openai'
 import { clipFrameTimes, extractClipFrames } from './visualScore'
-import { probeImageDimensions, runFfmpeg } from './ffmpeg'
+import { probeImageDimensions, runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 import { mapLimit } from './concurrency'
 import { refineScreenDetails } from './screenDetail'
-import { reviewPresenterComposition, sourceRectangle } from './presenterComposition'
-import { mediaJobs } from './mediaJobs'
+import { reviewExistingComposition, reviewPresenterComposition, sourceRectangle } from './presenterComposition'
+import type { LayoutMemory } from './layoutMemory'
 
 const SCHEMA = {
   type: 'object', additionalProperties: false, required: ['mode', 'reason', 'region', 'screen_detail', 'presenter'],
@@ -28,15 +28,11 @@ const SCHEMA = {
 } as const
 
 /** Check proposed crops within stable shots, including a single static shot. */
-export function refineComposition(...args: Parameters<typeof compose>): Promise<void> {
-  return mediaJobs.run(() => compose(...args), args[5])
-}
-
-async function compose(
+export async function refineComposition(
   apiKey: string, model: string, videoPath: string, clip: Clip,
   sceneCuts: number[] | undefined, signal?: AbortSignal, focusTrack?: FocusKeyframe[] | null,
   transitions: Array<{ start: number; end: number }> = [],
-  transcript?: Transcript
+  transcript?: Transcript, memory?: LayoutMemory
 ): Promise<void> {
   const assessment = clip.visualLayout
   if (!assessment?.preserveContext) return
@@ -68,6 +64,18 @@ async function compose(
         const { content, presenter } = assessment.panels
         Object.assign(shot, await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal))
         return
+      }
+      if (assessment.kind === 'screen' && clip.edit.aspect === '9:16') {
+        const example = await memory?.propose(shot.start, shot.end, signal)
+        if (example) {
+          const checked = await reviewExistingComposition(apiKey, model, videoPath,
+            shot.start, shot.end, example, narration, signal)
+          console.info('[layout-reuse]', JSON.stringify({ start: shot.start, end: shot.end,
+            accepted: Boolean(checked.composition), reason: checked.review?.reason }))
+          if (checked.composition) { Object.assign(shot, checked); return }
+          // A similar screen is not necessarily the same layout. Rejection
+          // falls through to the normal proposal path, once per shot.
+        }
       }
       frames = await extractClipFrames(videoPath, shot.start, shot.end, 3, signal, 1280)
       const parts: ChatContentPart[] = [{ type: 'text', text:

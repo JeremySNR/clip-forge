@@ -3,6 +3,7 @@ import { mergeReframeResult, needsReframe } from '@shared/reframe'
 import { loadProject, updateProject } from '../projects'
 import { getAnalysisCredential, getModelPreferences } from '../settings'
 import { analyzeClipLayout } from './clipLayout'
+import { LayoutMemory } from './layoutMemory'
 
 /**
  * On-demand reframe analysis for clips the pipeline left 'pending' (see
@@ -109,7 +110,8 @@ async function analyseAndPersist(
   const analysed: Clip = { ...clip, edit: { ...clip.edit } }
   const apiKey = project.videoType !== 'talking-head' ? getAnalysisCredential() : ''
   await analyzeClipLayout(project.video.path, analysed, project.videoType,
-    apiKey, getModelPreferences().analysisModel, project.transcript ?? undefined, signal)
+    apiKey, getModelPreferences().analysisModel, project.transcript ?? undefined, signal,
+    new LayoutMemory(project.video.path, project.clips))
   signal?.throwIfAborted()
 
   const updated = await updateProject(projectId, (fresh) => {
