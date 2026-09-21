@@ -55,6 +55,7 @@ export async function refineComposition(
     if (transitions.some((range) => shot.start < range.end && shot.end > range.start)) return
     let frames: string[] = []
     let retryTimes: number[] = []
+    let repairFeedback = ''
     const narration = transcript?.segments.flatMap(s => s.words)
       .filter(w => w.start >= shot.start && w.start < shot.end).map(w => w.text).join(' ').slice(0, 4000) ?? clip.title
     try {
@@ -66,9 +67,10 @@ export async function refineComposition(
         const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
         Object.assign(shot, { composition: checked.composition, review: checked.review })
         retryTimes = checked.retryTimes ?? []
-        if (!retryTimes.length) return
+        if (checked.composition) return
+        repairFeedback = JSON.stringify({ rejectedPanels: assessment.panels, reason: checked.review?.reason })
       }
-      if (!retryTimes.length && assessment.kind === 'screen' && clip.edit.aspect === '9:16') {
+      if (!repairFeedback && !retryTimes.length && assessment.kind === 'screen' && clip.edit.aspect === '9:16') {
         const example = await memory?.propose(shot.start, shot.end, signal)
         if (example) {
           const checked = await reviewExistingComposition(apiKey, model, videoPath,
@@ -77,6 +79,7 @@ export async function refineComposition(
             accepted: Boolean(checked.composition), reason: checked.review?.reason }))
           if (checked.composition) { Object.assign(shot, { composition: checked.composition, review: checked.review }); return }
           retryTimes = checked.retryTimes ?? []
+          repairFeedback = JSON.stringify({ rejectedComposition: example, reason: checked.review?.reason })
           // A similar screen is not necessarily the same layout. Rejection
           // falls through to the normal proposal path, once per shot.
         }
@@ -87,6 +90,7 @@ export async function refineComposition(
       const parts: ChatContentPart[] = [{ type: 'text', text:
         `Narration in THIS interval: ${narration}. Judge these images only; other parts of the source may show different content.\nThe first ${times.length} images are original source frames. ${retryTimes.length ? "Extra frames show a detected crop-edge collision: widen the relevant bounds to retain that content." : ""} Comparison pairs (LEFT full source, RIGHT tracked portrait crop) follow only when tracking is available. Face tracking available: ${Boolean(focusTrack?.length)}. All pairs are from ONE camera shot. Choose crop only when tracking is available and the RIGHT images communicate this shot clearly and keep the speaking face comfortably visible. Ordinary explanatory hand gestures, an incidental lectern, set furniture, background monitors used as decoration, or a listener outside the crop do not by themselves require fit. Choose fit when the proposed crop loses a demonstrated object, important hands-on action, essential text/slide/UI, or cuts significantly into the face.\nFor fit, propose a single REGION in normalized 0–1000 coordinates of the FULL SOURCE FRAME (not the pair canvas): left/top/right/bottom. It will be fitted INTACT into the output. Remove empty borders, toolbars, navigation, and unrelated side panels to enlarge the content this narration actually discusses. An activity feed or sidebar is not essential merely because it is visible. Preserve the relevant post, diagram, poll or demonstrated controls; do not preserve the whole application window by default. Keep the whole demonstrated object, moving hands, required labels and meaningful relationships across ALL supplied frames. Leave movement margins. Do not reduce a screen to a tiny control without its context or cut a puzzle/mechanism into fragments. If a stable useful region cannot be established, return the full frame 0,0,1000,1000. For crop also return the full-frame region. This proposal will be checked on additional frames.` }]
       parts.push({ type: 'text', text: 'If this is screen content plus a genuinely separate webcam/presenter inset, return screen_detail=true and presenter=the entire inset rectangle in source 0–1000 coordinates, regardless of its corner. In that case region must contain the relevant graph/slide/UI WITHOUT the webcam; both will be composed independently. Preserve graph labels and relationships. Prefer stable panel boundaries, never a tight face box. If panels move, overlap essential content or cannot be separated consistently across the samples, return presenter=0,0,0,0. For ordinary footage without an inset also return zeros. FIRST: unpadded ORIGINAL SOURCE images. Use these image boundaries for region coordinates. The comparison pairs follow afterward.' })
+      parts.push({ type: 'text', text: 'A presenter rectangle must contain ONE contiguous webcam panel. Never combine disconnected webcams or an embedded video and the primary commentator into one bounding box. Choose the primary commentator panel; a second embedded speaker may stay in the content only if relevant to this narration. Locate panel edges from the pixels again when repairing a rejected proposal; do not inherit its incorrect bounds. Focus content on the evidence discussed in this interval, not every visible table row or unrelated sidebar.' })
       for (const path of frames) parts.push({ type: 'image_url', image_url: {
         url: `data:image/jpeg;base64,${(await readFile(path)).toString('base64')}`, detail: 'high'
       } })
@@ -105,29 +109,45 @@ export async function refineComposition(
           } })
         }
       }
-      const result = await chatJSON<{ mode: string; reason: string; screen_detail?: boolean; region?: { left: number; top: number; right: number; bottom: number }; presenter?: { left: number; top: number; right: number; bottom: number } }>(apiKey, model,
-        [{ role: 'user', content: parts }], 'shot_composition', SCHEMA, signal)
-      shot.mode = result.mode === 'crop' && focusTrack?.length ? 'crop' : 'fit'
-      const presenter = sourceRectangle(result.presenter)
-      const content = sourceRectangle(result.region)
-      const insetRequested = result.screen_detail && result.presenter && Object.values(result.presenter).some(value => value !== 0)
-      if (insetRequested) shot.mode = 'fit'
-      if (insetRequested && (!presenter || !content || clip.edit.aspect !== '9:16')) {
-        shot.review = { status: 'needs-review', reason: 'Separate source panels could not be composed safely in this format.' }
+      if (repairFeedback) parts.push({ type: 'text', text: `Repair this rejected proposal. Coordinates below are normalized 0–1; return corrected bounds in 0–1000. ${repairFeedback}` })
+      // At most two source proposals. A repaired inset can expose a separate
+      // content-size problem; its precise geometric feedback gets one attempt.
+      const attempts = 2
+      for (let attempt = 0; attempt < attempts; attempt++) {
+        const result = await chatJSON<{ mode: string; reason: string; screen_detail?: boolean; region?: { left: number; top: number; right: number; bottom: number }; presenter?: { left: number; top: number; right: number; bottom: number } }>(apiKey, model,
+          [{ role: 'user', content: parts }], 'shot_composition', SCHEMA, signal)
+        shot.mode = result.mode === 'crop' && focusTrack?.length ? 'crop' : 'fit'
+        const presenter = sourceRectangle(result.presenter)
+        const content = sourceRectangle(result.region)
+        const insetRequested = result.screen_detail && result.presenter && Object.values(result.presenter).some(value => value !== 0)
+        if (insetRequested) shot.mode = 'fit'
+        if (insetRequested && (!presenter || !content || clip.edit.aspect !== '9:16')) {
+          shot.review = { status: 'needs-review', reason: 'Separate source panels could not be composed safely in this format.' }
+          // Invalid boxes never reach reviewPresenterComposition; still offer one repair.
+          if (clip.edit.aspect === '9:16' && (!presenter || !content) && attempt + 1 < attempts) {
+            parts.push({ type: 'text', text: `Repair these rejected source bounds (0–1000): ${JSON.stringify(result)}. Content and presenter bounds overlap or are invalid. Locate the actual webcam rectangle separately from the relevant screen content.` })
+            continue
+          }
+          return
+        }
+        if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {
+          const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
+          Object.assign(shot, { composition: checked.composition, review: checked.review })
+          if (shot.composition) return
+          if (checked.repairBounds && attempt + 1 < attempts) {
+            parts.push({ type: 'text', text: `Repair these rejected source bounds (0–1000): ${JSON.stringify(result)}. ${checked.review?.reason}` })
+            continue
+          }
+          // A rejected separate-panel proposal cannot safely be reused as a single crop.
+          return
+        }
+        const region = shot.mode === 'fit' ? proposedContentRegion(result.region) : undefined
+        if (region && await verifyContentRegion(apiKey, model, videoPath, clip.title, shot.start, shot.end, region, signal)) { shot.region = region; delete shot.review }
+        if (shot.mode === 'fit' && !shot.region && result.screen_detail === true && transcript) {
+          const details = await refineScreenDetails(apiKey, model, videoPath, clip.title, shot.start, shot.end, transcript, signal)
+          if (details) detailPlans.set(shot, details)
+        }
         return
-      }
-      if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {
-        const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
-        Object.assign(shot, { composition: checked.composition, review: checked.review })
-        if (shot.composition) return
-        // A rejected separate-panel proposal cannot safely be reused as a single crop.
-        return
-      }
-      const region = shot.mode === 'fit' ? proposedContentRegion(result.region) : undefined
-      if (region && await verifyContentRegion(apiKey, model, videoPath, clip.title, shot.start, shot.end, region, signal)) { shot.region = region; delete shot.review }
-      if (shot.mode === 'fit' && !shot.region && result.screen_detail === true && transcript) {
-        const details = await refineScreenDetails(apiKey, model, videoPath, clip.title, shot.start, shot.end, transcript, signal)
-        if (details) detailPlans.set(shot, details)
       }
     } catch (error) {
       throwIfSubscriptionError(error)

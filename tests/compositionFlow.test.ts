@@ -14,6 +14,38 @@ import { LayoutMemory } from '../src/main/pipeline/layoutMemory'
 import { mediaJobs } from '../src/main/pipeline/mediaJobs'
 import { presenterComposition } from '@shared/composition'
 
+it.each(['wide-editorial', 'overlapping-editorial', 'wide-proposal', 'unrepairable'])(
+  'repairs rejected source geometry once without lowering quality checks: %s', async kind => {
+    const dir = await mkdtemp(join(tmpdir(), 'cutawan-bounds-repair-'))
+    try {
+      const video = join(dir, 'source.mp4')
+      await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=black:s=1920x1080:r=5:d=1',
+        '-vf', 'drawbox=x=500:y=300:w=700:h=500:color=blue:t=fill', '-c:v', 'mpeg4', video])
+      const broad = { mode: 'fit', screen_detail: true,
+        region: { left: 0, top: 0, right: 840, bottom: 1000 },
+        presenter: { left: 842, top: 35, right: 989, bottom: 360 } }
+      const clip = { title: 'Wide comparison slide', edit: { start: 0, end: 1, aspect: '9:16' }, visualLayout: {
+        kind: 'screen', start: 0, end: 1, preserveContext: true, allowZoom: false, reason: 'comparison' } } as Clip
+      if (kind.endsWith('editorial')) clip.visualLayout!.panels = {
+        content: { x: 0, y: 0, width: .84, height: 1 },
+        presenter: kind.startsWith('overlapping') ? { x: .78, y: .035, width: .215, height: .965 }
+          : { x: .842, y: .035, width: .147, height: .325 } }
+      chat.mockReset()
+      if (!kind.endsWith('editorial')) chat.mockResolvedValueOnce(broad)
+      if (kind === 'unrepairable') chat.mockResolvedValue(broad)
+      else chat.mockResolvedValueOnce({ ...broad, region: { left: 230, top: 230, right: 670, bottom: 790 } })
+        .mockResolvedValueOnce({ accept: true, reason: 'Relevant content retained', legible_labels: ['Comparison'] })
+      await refineComposition('unused', 'unused', video, clip, [])
+      expect(chat).toHaveBeenCalledTimes(kind === 'wide-proposal' ? 3 : 2)
+      expect(chat.mock.calls[0][3]).toBe('shot_composition')
+      const repair = chat.mock.calls[kind.endsWith('editorial') ? 0 : 1][2][0].content
+      expect(repair.some((p: { text?: string }) => p.text?.includes('Repair'))).toBe(true)
+      expect(Boolean(clip.visualLayout!.shots![0].composition)).toBe(kind !== 'unrepairable')
+      if (kind !== 'unrepairable') expect(clip.visualLayout!.shots![0].review?.status).toBe('checked')
+      else expect(clip.visualLayout!.shots![0].review?.reason).toContain('too broad')
+    } finally { await rm(dir, { recursive: true, force: true }) }
+  }, 15000)
+
 it('repairs a brief edge collision missed by uniform samples using the actual problem frames', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-temporal-repair-'))
   try {
@@ -156,7 +188,7 @@ it('reviews native 4K inset detail instead of rejecting its smaller thumbnail', 
   } finally { await rm(dir, { recursive: true, force: true }) }
 }, 30000)
 
-it('retains the full scene when a contradictory inset proposal has invalid bounds', async () => {
+it('repairs invalid inset bounds once before retaining the full scene', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-invalid-inset-'))
   try {
     const video = join(dir, 'source.mp4')
@@ -168,7 +200,10 @@ it('retains the full scene when a contradictory inset proposal has invalid bound
     const clip = { title: 'Graph', edit: { start: 0, end: 1, aspect: '9:16' },
       visualLayout: { start: 0, end: 1, preserveContext: true, allowZoom: false, reason: 'screen' } } as Clip
     await refineComposition('unused', 'unused', video, clip, [], undefined, [{ t: 0, x: .9 }])
-    expect(chat).toHaveBeenCalledTimes(1)
+    expect(chat).toHaveBeenCalledTimes(2)
+    expect(chat.mock.calls[0][3]).toBe('shot_composition')
+    const repair = chat.mock.calls[1][2][0].content
+    expect(repair.some((p: { text?: string }) => p.text?.includes('Repair these rejected source bounds'))).toBe(true)
     expect(clip.visualLayout?.shots).toEqual([{ start: 0, end: 1, mode: 'fit', review: expect.objectContaining({ status: 'needs-review' }) }])
   } finally { await rm(dir, { recursive: true, force: true }) }
 }, 15000)

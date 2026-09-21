@@ -6,6 +6,18 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.11.4] - 2026-09-21
+
+### Fixed
+
+- Repair rejected screen/presenter source bounds instead of immediately preserving a letterbox. Supply specific geometric feedback and cap source proposals at two per shot; keep existing quality thresholds.
+- Ask for a single contiguous presenter panel rather than combining disconnected webcam overlays.
+- Add per-clip **Retry automatic layout** for failed automatic results. Preserve manual corrections, join retries before export, and protect successful retries against stale saves and concurrent trim changes.
+
+### Validation and limits
+
+- Repaired and inspected the reported comparison-slide case. The two-webcam email demo still fails content selection; it is explicitly unresolved. See `docs/rejected-layout-repair.md` for all seven requests, failed trials, timings and remaining work.
+
 ## [0.11.3] - 2026-09-21
 
 ### Improved

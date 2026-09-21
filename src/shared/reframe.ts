@@ -67,8 +67,9 @@ export function markReframeComplete(clip: Clip): void {
 
 /** Main owns analysis metadata, but an ordinary save must preserve chosen layout edits. */
 export function mergeClipSave(incoming: Clip, saved: Clip, videoType: VideoType): Clip {
-  const merged = mergeReframeResult(incoming, saved, videoType)
-  const analysisLanded = (incoming.reframeStatus === 'pending' || needsLayoutUpgrade(incoming)) && !needsReframe(saved)
+  const retried = (saved.reframeAnalysis?.revision ?? 0) > (incoming.reframeAnalysis?.revision ?? 0)
+  const merged = mergeReframeResult(incoming, saved, videoType, retried)
+  const analysisLanded = (retried || incoming.reframeStatus === 'pending' || needsLayoutUpgrade(incoming)) && !needsReframe(saved)
   return analysisLanded ? merged : { ...merged, edit: incoming.edit }
 }
 
@@ -106,7 +107,7 @@ export function layoutUntouched(edit: ClipEditState, videoType: VideoType): bool
  * boundary so the renderer's local state and the saved project converge on
  * the same clip.
  */
-export function mergeReframeResult(current: Clip, analysed: Clip, videoType: VideoType): Clip {
+export function mergeReframeResult(current: Clip, analysed: Clip, videoType: VideoType, retryLayout = false): Clip {
   const merged: Clip = {
     ...current,
     focusTrack: analysed.focusTrack,
@@ -120,7 +121,8 @@ export function mergeReframeResult(current: Clip, analysed: Clip, videoType: Vid
     reframeStatus: analysed.reframeStatus ?? 'done'
   }
   if (needsReframe(merged)) merged.reframeStatus = 'pending'
-  if (!layoutUntouched(current.edit, videoType) && !needsLayoutUpgrade(current)) return merged
+  const retryAutomatic = retryLayout && !current.edit.layoutChosen && !current.visualLayout?.revision
+  if (!layoutUntouched(current.edit, videoType) && !needsLayoutUpgrade(current) && !retryAutomatic) return merged
   return {
     ...merged,
     edit: {

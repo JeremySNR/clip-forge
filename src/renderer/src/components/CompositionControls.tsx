@@ -15,6 +15,9 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
   const [adding, setAdding] = useState(false)
   const shot = usePreviewBus(s => layoutShotAt(clip, s.time))
   const update = useStore(s => s.updateClip)
+  const retry = useStore(s => s.ensureReframe)
+  const busy = useStore(s => s.reframeBusy[clip.id])
+  const error = useStore(s => s.reframeError[clip.id])
   const hasComposition = clip.visualLayout?.shots?.some(s => s.composition)
   const issue = layoutReviewMessage(clip)
   const active = clip.edit.aspect === '9:16' && clip.edit.framing === 'auto' && clip.edit.reframeMode === 'crop'
@@ -32,6 +35,14 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
   }
   return <div className="mt-3 space-y-2">
     {issue && <p className="text-xs text-amber-300">Review layout: {issue}</p>}
+    {issue && !clip.edit.layoutChosen && !clip.visualLayout?.revision && <div className="space-y-1">
+      <button type="button" disabled={busy} onClick={() => void retry(clip.id, true)}
+        className="text-xs text-zinc-300 underline underline-offset-4 disabled:opacity-40">
+        {busy ? 'Retrying layout…' : 'Retry automatic layout'}
+      </button>
+      <p className="text-[11px] text-zinc-500">Reviews this clip using your configured AI provider. Keeps the transcript and clip selection.</p>
+      {error && <p role="alert" className="text-xs text-amber-300">{error}</p>}
+    </div>}
     {hasComposition && <>
       <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Presenter and content layout">
         {preferences.map(([value, label]) => <button key={value} type="button"

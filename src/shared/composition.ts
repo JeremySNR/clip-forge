@@ -59,9 +59,22 @@ export function compositionPixels(c: Composition, source: { width: number; heigh
 
 /** Keep small insets from becoming soft close-ups and require a useful content gain. */
 export function usefulComposition(c: Composition, source: { width: number; height: number }): boolean {
+  return compositionIssue(c, source) === undefined
+}
+
+/** Actionable proposal feedback; keep the acceptance threshold unchanged. */
+export function compositionIssue(c: Composition, source: { width: number; height: number }): string | undefined {
   const pixels = compositionPixels(c, source, 1080, 1920)
   const baseline = Math.min(1080 / source.width, 1920 / source.height)
-  return pixels.length > 0 && pixels.every((p, i) => c.layers[i].role === 'content'
-    ? p.target.width / p.source.width >= baseline * 1.2
-    : Math.min(p.source.width, p.source.height) >= 80 && p.target.width / p.source.width <= 3)
+  if (!pixels.length) return 'Invalid or overlapping destination panels.'
+  for (const [i, p] of pixels.entries()) {
+    if (c.layers[i].role === 'content') {
+      if (p.target.width / p.source.width < baseline * 1.2) {
+        return 'Content bounds are too broad to enlarge meaningfully. Remove empty margins and unrelated page chrome; retain the relevant text, chart and labels.'
+      }
+    } else if (Math.min(p.source.width, p.source.height) < 80 || p.target.width / p.source.width > 3) {
+      return 'Presenter bounds are too small for a clear inset. Locate the entire webcam panel, not a tight face crop.'
+    }
+  }
+  return undefined
 }

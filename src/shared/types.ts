@@ -185,7 +185,7 @@ export interface Clip {
   /** See ReframeStatus. Undefined means done (older projects). */
   reframeStatus?: ReframeStatus
   /** Source interval actually analysed; trimming inside it can reuse the result. */
-  reframeAnalysis?: { start: number; end: number; version: number }
+  reframeAnalysis?: { start: number; end: number; version: number; revision?: number }
   /**
    * Whether the clip is mostly a talking head or a screencast/demo/slides.
    * Set during analysis; null on older projects until re-analysed.
