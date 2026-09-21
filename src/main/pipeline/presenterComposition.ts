@@ -41,8 +41,13 @@ export async function reviewPresenterComposition(
   const directory = await mkdtemp(join(tmpdir(), 'cutawan-presenter-review-'))
   let reason = 'No readable presenter/content layout could be established.'
   try {
+    // Source boxes are approximate: slight overscan removes webcam borders
+    // and neighbouring UI slivers. The proof below must still retain the
+    // complete head and mouth; tiny/too-tight insets fail the usual checks.
+    const inset = { x: presenter.x + presenter.width * .03, y: presenter.y + presenter.height * .03,
+      width: presenter.width * .94, height: presenter.height * .94 }
     for (const preset of ['content-first', 'stacked'] as const) {
-      const composition = presenterComposition(contentMargin(content, presenter), presenter, preset)
+      const composition = presenterComposition(contentMargin(content, presenter), inset, preset)
       if (!composition) break
       if (!usefulComposition(composition, source)) { reason = 'Source regions are too small, soft, or insufficiently enlarged.'; continue }
       const parts: ChatContentPart[] = [{ type: 'text', text:
