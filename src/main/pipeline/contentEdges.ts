@@ -6,13 +6,20 @@ import { validRectangle } from '@shared/composition'
  * a veto requests a fresh proposal rather than declaring the video unusable.
  * Input is a 640×360 grayscale source thumbnail, regardless of source aspect. */
 export function cutsContentEdge(pixels: Uint8Array, region: ContentRegion): boolean {
-  if (pixels.length !== 640 * 360 || !validRectangle(region)) return true
+  return contentEdgeRisks(pixels, region) !== 0
+}
+
+/** Top, bottom, left and right risks as independent bits. A persistent UI
+ * border on one side must not hide a newly clipped title on another side. */
+export function contentEdgeRisks(pixels: Uint8Array, region: ContentRegion): number {
+  if (pixels.length !== 640 * 360 || !validRectangle(region)) return 15
+  let risks = 0
   const left = Math.floor(region.x * 640), right = Math.min(639, Math.ceil((region.x + region.width) * 640) - 1)
   const top = Math.floor(region.y * 360), bottom = Math.min(359, Math.ceil((region.y + region.height) * 360) - 1)
-  for (const [horizontal, position, from, until, limit] of [
+  for (const [edge, [horizontal, position, from, until, limit]] of [
     [1, top, left, right, 360], [1, bottom, left, right, 360],
     [0, left, top, bottom, 640], [0, right, top, bottom, 640]
-  ]) {
+  ].entries()) {
     // Touching the source boundary does not discard any additional content.
     if (position < 3 || position > limit - 4) continue
     const at = (along: number, across: number): number => horizontal
@@ -29,8 +36,8 @@ export function cutsContentEdge(pixels: Uint8Array, region: ContentRegion): bool
           count++; run++; longest = Math.max(longest, run)
         } else run = 0
       }
-      if (count / (until - from + 1) > .015 && longest >= 3) return true
+      if (count / (until - from + 1) > .015 && longest >= 3) { risks |= 1 << edge; break }
     }
   }
-  return false
+  return risks
 }

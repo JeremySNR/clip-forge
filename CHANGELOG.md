@@ -6,6 +6,18 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.11.3] - 2026-09-21
+
+### Improved
+
+- Detect large screen transitions before composing individual shots, avoiding a failed whole-clip layout attempt first.
+- Scan content crop edges locally between ordinary review samples. Reused crops request fresh bounds on an alert; fresh proposals add suspect moments to rendered review so incidental editing guides do not force an unnecessary full-frame fallback.
+- Use rejected temporal review frames in one bounded region proposal. Keep decoding, image counts, cancellation and scan duration bounded.
+
+### Validation
+
+- 515 tests plus type checking, lint and build. Tested local scan timing and a targeted repair on the original T3.GG recording. Documented the initial false alarm, revised result, timings and remaining limitations in `docs/temporal-layout-validation.md`. Moving panels, faster events and arbitrary-video quality remain unfinished.
+
 ## [0.11.2] - 2026-09-21
 
 ### Improved

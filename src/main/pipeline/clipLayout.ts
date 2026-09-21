@@ -25,23 +25,15 @@ export async function analyzeClipLayout(
   const analysis: ClipFocusAnalysis = !screen && shouldAnalyzeFaces(videoType)
     ? await analyzeClipFocus(videoPath, clip.edit.start, clip.edit.end, signal)
     : { focusTrack: null, contentType: 'screencast' }
-  if (screen && !clip.visualLayout?.panels) {
+  if (screen) {
     analysis.sceneTransitions = await screenTransitions(videoPath, clip.edit.start, clip.edit.end, signal)
+    if (analysis.sceneTransitions.length && clip.visualLayout) {
+      clip.visualLayout = { ...clip.visualLayout, panels: undefined }
+    }
   }
   if (apiKey && videoType !== 'talking-head') {
     await refineComposition(apiKey, model, videoPath, clip, analysis.sceneCuts, signal,
       analysis.focusTrack, analysis.sceneTransitions, transcript, memory)
-    // A single panel proposal may fail because the source changes midway.
-    // Try shot-specific regions once, only when real screen changes exist.
-    if (screen && clip.visualLayout?.panels &&
-        !clip.visualLayout.shots?.some(s => s.composition)) {
-      analysis.sceneTransitions = await screenTransitions(videoPath, clip.edit.start, clip.edit.end, signal)
-      if (analysis.sceneTransitions.length) {
-        clip.visualLayout = { ...clip.visualLayout, panels: undefined }
-        await refineComposition(apiKey, model, videoPath, clip, undefined, signal,
-          null, analysis.sceneTransitions, transcript, memory)
-      }
-    }
   }
   signal?.throwIfAborted()
   applyFocusAnalysis(clip, analysis, videoType)

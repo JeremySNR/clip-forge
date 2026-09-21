@@ -1,10 +1,10 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { Clip } from '@shared/types'
 import { needsReframe } from '@shared/reframe'
-const mocks = vi.hoisted(() => ({ faces: vi.fn(), apply: vi.fn(), compose: vi.fn(), assess: vi.fn() }))
+const mocks = vi.hoisted(() => ({ faces: vi.fn(), apply: vi.fn(), compose: vi.fn(), assess: vi.fn(), cuts: vi.fn() }))
 vi.mock('../src/main/pipeline/faces', () => ({ analyzeClipFocus: mocks.faces, applyFocusAnalysis: mocks.apply }))
 vi.mock('../src/main/pipeline/composition', () => ({ refineComposition: mocks.compose }))
-vi.mock('../src/main/pipeline/screenCuts', () => ({ screenTransitions: async () => [] }))
+vi.mock('../src/main/pipeline/screenCuts', () => ({ screenTransitions: mocks.cuts }))
 vi.mock('../src/main/pipeline/visualScore', () => ({ assessClipVisuals: mocks.assess }))
 import { analyzeClipLayout } from '../src/main/pipeline/clipLayout'
 
@@ -14,7 +14,19 @@ const clip = (kind?: 'screen' | 'camera' | 'mixed'): Clip => ({ id: 'clip',
 }) as Clip
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.cuts.mockResolvedValue([])
   mocks.faces.mockResolvedValue({ focusTrack: [{ t: 5, x: .5 }], contentType: 'speaker' })
+})
+it('splits changed screen geometry before spending a whole-clip review', async () => {
+  const c = clip('screen')
+  c.visualLayout!.panels = { content: { x: .2, y: .3, width: .6, height: .6 },
+    presenter: { x: .82, y: .02, width: .16, height: .26 } }
+  mocks.cuts.mockResolvedValue([{ start: 12, end: 13 }])
+  await analyzeClipLayout('video.mp4', c, 'auto', 'key', 'model')
+  expect(mocks.cuts).toHaveBeenCalledOnce()
+  expect(mocks.compose).toHaveBeenCalledOnce()
+  expect(mocks.compose.mock.calls[0][3].visualLayout.panels).toBeUndefined()
+  expect(mocks.compose.mock.calls[0][7]).toEqual([{ start: 12, end: 13 }])
 })
 it('skips dense speaker inference for screen evidence and still verifies composition', async () => {
   const c = clip('screen')

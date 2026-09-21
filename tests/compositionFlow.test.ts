@@ -14,6 +14,44 @@ import { LayoutMemory } from '../src/main/pipeline/layoutMemory'
 import { mediaJobs } from '../src/main/pipeline/mediaJobs'
 import { presenterComposition } from '@shared/composition'
 
+it('repairs a brief edge collision missed by uniform samples using the actual problem frames', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-temporal-repair-'))
+  try {
+    const video = join(dir, 'source.mp4')
+    await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=20:d=6',
+      '-vf', "drawbox=x=480:y=210:w=260:h=24:color=white:t=fill:enable='between(t,2.25,2.65)'",
+      '-c:v', 'mpeg4', video])
+    const clip = { title: 'Moving title', edit: { start: 0, end: 6, aspect: '9:16' }, visualLayout: {
+      kind: 'screen', start: 0, end: 6, preserveContext: true, allowZoom: false, reason: 'demo',
+      panels: { content: { x: .2, y: .35, width: .6, height: .55 },
+        presenter: { x: .82, y: .02, width: .16, height: .26 } } } } as Clip
+    chat.mockReset()
+    chat.mockResolvedValueOnce({ accept: false, reason: 'Title clipped', legible_labels: [] })
+      .mockResolvedValueOnce({ mode: 'fit', screen_detail: true,
+      region: { left: 200, top: 200, right: 800, bottom: 900 },
+      presenter: { left: 820, top: 20, right: 980, bottom: 280 } })
+      .mockResolvedValueOnce({ accept: true, reason: 'Title retained', legible_labels: ['Title'] })
+    await refineComposition('unused', 'unused', video, clip, [])
+    expect(chat).toHaveBeenCalledTimes(3)
+    expect(chat.mock.calls[0][3]).toBe('presenter_composition_review')
+    expect(chat.mock.calls[0][2][0].content.filter((p: { type: string }) => p.type === 'image_url')).toHaveLength(10)
+    expect(chat.mock.calls[1][3]).toBe('shot_composition')
+    expect(chat.mock.calls[1][2][0].content.filter((p: { type: string }) => p.type === 'image_url')).toHaveLength(6)
+    expect(chat.mock.calls[2][3]).toBe('presenter_composition_review')
+    expect(clip.visualLayout!.shots![0].composition!.layers[0].source.y).toBeCloseTo(.15)
+    expect(clip.visualLayout!.shots![0]).not.toHaveProperty('retryTimes')
+    // A harmless guide can pass the augmented review without new bounds.
+    clip.visualLayout!.shots = undefined
+    chat.mockReset()
+    chat.mockResolvedValue({ accept: true, reason: 'Only an editing guide crosses the crop', legible_labels: ['Title'] })
+    await refineComposition('unused', 'unused', video, clip, [])
+    expect(chat).toHaveBeenCalledOnce()
+    expect(chat.mock.calls[0][2][0].content.filter((p: { type: string }) => p.type === 'image_url')).toHaveLength(10)
+    expect(clip.visualLayout!.shots![0].composition).toBeDefined()
+    expect(clip.visualLayout!.shots![0]).not.toHaveProperty('retryTimes')
+  } finally { await rm(dir, { recursive: true, force: true }) }
+}, 15000)
+
 it('releases the media slot during cloud review so another clip and export can proceed', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-review-concurrency-'))
   let release!: () => void
@@ -87,7 +125,8 @@ it('renders and verifies a separate presenter from any source corner with bounde
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-presenter-'))
   try {
     const video = join(dir, 'source.mp4')
-    await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=5:duration=2', '-c:v', 'mpeg4', video])
+    await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=5:d=2',
+      '-vf', 'drawbox=x=320:y=300:w=400:h=200:color=blue:t=fill', '-c:v', 'mpeg4', video])
     chat.mockReset()
     chat.mockResolvedValueOnce({ mode: 'fit', reason: 'screen and webcam', screen_detail: true,
       region: { left: 200, top: 300, right: 800, bottom: 900 },
@@ -178,7 +217,8 @@ it('reuses source-review panels but verifies independent rendered samples', asyn
   const dir = await mkdtemp(join(tmpdir(), 'cutawan-proposed-panels-'))
   try {
     const video = join(dir, 'source.mp4')
-    await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=5:duration=2', '-c:v', 'mpeg4', video])
+    await runFfmpeg(['-f', 'lavfi', '-i', 'color=c=black:s=1280x720:r=5:d=2',
+      '-vf', 'drawbox=x=320:y=300:w=400:h=200:color=blue:t=fill', '-c:v', 'mpeg4', video])
     chat.mockReset()
     chat.mockResolvedValue({ accept: true, reason: 'Verified output', legible_labels: ['Graph'] })
     const clip = { title: 'Graph', edit: { start: 0, end: 2, aspect: '9:16' },
