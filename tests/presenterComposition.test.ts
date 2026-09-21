@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Clip, ContentRegion } from '@shared/types'
 import { compositionPixels, presenterComposition, usefulComposition, validComposition } from '@shared/composition'
 import { automaticLayoutShots, compositionHidesTitle, detailCaptionRanges, layoutReviewMessage, layoutShotAt, protectLayoutRanges, validLayoutShots } from '@shared/contentType'
-import { mergeClipSave, mergeReframeResult } from '@shared/reframe'
+import { mergeClipSave, mergeReframeResult, userClipEdit } from '@shared/reframe'
 
 const content = { x: .2, y: .3, width: .6, height: .6 }
 const presenter = { x: .82, y: .02, width: .16, height: .26 }
@@ -105,4 +105,35 @@ describe('independent presenter/content composition', () => {
     merged.edit.end = 19
     expect(automaticLayoutShots(merged)[0].composition).toBeDefined()
   })
+})
+
+it('applies an upgraded composition to the old generated letterbox defaults', () => {
+  const current = clip(), analysed = clip()
+  current.visualLayout!.shots = [{ start: 10, end: 20, mode: 'fit' }]
+  current.reframeAnalysis = { start: 10, end: 20, version: 1 }
+  Object.assign(current.edit, { reframeMode: 'fit-letterbox', framing: 'manual', focusX: .5, autoZoom: false })
+  analysed.reframeAnalysis = { start: 10, end: 20, version: 2 }
+  const merged = mergeReframeResult(current, analysed, 'auto')
+  expect(merged.edit.reframeMode).toBe('crop')
+  expect(merged.edit.framing).toBe('auto')
+  expect(automaticLayoutShots(merged)[0].composition).toBeDefined()
+  const staleSave = mergeClipSave({ ...current, title: 'New title' }, analysed, 'auto')
+  expect(staleSave.edit.framing).toBe('auto')
+  expect(staleSave.title).toBe('New title')
+})
+
+
+it('never treats a pending webinar letterbox choice as a completed legacy upgrade', () => {
+  const pending = clip(), analysed = clip()
+  pending.reframeStatus = 'pending'
+  pending.visualLayout!.shots = undefined
+  Object.assign(pending.edit, { reframeMode: 'fit-letterbox', framing: 'manual', focusX: .5, autoZoom: false })
+  analysed.reframeAnalysis = { start: 10, end: 20, version: 2 }
+  expect(mergeReframeResult(pending, analysed, 'webinar').edit.reframeMode).toBe('fit-letterbox')
+  pending.reframeStatus = 'done'
+  pending.reframeAnalysis = { start: 10, end: 20, version: 1 }
+  // Even choosing the same value during an old clip's upgrade records intent.
+  pending.edit = userClipEdit(pending.edit, { reframeMode: 'fit-letterbox' })
+  expect(mergeReframeResult(pending, analysed, 'webinar').edit.reframeMode).toBe('fit-letterbox')
+  expect(mergeClipSave(pending, analysed, 'webinar').edit.reframeMode).toBe('fit-letterbox')
 })

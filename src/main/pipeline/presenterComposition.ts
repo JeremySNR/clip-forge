@@ -21,6 +21,17 @@ const SCHEMA = { type: 'object', additionalProperties: false, required: ['accept
   legible_labels: { type: 'array', items: { type: 'string' } }
 } } as const
 
+/** Models often draw a tight box around the current labels. Leave room for
+ * nearby line endpoints and label movement before reviewing rendered pixels,
+ * without letting the added margin duplicate the separate presenter panel. */
+function contentMargin(r: ContentRegion, presenter: ContentRegion): ContentRegion {
+  const x = Math.max(0, r.x - .03, presenter.x + presenter.width <= r.x ? presenter.x + presenter.width : 0)
+  const y = Math.max(0, r.y - .05, presenter.y + presenter.height <= r.y ? presenter.y + presenter.height : 0)
+  const right = Math.min(1, r.x + r.width + .03, presenter.x >= r.x + r.width ? presenter.x : 1)
+  const bottom = Math.min(1, r.y + r.height + .05, presenter.y >= r.y + r.height ? presenter.y : 1)
+  return { x, y, width: right - x, height: bottom - y }
+}
+
 /** Review the real compositor, with a bounded alternative on rejection. No synthetic pixels. */
 export async function reviewPresenterComposition(
   apiKey: string, model: string, videoPath: string, start: number, end: number,
@@ -30,8 +41,13 @@ export async function reviewPresenterComposition(
   const directory = await mkdtemp(join(tmpdir(), 'cutawan-presenter-review-'))
   let reason = 'No readable presenter/content layout could be established.'
   try {
+    // Source boxes are approximate: slight overscan removes webcam borders
+    // and neighbouring UI slivers. The proof below must still retain the
+    // complete head and mouth; tiny/too-tight insets fail the usual checks.
+    const inset = { x: presenter.x + presenter.width * .03, y: presenter.y + presenter.height * .03,
+      width: presenter.width * .94, height: presenter.height * .94 }
     for (const preset of ['content-first', 'stacked'] as const) {
-      const composition = presenterComposition(content, presenter, preset)
+      const composition = presenterComposition(contentMargin(content, presenter), inset, preset)
       if (!composition) break
       if (!usefulComposition(composition, source)) { reason = 'Source regions are too small, soft, or insufficiently enlarged.'; continue }
       const parts: ChatContentPart[] = [{ type: 'text', text:

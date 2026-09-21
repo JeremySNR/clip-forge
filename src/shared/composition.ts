@@ -34,11 +34,11 @@ export function presenterComposition(
   if (!validRectangle(content) || !validRectangle(presenter) ||
     intersection(content, presenter) > presenter.width * presenter.height * .15) return undefined
   const layers: Composition['layers'] = [{ role: 'content', source: content,
-    target: preset === 'content-only' ? { x: .06, y: .12, width: .86, height: .60 } :
-      { x: .06, y: .37, width: .86, height: .36 } }]
+    target: preset === 'content-only' ? { x: .04, y: .08, width: .92, height: .66 } :
+      { x: .04, y: .29, width: .92, height: .46 } }]
   if (preset !== 'content-only') layers.push({ role: 'presenter', source: presenter,
-    target: preset === 'stacked' ? { x: .12, y: .06, width: .76, height: .28 } :
-      { x: .60, y: .06, width: .30, height: .27 } })
+    target: preset === 'stacked' ? { x: .12, y: .03, width: .76, height: .23 } :
+      { x: .64, y: .03, width: .30, height: .23 } })
   return { version: 1, preset, layers, captionY: .83 }
 }
 

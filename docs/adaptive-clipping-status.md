@@ -1,13 +1,17 @@
-# Adaptive clipping: v0.11.0 implementation checkpoint
+# Adaptive clipping: implementation checkpoint
 
 This release implements an initial presenter/content workflow within the existing Electron application. It does not complete the [broader roadmap](adaptive-clipping-build-plan.md), establish a universal quality guarantee, or demonstrate improved audience retention.
+
+## v0.11.1 corrective work
+
+See [real-video validation](layout-first-validation.md). Screen evidence is reused from editorial review, screen footage skips active-speaker tracking, changing screens get a cheap local change detector, and completed layouts are checkpointed individually. These changes address the reported slow/letterboxed T3.GG workflow. They do not complete the full roadmap below.
 
 ## Available now
 
 - Versioned composition data lives in existing project JSON. Each shot can contain independent content and presenter source rectangles, fitted into disjoint destination panels. Regions are independent of the inset's original corner.
 - Preview and FFmpeg export consume the same even-pixel crop and destination geometry. Preview uses one video element and a canvas; export splits one decoded source. Audio is not duplicated. Timed compositions participate in the existing trim and tightening timeline.
 - Automatic screen-content analysis proposes a separate inset and content region. Geometric checks reject overlap, invalid bounds, tiny faces, excessive enlargement and insufficient content gain. Seven actual rendered samples compare the candidate with full-scene fit; one alternate template is attempted after rejection. A rejected proposal preserves the full shot. Samples are evidence, not continuous motion verification.
-- The editor offers Automatic, Content first, Stacked and Content only. Users can create or correct regions in source percentages without AI. A revision protects saved manual regions against late inference results. Completed legacy projects are not automatically reanalysed.
+- The editor offers Automatic, Content first, Stacked and Content only. Users can create or correct regions in source percentages without AI. A revision protects saved manual regions against late inference results. Older generated letterboxes are revisited once on opening/export in v0.11.1; custom crops and manual source-region corrections are preserved.
 - Caption space is reserved. Existing full-width hook titles are suppressed for compositions to prevent presenter occlusion. Other aspect ratios retain the full source rather than reusing portrait coordinates.
 - A shared in-process queue admits one or two face-analysis, composition or export tasks according to memory and CPU availability. Queued exports take priority; cancellation removes queued work. This is admission control, not durable job persistence.
 - FFmpeg decoder/filter/CPU-encoder threads are bounded. Face-crop collections above 64 MiB spill to temporary files and are read in bounded, overlapping inference windows. This bounds crop-image storage; metadata, audio features and embeddings still scale with recording length.
@@ -28,7 +32,7 @@ The release workflow additionally validates packaged Apple Silicon inference and
 ## Remaining work, in priority order
 
 1. **Held-out quality corpus and release gates.** Acquire licensed/consented recordings across lectures, webinars, demos, interviews and ordinary footage. Split by creator/setup, annotate essential content and acceptable framing, run blind human comparisons and track severe failures, review rate and omissions. Existing synthetic tests establish mechanics, not success rates on arbitrary video.
-2. **Moving regions and layout changes.** Add stable 2D panel tracks, change-point detection, missing-panel handling and temporal smoothing. Currently regions are fixed within each shot and only sampled for stability. Abrupt moves between samples can be missed. Prefer full-scene fit or manual correction until supported.
+2. **Moving regions and layout changes.** Add stable 2D panel tracks, change-point detection, missing-panel handling and temporal smoothing. A low-resolution change detector now handles large screen changes when a stable layout cannot be established. Regions remain fixed within each shot and are only sampled for stability. Abrupt moves between samples can be missed. Prefer full-scene fit or manual correction until supported.
 3. **Explicit reanalysis and better correction UI.** Add a narrowly scoped reanalyse-layout action for completed clips, with cancellation and stale-result protection. Add draggable source overlays, per-shot locks and a way to accept a reviewed manual result. Percentage fields and persistent review notices are the current recovery path. Extending a manually composed clip beyond its saved layout coverage falls back to full-source fit with a review notice; rebuilding only the new interval remains work.
 4. **Durable orchestration and complete budgets.** Persist job checkpoints and cache keys tied to source/model/prompt/revision; recover after crashes and remove abandoned temporary files. Extend admission control across transcription and all analysis stages. Add project-wide cost limits, disk preflight, thermal/power policies, quiet mode and measured time estimates. Current provider limits remain in force, but this release adds no whole-project budget manager.
 5. **Full quality reports and targeted repair.** Bind technical, visual and editorial evidence to a specific edit revision. Add continuous motion/occlusion checks, independently verified text legibility, caption/title/branding/B-roll collision checks, audio continuity and a limited repair loop. Do not rename sampled layouts to Ready until those gates and corpus results support it.

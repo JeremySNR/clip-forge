@@ -8,11 +8,9 @@ import { mapLimit } from './concurrency'
 import { extractThumbnail, probeVideo } from './ffmpeg'
 import { ensureTranscript } from './projectTranscript'
 import { detectHighlights, maxDurationFor } from './highlights'
-import { analyzeClipFocus, applyFocusAnalysis, type ClipFocusAnalysis } from './faces'
-import { shouldAnalyzeFaces } from '@shared/videoType'
-import { markReframeComplete, selectEagerReframeIds } from '@shared/reframe'
+import { analyzeClipLayout } from './clipLayout'
+import { mergeReframeResult, selectEagerReframeIds } from '@shared/reframe'
 import { assessClipVisuals, ensembleScore } from './visualScore'
-import { refineComposition } from './composition'
 import { completeVisualStory } from './visualStory'
 import { attachBroll } from './broll'
 import {
@@ -220,6 +218,7 @@ export async function analyzeProject(
     if (!clips.length) throw new Error('The candidate clips did not form complete, self-contained stories. Try a longer clip length or a different source.')
     clips.sort((a, b) => b.viralityScore - a.viralityScore)
 
+    for (const clip of clips) clip.reframeStatus = 'pending'
     project.clips = clips
     project.prompt = options.prompt
     project.videoType = options.videoType
@@ -229,28 +228,26 @@ export async function analyzeProject(
       p.videoType = options.videoType
     })
 
-    onProgress({ stage: 'reframe', progress: 0.72, message: 'Analysing layout (faces vs screen share)…' })
+    onProgress({ stage: 'reframe', progress: 0.72, message: 'Preparing clip layouts…' })
     {
       // Face tracking and visual composition are substantial stages, so
       // only the top tier is analysed here. The rest stay 'pending' and are
       // analysed when opened or exported (see pipeline/reframe.ts).
       const eager = selectEagerReframeIds(clips)
       const eagerClips = clips.filter((c) => eager.has(c.id))
-      for (const clip of clips) clip.reframeStatus = 'pending'
       let reframed = 0
       await mapLimit(eagerClips, 2, async (clip) => {
         signal?.throwIfAborted()
-        const analysis: ClipFocusAnalysis = shouldAnalyzeFaces(options.videoType) ? await analyzeClipFocus(
-          project.video.path,
-          clip.suggestedStart,
-          clip.suggestedEnd,
-          signal
-        ) : { focusTrack: null, contentType: 'screencast' }
-        if (options.videoType !== 'talking-head') {
-          await refineComposition(apiKey, settings.analysisModel, project.video.path, clip, analysis.sceneCuts, signal, analysis.focusTrack, analysis.sceneTransitions, transcript)
-        }
-        applyFocusAnalysis(clip, analysis, options.videoType)
-        markReframeComplete(clip)
+        await analyzeClipLayout(project.video.path, clip, options.videoType,
+          apiKey, settings.analysisModel, transcript, signal)
+        // Persist each completed clip, including when a later request fails or
+        // the user cancels. Merge with edits made while analysis was running.
+        await updateProject(project.id, (fresh) => {
+          if (fresh.video.path !== project.video.path ||
+              (fresh.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
+          const index = fresh.clips.findIndex(c => c.id === clip.id)
+          if (index >= 0) fresh.clips[index] = mergeReframeResult(fresh.clips[index], clip, options.videoType)
+        })
         reframed++
         onProgress({
           stage: 'reframe',
@@ -258,7 +255,7 @@ export async function analyzeProject(
           message:
             eagerClips.length < clips.length
               ? `Analysing layout for the top ${eagerClips.length} clips (${reframed}/${eagerClips.length})…`
-              : 'Analysing layout (faces vs screen share)…'
+              : `Preparing layouts (${reframed}/${eagerClips.length})…`
         })
       })
     }
@@ -284,7 +281,11 @@ export async function analyzeProject(
         })
       })
       await updateProject(project.id, (p) => {
-        p.clips = clips
+        if (p.video.path !== project.video.path || (p.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
+        for (const current of p.clips) {
+          const result = clips.find(c => c.id === current.id)
+          if (result) current.broll = result.broll
+        }
       })
     }
 
@@ -310,7 +311,13 @@ export async function analyzeProject(
     // Final save returns the freshest merged copy (clips from this run plus
     // anything — like a rename — that changed on disk while it ran).
     const persisted = await updateProject(project.id, (p) => {
-      p.clips = clips
+      if (p.video.path !== project.video.path || (p.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
+      p.clips = p.clips.map(current => {
+        const result = clips.find(c => c.id === current.id)
+        // Layouts were checkpointed individually. Never replay a stale pending
+        // result over analysis that an editor/export completed in the meantime.
+        return result ? { ...current, thumbnailPath: result.thumbnailPath } : current
+      })
     })
     onProgress({ stage: 'done', progress: 1, message: 'Done' })
     return persisted

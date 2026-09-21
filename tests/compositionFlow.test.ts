@@ -101,3 +101,26 @@ it('verifies an overview and detail plan using real extracted JPEG frames', asyn
     await rm(dir, { recursive: true, force: true })
   }
 }, 15000)
+
+it('reuses source-review panels but verifies independent rendered samples', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'cutawan-proposed-panels-'))
+  try {
+    const video = join(dir, 'source.mp4')
+    await runFfmpeg(['-f', 'lavfi', '-i', 'testsrc2=size=1280x720:rate=5:duration=2', '-c:v', 'mpeg4', video])
+    chat.mockReset()
+    chat.mockResolvedValue({ accept: true, reason: 'Verified output', legible_labels: ['Graph'] })
+    const clip = { title: 'Graph', edit: { start: 0, end: 2, aspect: '9:16' },
+      visualLayout: { start: 0, end: 2, kind: 'screen', preserveContext: true, allowZoom: false, reason: 'screen',
+        panels: { content: { x: .2, y: .3, width: .6, height: .6 },
+          presenter: { x: .82, y: .02, width: .16, height: .26 } } } } as Clip
+    await refineComposition('unused', 'unused', video, clip, [])
+    expect(chat).toHaveBeenCalledOnce()
+    expect(chat.mock.calls[0][3]).toBe('presenter_composition_review')
+    expect(clip.visualLayout?.shots?.[0].composition).toBeDefined()
+    chat.mockReset()
+    chat.mockResolvedValue({ accept: false, reason: 'Webcam moved', legible_labels: [] })
+    await refineComposition('unused', 'unused', video, clip, [])
+    expect(clip.visualLayout?.shots?.[0].composition).toBeUndefined()
+    expect(clip.visualLayout?.shots?.[0].review?.status).toBe('needs-review')
+  } finally { await rm(dir, { recursive: true, force: true }) }
+}, 30000)

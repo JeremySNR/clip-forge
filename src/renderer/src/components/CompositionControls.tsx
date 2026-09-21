@@ -23,7 +23,7 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
     const existing = validLayoutShots(layout, clip.edit.start, clip.edit.end)
     const replacement = { start: shot?.start ?? clip.edit.start, end: shot?.end ?? clip.edit.end, mode: 'fit' as const,
       composition, review: { status: 'needs-review' as const, reason: 'Source regions adjusted manually; review this shot before exporting.' } }
-    void update({ ...clip, edit: { ...clip.edit, framing: 'auto', reframeMode: 'crop', autoZoom: false },
+    void update({ ...clip, edit: { ...clip.edit, layoutChosen: true, framing: 'auto', reframeMode: 'crop', autoZoom: false },
       visualLayout: { start: existing ? layout!.start : clip.edit.start, end: existing ? layout!.end : clip.edit.end,
         preserveContext: true, allowZoom: false, reason: 'Manually selected source regions.', revision: (layout?.revision ?? 0) + 1,
         shots: existing && shot ? layout!.shots!.map(s => s === shot ? replacement : s)
@@ -37,7 +37,7 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
         {preferences.map(([value, label]) => <button key={value} type="button"
           aria-pressed={active && (clip.edit.compositionPreference ?? 'auto') === value}
           disabled={clip.edit.aspect !== '9:16'}
-          onClick={() => void update({ ...clip, edit: { ...clip.edit, compositionPreference: value, framing: 'auto', reframeMode: 'crop', autoZoom: false } })}
+          onClick={() => void update({ ...clip, edit: { ...clip.edit, layoutChosen: true, compositionPreference: value, framing: 'auto', reframeMode: 'crop', autoZoom: false } })}
           className={`rounded-lg border px-2 py-2 text-xs transition disabled:opacity-40 ${active && (clip.edit.compositionPreference ?? 'auto') === value ? 'border-white/30 bg-white/[0.07] text-zinc-100' : 'border-surface-600 text-zinc-400 hover:bg-surface-800'}`}>
           {label}
         </button>)}

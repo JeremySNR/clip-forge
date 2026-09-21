@@ -222,6 +222,21 @@ describe('mergeReframeResult', () => {
     expect(merged.edit.framing).toBe('manual')
   })
 
+  it('keeps a letterbox chosen on a pending screen clip with preserveContext', () => {
+    // Webinar defaults already match letterbox aside from reframeMode, and the
+    // editorial pass attaches preserveContext before framing finishes.
+    const chosen = clip('a', 50, {
+      visualLayout: { start: 0, end: 30, preserveContext: true, allowZoom: false, reason: 'screen' },
+      edit: { ...clip('a', 50).edit, reframeMode: 'fit-letterbox', framing: 'manual', focusX: 0.5, autoZoom: false }
+    })
+    expect(layoutUntouched(chosen.edit, 'webinar')).toBe(false)
+    const merged = mergeReframeResult(chosen, analysed, 'webinar')
+    expect(merged.edit.reframeMode).toBe('fit-letterbox')
+    expect(merged.edit.framing).toBe('manual')
+    expect(merged.edit.autoZoom).toBe(false)
+    expect(mergeClipSave(chosen, analysed, 'webinar').edit.reframeMode).toBe('fit-letterbox')
+  })
+
   it('judges "untouched" against the defaults of the project video type', () => {
     // Webinar clips start with auto zoom off; that is untouched for a webinar
     // but a deliberate change for a podcast.

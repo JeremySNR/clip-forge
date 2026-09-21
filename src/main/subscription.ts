@@ -1,10 +1,11 @@
 import { app } from 'electron'
 import { spawn } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { accessSync, constants, existsSync } from 'node:fs'
-import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { delimiter, dirname, join, resolve } from 'node:path'
-import { homedir } from 'node:os'
+import { totalmem, homedir } from 'node:os'
+import { MediaQueue } from './pipeline/mediaJobs'
 import { DEFAULT_SUBSCRIPTION, type SubscriptionSettings } from '@shared/subscription'
 import type { ChatMessage, TranscribeFileOptions, WhisperResponse } from './pipeline/openai'
 
@@ -14,7 +15,11 @@ export function throwIfSubscriptionError(error: unknown): void {
 }
 
 let preferences = { ...DEFAULT_SUBSCRIPTION }
-let queue: Promise<unknown> = Promise.resolve()
+// Network-bound CLI jobs need no inference model. macOS free RAM excludes
+// reclaimable caches, so use installed memory for this small fixed ceiling.
+const requests = new MediaQueue(() => totalmem() >= 8 * 1024 ** 3 ? 2 : 1)
+const pending = new Map<string, Promise<unknown>>()
+let reservations: Promise<unknown> = Promise.resolve()
 export function configureSubscription(value: SubscriptionSettings): void { preferences = { ...value } }
 export function usesSubscription(): boolean { return preferences.provider === 'chatgpt' }
 export function usesLocalTranscription(): boolean { return usesSubscription() || preferences.localTranscription }
@@ -145,7 +150,13 @@ async function requestsToday(): Promise<number> {
   return usage.date === new Date().toISOString().slice(0, 10) ? usage.requests : 0
 }
 
-async function reserveRequest(limit: number): Promise<void> {
+function reserveRequest(limit: number): Promise<void> {
+  const reservation = reservations.catch(() => {}).then(() => reserveRequestLocked(limit))
+  reservations = reservation
+  return reservation
+}
+
+async function reserveRequestLocked(limit: number): Promise<void> {
   const root = app.getPath('userData')
   const lockPath = join(root, 'subscription-usage.lock')
   // Fail closed across multiple app processes too. Never reset a damaged or
@@ -156,20 +167,41 @@ async function reserveRequest(limit: number): Promise<void> {
   try {
     const used = await requestsToday()
     if (used >= limit) throw new Error(`ChatGPT daily request cap reached (${used}/${limit}). Cached results still work. Change the cap in Settings to allow more; no paid API fallback is used.`)
-    await writeFile(join(root, 'subscription-usage.json'), JSON.stringify({ date: new Date().toISOString().slice(0, 10), requests: used + 1 }))
+    // Readers (including Settings and other processes) see either complete
+    // ledger, never the empty/partial contents of an in-place write.
+    const temporary = join(root, `subscription-usage-${randomUUID()}.json`)
+    try {
+      await writeFile(temporary, JSON.stringify({ date: new Date().toISOString().slice(0, 10), requests: used + 1 }))
+      await rename(temporary, join(root, 'subscription-usage.json'))
+    } finally {
+      await rm(temporary, { force: true })
+    }
   } finally {
     await lock.close()
     await rm(lockPath, { force: true })
   }
 }
 
+function waitForPrevious(previous: Promise<unknown>, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return }
+    const abort = (): void => reject(signal?.reason)
+    signal?.addEventListener('abort', abort, { once: true })
+    const done = (): void => { signal?.removeEventListener('abort', abort); resolve() }
+    void previous.then(done, done)
+  })
+}
+
 export async function subscriptionJSON<T>(messages: ChatMessage[], schema: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
   const config = { ...preferences }
-  const task = queue.catch(() => {}).then(async () => {
+  const key = createHash('sha256').update(JSON.stringify({ version: 1, model: config.codexModel, reasoning: 'low', messages, schema })).digest('hex')
+  // Identical requests wait for the first cache write without occupying a slot.
+  // A cancelled first caller does not cancel a second caller's independent run.
+  const previous = pending.get(key) ?? Promise.resolve()
+  const task = waitForPrevious(previous, signal).then(() => requests.run(async () => {
     signal?.throwIfAborted()
     const root = join(app.getPath('userData'), 'subscription-cache')
     await mkdir(root, { recursive: true })
-    const key = createHash('sha256').update(JSON.stringify({ version: 1, model: config.codexModel, reasoning: 'low', messages, schema })).digest('hex')
     const cache = join(root, key + '.json')
     if (existsSync(cache)) return JSON.parse(await readFile(cache, 'utf8')) as T
     const used = await requestsToday()
@@ -198,7 +230,8 @@ export async function subscriptionJSON<T>(messages: ChatMessage[], schema: Recor
         sections.push(`${message.role.toUpperCase()} MESSAGE\n${text.join('\n')}`)
       }
       await writeFile(join(dir, 'schema.json'), JSON.stringify(schema))
-      // Serialize reservations and count failures too: retries cannot quietly spend more.
+      // Serialize only the reservation; independent model requests can overlap.
+      // Count failures too: retries cannot quietly spend more.
       await reserveRequest(config.dailyRequestLimit)
       await run(config.codexPath, codexArguments(config.codexModel, dir, images), sections.join('\n\n'), combined)
       const response = await readFile(join(dir, 'response.json'), 'utf8')
@@ -209,9 +242,12 @@ export async function subscriptionJSON<T>(messages: ChatMessage[], schema: Recor
       // Only the directory just allocated by mkdtemp can be removed.
       if (dirname(resolve(dir)) === resolve(root)) await rm(dir, { recursive: true, force: true })
     }
-  })
+  }, signal))
   const guarded = task.catch(error => { throw new SubscriptionError(error instanceof Error ? error.message : String(error)) })
-  queue = guarded
+  // A cancelled waiter must not erase an earlier caller that is still running.
+  const barrier = Promise.allSettled([previous, guarded])
+  pending.set(key, barrier)
+  void barrier.then(() => { if (pending.get(key) === barrier) pending.delete(key) })
   return guarded
 }
 

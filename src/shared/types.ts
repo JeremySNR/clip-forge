@@ -97,6 +97,8 @@ export interface ClipEditState {
   framing: FramingMode
   /** A user choice; automatic analysis must not overwrite it. */
   compositionPreference?: 'auto' | 'content-first' | 'stacked' | 'content-only'
+  /** Explicit framing choice, even when its values match generated defaults. */
+  layoutChosen?: boolean
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
   tightenCuts: boolean
   /**
@@ -170,6 +172,10 @@ export interface Clip {
     preserveContext: boolean
     allowZoom: boolean
     reason: string
+    /** Screen-only footage can be composed without active-speaker inference. */
+    kind?: 'screen' | 'camera' | 'mixed'
+    /** A stable proposal from the source review; never used without rendered verification. */
+    panels?: { content: ContentRegion; presenter: ContentRegion }
     shots?: LayoutShot[]
   }
   hashtags: string[]

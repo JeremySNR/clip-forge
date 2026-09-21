@@ -9,6 +9,7 @@ vi.mock('../src/main/settings', () => ({ getAnalysisCredential: () => 'key', get
 vi.mock('../src/main/projects', () => ({ projectDir: mocks.projectDir, saveProject: vi.fn(), updateProject: mocks.save }))
 vi.mock('../src/main/pipeline/projectTranscript', () => ({ ensureTranscript: mocks.transcript }))
 vi.mock('../src/main/pipeline/highlights', () => ({ detectHighlights: mocks.highlights, maxDurationFor: () => 45 }))
+vi.mock('../src/main/pipeline/screenCuts', () => ({ screenTransitions: async () => [] }))
 vi.mock('../src/main/pipeline/visualScore', () => ({ assessClipVisuals: mocks.assess, ensembleScore: (a: number, b: number) => Math.round((a + b) / 2) }))
 vi.mock('../src/main/pipeline/visualStory', () => ({ completeVisualStory: mocks.complete }))
 vi.mock('../src/main/pipeline/faces', () => ({ analyzeClipFocus: mocks.faces, applyFocusAnalysis: vi.fn() }))
@@ -22,7 +23,7 @@ import { join } from 'node:path'
 
 let project: Project
 const options = { videoType: 'product-demo', clipLength: 'short', prompt: '', broll: false } as AnalyzeOptions
-const review = { needsVisualPayoff: false, visualScore: 80, visualSummary: 'Complete', visualLayout: { start: 0, end: 10, preserveContext: true, allowZoom: false, reason: 'demo' } }
+const review = { needsVisualPayoff: false, visualScore: 80, visualSummary: 'Complete', visualLayout: { kind: 'screen', start: 0, end: 10, preserveContext: true, allowZoom: false, reason: 'demo' } }
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -54,7 +55,7 @@ it('does not recommend a known incomplete demonstration when repair fails', asyn
 
 it('reviews a repaired edit before recommending it and saves its final assessment', async () => {
   mocks.assess.mockResolvedValueOnce({ ...review, needsVisualPayoff: true,
-    storyIssue:{kind:'unresolved_ending',evidenceQuote:'Here comes the result',reason:'Result not shown.'} }).mockResolvedValueOnce(review)
+    storyIssue:{kind:'unresolved_ending',evidenceQuote:'Here comes the result',reason:'Result not shown.'} }).mockResolvedValueOnce({ ...review, visualLayout: { ...review.visualLayout, end: 40 } })
   const [clip] = await mocks.highlights()
   mocks.complete.mockResolvedValue({ ...clip, edit: { ...clip.edit, end: 40 }, suggestedEnd: 40, visualStory: { protectedRanges: [{ start: 30, end: 40 }], reason: 'Result' } })
   const result = await analyzeProject(project, options, () => {})
@@ -84,4 +85,25 @@ it('keeps a complete alternative when another candidate is incoherent', async ()
     : review)
   const result=await analyzeProject(project,options,()=>{})
   expect(result.clips.map(c=>c.id)).toEqual(['alternative'])
+})
+
+it('checkpoints completed layouts before a later clip fails', async () => {
+  const [first] = await mocks.highlights()
+  mocks.highlights.mockResolvedValue([first, { ...structuredClone(first), id: 'second' }])
+  let stored = structuredClone(project)
+  let savedFirst!: () => void
+  const checkpoint = new Promise<void>(resolve => { savedFirst = resolve })
+  mocks.save.mockImplementation(async (_: string, update: (p: Project) => void) => {
+    const fresh = structuredClone(stored)
+    update(fresh)
+    stored = structuredClone(fresh)
+    if (stored.clips.find(c => c.id === 'clip')?.reframeStatus === 'done') savedFirst()
+    return structuredClone(stored)
+  })
+  mocks.composition.mockImplementation(async (_key, _model, _path, c: Clip) => {
+    if (c.id === 'second') { await checkpoint; throw new Error('Request failed') }
+  })
+  await expect(analyzeProject(project, options, () => {})).rejects.toThrow('Request failed')
+  expect(stored.clips.find(c => c.id === 'clip')?.reframeStatus).toBe('done')
+  expect(stored.clips.find(c => c.id === 'second')?.reframeStatus).toBe('pending')
 })
