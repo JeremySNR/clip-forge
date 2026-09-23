@@ -539,14 +539,8 @@ export default function EditorScreen(): React.JSX.Element {
                 if (keepsPlayback(next, project.transcript)) void updateClip(next)
               }}
               onTrim={(start, end) => {
-                void updateClip({
-                  ...clip,
-                  edit: {
-                    ...clip.edit,
-                    start: Math.max(windowStart, start),
-                    end: Math.min(windowEnd, end)
-                  }
-                })
+                const next = { ...clip, edit: { ...clip.edit, start: Math.max(windowStart, start), end: Math.min(windowEnd, end) } }
+                if (keepsPlayback(next, project.transcript)) void updateClip(next)
               }}
             />
           ) : (

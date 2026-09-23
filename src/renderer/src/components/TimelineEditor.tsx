@@ -65,6 +65,11 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
     if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
     setSelected(null)
   }
+  // Trims go through the same guard as cuts: narrowing the trim onto a
+  // stretch that is all cut would otherwise leave nothing to play.
+  const saveTrim = (next: Clip['edit']): void => {
+    if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
+  }
   const split = (): void => {
     const next = splitAt(edit, usePreviewBus.getState().time)
     if (next !== edit) onSave(next)
@@ -93,8 +98,8 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
       else if (key === 'l') step(1)
       else if (key === 'arrowleft') step(e.shiftKey ? -1 : -1 / fps)
       else if (key === 'arrowright') step(e.shiftKey ? 1 : 1 / fps)
-      else if (key === 'i') onSave(setTrimEdge(edit, 'start', Math.max(windowStart, bus.time)))
-      else if (key === 'o') onSave(setTrimEdge(edit, 'end', Math.min(windowEnd, bus.time)))
+      else if (key === 'i') saveTrim(setTrimEdge(edit, 'start', Math.max(windowStart, bus.time)))
+      else if (key === 'o') saveTrim(setTrimEdge(edit, 'end', Math.min(windowEnd, bus.time)))
       else if (key === 's') split()
       else if (key === 'delete' || key === 'backspace') cutSelected()
       else if (key === 'escape') setSelected(null)
@@ -116,9 +121,12 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
         timeline={timeline}
         onChange={(start, end) => onLocal({ ...edit, start, end })}
         onCommit={() => {
-          // Read the live clip: the drag closure was created at drag start.
+          // Read the live clip: the drag closure was created at drag start,
+          // so `edit` here is the pre-drag trim to snap back to if refused.
           const current = useStore.getState().project?.clips.find((c) => c.id === clip.id)
-          if (current) onSave(current.edit)
+          if (!current) return
+          if (keepsPlayback(current, transcript)) onSave(current.edit)
+          else onLocal(edit)
         }}
         marks={marks}
         splits={edit.splits}
