@@ -8,7 +8,7 @@ import {
   groupWords,
   wordsInRange
 } from '@shared/captionLayout'
-import { computeKeptSegments, TimeMap } from '@shared/tighten'
+import { clipKeptSegments, TimeMap } from '@shared/tighten'
 import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
 import { captionPositionAt } from '@shared/contentRegion'
 import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
@@ -182,11 +182,9 @@ export default function PreviewPlayer({
     return () => setScrubHandler(null)
   }, [setScrubHandler, requestSeek])
 
-  // Mirrors the export's tighten-cuts behaviour by skipping removed spans.
-  const keptSegments = useMemo(() => {
-    if (!clip.edit.tightenCuts || !project.transcript) return null
-    return computeKeptSegments(project.transcript, start, end, clip.visualStory?.protectedRanges)
-  }, [clip.edit.tightenCuts, clip.visualStory, project.transcript, start, end])
+  // Mirrors the export by skipping removed pauses and the user's cuts.
+  const keptSegments = useMemo(() => clipKeptSegments(clip, project.transcript),
+    [clip, project.transcript])
   const timeMap = useMemo(() => (keptSegments ? new TimeMap(keptSegments) : null), [keptSegments])
   const outputDuration = timeMap?.outputDuration ?? duration
   const outputTime = timeMap ? timeMap.toOutput(time) : Math.max(0, time - start)
@@ -274,6 +272,15 @@ export default function PreviewPlayer({
       setPlaying(true)
     }
   }
+
+  // Keyboard shortcuts play/pause through the bus; the ref keeps the handler current.
+  const togglePlayRef = useRef(togglePlay)
+  useEffect(() => { togglePlayRef.current = togglePlay })
+  const setToggleHandler = usePreviewBus((s) => s.setToggleHandler)
+  useEffect(() => {
+    setToggleHandler(() => togglePlayRef.current())
+    return () => setToggleHandler(null)
+  }, [setToggleHandler])
 
   const restart = (): void => {
     requestSeek(start)

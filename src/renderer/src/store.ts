@@ -17,11 +17,24 @@ import type {
 
 import { findWholeVideoClip, highlightClips, isWholeVideoClip } from '@shared/wholeVideo'
 import { mergeReframeResult, needsReframe } from '@shared/reframe'
+import { clearHistory, recordSave, redo as redoEdit, trackClip, undo as undoEdit } from '@shared/editHistory'
 
 /** Font faces already registered with document.fonts (FontFace API). */
 const loadedFontFaces = new Map<string, FontFace>()
 /** Saved trim changes that arrived while a reframe request was in flight. */
 const queuedReframes = new Set<string>()
+
+/** Apply an undo/redo step and save it without recording a new step. */
+async function stepHistory(clipId: string, step: (clip: Clip) => Clip | null): Promise<void> {
+  const { project } = useStore.getState()
+  const clip = project?.clips.find((c) => c.id === clipId)
+  const next = clip && step(clip)
+  if (!project || !next) return
+  useStore.getState().updateClipLocal(next)
+  useStore.setState({ historyVersion: useStore.getState().historyVersion + 1 })
+  await window.cutawan.updateClip(project.id, next)
+  if (useStore.getState().selectedClipId === clipId) await useStore.getState().ensureReframe(clipId)
+}
 
 /** Register custom fonts with the renderer so previews match exports. */
 async function registerFonts(fonts: CustomFont[]): Promise<void> {
@@ -113,6 +126,11 @@ interface AppState {
   openEditor: (clipId: string) => void
   closeEditor: () => void
   updateClip: (clip: Clip) => Promise<void>
+  /** Step the clip's own edits back or forward (see lib/editHistory.ts). */
+  undo: (clipId: string) => Promise<void>
+  redo: (clipId: string) => Promise<void>
+  /** Bumped on every undo-history change so undo/redo buttons re-render. */
+  historyVersion: number
   updateClipLocal: (clip: Clip) => void
   generateCaption: (clipId: string) => Promise<void>
   captionBusy: Record<string, boolean>
@@ -169,6 +187,7 @@ export const useStore = create<AppState>((set, get) => ({
   reframeBusy: {},
   reframeError: {},
   backgroundReframing: {},
+  historyVersion: 0,
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -247,6 +266,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   openProject: async (id) => {
+    clearHistory()
     const project = await window.cutawan.loadProject(id)
     // A whole-video project reopens on its edit; a clip project on the grid.
     const wholeVideo = project.mode === 'whole-video' ? findWholeVideoClip(project) : null
@@ -275,7 +295,10 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  goHome: () => set({ screen: 'home', selectedClipId: null, pipelineError: null }),
+  goHome: () => {
+    clearHistory()
+    set({ screen: 'home', selectedClipId: null, pipelineError: null })
+  },
 
   // Deselect the current project and return to the import screen so a new
   // video can be added. Non-destructive: the project stays saved on disk and
@@ -361,7 +384,11 @@ export const useStore = create<AppState>((set, get) => ({
     if (project) await window.cutawan.cancelAnalyze(project.id)
   },
 
-  openEditor: (clipId) => set({ selectedClipId: clipId, screen: 'editor' }),
+  openEditor: (clipId) => {
+    const clip = get().project?.clips.find((c) => c.id === clipId)
+    if (clip) trackClip(clip)
+    set({ selectedClipId: clipId, screen: 'editor' })
+  },
   closeEditor: () =>
     set({
       selectedClipId: null,
@@ -380,11 +407,15 @@ export const useStore = create<AppState>((set, get) => ({
     const project = get().project
     if (!project) return
     get().updateClipLocal(clip)
+    if (recordSave(clip)) set({ historyVersion: get().historyVersion + 1 })
     await window.cutawan.updateClip(project.id, clip)
     if (get().project?.id === project.id && get().selectedClipId === clip.id) {
       await get().ensureReframe(clip.id)
     }
   },
+
+  undo: async (clipId) => stepHistory(clipId, undoEdit),
+  redo: async (clipId) => stepHistory(clipId, redoEdit),
 
   generateCaption: async (clipId) => {
     const project = get().project

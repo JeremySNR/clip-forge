@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto'
 import { validRectangle } from '@shared/composition'
 import type { Clip, ContentRegion, Transcript } from '@shared/types'
 import { wordsInRange } from '@shared/captionLayout'
-import { computeKeptSegments, editedClipDuration, TimeMap } from '@shared/tighten'
+import { clipKeptSegments, editedClipDuration, TimeMap } from '@shared/tighten'
 import { chatJSON, type ChatContentPart } from './openai'
 import { runAnalysisFfmpeg as runFfmpeg } from './ffmpeg'
 
@@ -189,9 +189,7 @@ export function validatedStoryIssue(value: unknown, transcriptText: string): Sto
 
 /** Sample the planned edit, so removed waiting time cannot masquerade as payoff. */
 export function plannedClipFrameTimes(clip: Clip, transcript: Transcript, count = 6): number[] {
-  const ranges = clip.edit.tightenCuts
-    ? computeKeptSegments(transcript, clip.edit.start, clip.edit.end, clip.visualStory?.protectedRanges)
-    : null
+  const ranges = clipKeptSegments(clip, transcript)
   if (!ranges) return clipFrameTimes(clip.edit.start, clip.edit.end, count)
   const map = new TimeMap(ranges)
   return clipFrameTimes(0, map.outputDuration, count).map(t => map.toSource(t))
@@ -199,9 +197,7 @@ export function plannedClipFrameTimes(clip: Clip, transcript: Transcript, count 
 
 /** Supply the same retained speech as the export, not words inside cut gaps. */
 export function plannedClipTranscriptText(clip: Clip, transcript: Transcript): string {
-  const kept = clip.edit.tightenCuts
-    ? computeKeptSegments(transcript, clip.edit.start, clip.edit.end, clip.visualStory?.protectedRanges)
-    : null
+  const kept = clipKeptSegments(clip, transcript)
   return wordsInRange(transcript, clip.edit.start, clip.edit.end)
     .filter(w => !kept || kept.some(r => (w.start + w.end) / 2 >= r.start && (w.start + w.end) / 2 <= r.end))
     .map(w => w.text).join(' ')

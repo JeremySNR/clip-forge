@@ -24,7 +24,8 @@ import { automaticLayoutShots, validLayoutShots } from '@shared/contentType'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import CompositionControls from './CompositionControls'
-import TrimBar from './TrimBar'
+import TimelineEditor from './TimelineEditor'
+import { cutRange } from '@shared/editOps'
 import ScoreBadge from './ScoreBadge'
 import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
@@ -173,20 +174,18 @@ export default function EditorScreen(): React.JSX.Element {
         )}
 
         <Section icon={Scissors} title="Trim">
-          <TrimBar
+          <TimelineEditor
+            clip={clip}
             windowStart={windowStart}
             windowEnd={windowEnd}
-            start={clip.edit.start}
-            end={clip.edit.end}
+            fps={project.video.fps || 30}
             timeline={timeline}
-            onChange={(start, end) => setLocal({ start, end })}
-            onCommit={() => {
-              // Read the live clip: the pointerup closure inside TrimBar was
-              // created at drag start, so `clip` here would be pre-drag.
-              const current = useStore
-                .getState()
-                .project?.clips.find((c) => c.id === clip.id)
-              if (current) void updateClip(current)
+            // Timeline edits never touch layout fields, so they save as-is
+            // (userClipEdit would mark the layout as manually chosen).
+            onLocal={(edit) => updateClipLocal({ ...clip, edit })}
+            onSave={(edit) => {
+              const live = useStore.getState().project?.clips.find((c) => c.id === clip.id) ?? clip
+              void updateClip({ ...live, edit })
             }}
           />
           <div className="mt-3">
@@ -527,6 +526,8 @@ export default function EditorScreen(): React.JSX.Element {
               transcript={project.transcript}
               clipStart={clip.edit.start}
               clipEnd={clip.edit.end}
+              cuts={clip.edit.cuts}
+              onCut={(range) => void updateClip({ ...clip, edit: cutRange(clip.edit, range) })}
               onTrim={(start, end) => {
                 void updateClip({
                   ...clip,

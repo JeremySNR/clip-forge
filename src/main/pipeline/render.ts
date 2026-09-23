@@ -14,7 +14,7 @@ import type {
   WatermarkPosition
 } from '@shared/types'
 import type { EncoderPreference } from '@shared/types'
-import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
+import { clipKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
 import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
@@ -633,10 +633,7 @@ async function render(job: RenderJob): Promise<RenderResult> {
   // Tighten cuts: figure out the kept segments and remap everything that is
   // timed against the source (captions, B-roll, face track) into the
   // compacted output timeline.
-  const segments =
-    clip.edit.tightenCuts && transcript
-      ? computeKeptSegments(transcript, start, clip.edit.end, clip.visualStory?.protectedRanges)
-      : null
+  const segments = clipKeptSegments(clip, transcript)
   const map = segments ? new TimeMap(segments) : null
   const outputDuration = map ? map.outputDuration : duration
 
