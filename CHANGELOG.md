@@ -6,34 +6,34 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
-## [Unreleased]
+## [0.12.0] - 2026-09-23
 
 ### Added
 
-- Timeline editing in the clip editor: split at the playhead (S or ⌘K), select a piece and ripple-delete it (Delete), and click a cut to put it back. Automatically removed pauses are shown on the timeline; click one to keep it.
+- Edit clips on the timeline: split at the playhead (S or ⌘K), click a piece and press Delete to cut it, and click a cut to put it back. Pauses that were removed automatically now show on the timeline; click one to keep it.
 - Cut words straight from the transcript: drag across them and press Delete or "Cut selection". Cut words are struck through.
-- Undo and redo for clip edits (⌘Z / ⇧⌘Z), and Premiere-style keys: Space or K play/pause, J/L step a second, arrow keys step a frame, I/O set in and out.
-- The trim bar shows how long the clip plays after pauses and cuts.
-- "What's new" after each update, and any time from Settings → Updates. When an update is available, its notes show there before you download it.
+- Undo and redo for clip edits (⌘Z / ⇧⌘Z), plus Premiere-style keys: Space or K to play and pause, J and L to step a second, arrow keys to step a frame, and I and O to set the in and out points.
+- Split screen for conversations: when two people trade quick turns in the same shot, both are shown, one above the other. Turn it off per clip in the editor.
+- The trim bar shows how long the clip actually plays after pauses and cuts.
+- "What's new" after each update, and any time from Settings → Updates. When an update is available, you can read what's in it before downloading.
 
 ### Improved
 
-- Show found clips as soon as they are scored; the top clips' layouts finish in the background, each marked "Framing…". A failed background layout no longer fails the run.
-- Speaker tracking is roughly 40% faster: faces are detected five times a second instead of every other frame, with half-resolution detection while faces are large. Extreme close-ups that fill the frame are now detected.
-- The auto-reframe crop plans each shot ahead: it holds still while the face stays near centre and pans only when the speaker really moves, keeping faces centred more reliably.
-- Two people trading quick turns in the same shot are shown as a stacked split screen, with captions on the seam. Switch it off per clip in the editor.
-- Pause removal cuts only in detected silence (Silero VAD), so it no longer clips word endings, laughter or the other person's interjections. Filler words such as "um" are still removed.
-- Apple Silicon Macs export with the VideoToolbox hardware encoder at quality matched to the existing tiers (about 5x faster encoding). Layout exports no longer spend most of their time drawing black backgrounds.
-- On Apple Silicon, local Whisper setup adds GPU transcription (about 1.8x faster). Re-run setup to enable it.
+- Clips appear as soon as they're found. Framing for the top clips finishes in the background, marked "Framing…" on each card.
+- Following the speaker is about 40% faster, and close-ups where a face fills the frame are now recognised.
+- Steadier framing: the crop stays still while the speaker stays near the centre and only moves when they really move, keeping faces centred more reliably.
+- Pause removal only cuts where there's actual silence, so it no longer clips the ends of words, laughter or the other person's reactions. Filler words such as "um" are still removed.
+- Much faster exports on Apple Silicon Macs, which now use the built-in hardware encoder at the same quality. Split-screen and layout exports are faster on every computer.
+- Faster local transcription on Apple Silicon Macs. Re-run local Whisper setup in Settings to turn it on.
 
 ### Fixed
 
-- Cropped exports carried a slightly non-square sample aspect ratio (for example 404:405).
-- Auto zoom stuttered in the editor preview (not in exports). The preview clock snapped back to each late video time report, and captions, playhead and transcript re-rendered on every display frame; the clock is now smooth and monotonic and those parts update about 30 times a second.
+- Exported videos could be very slightly squashed horizontally in some players.
+- Auto zoom stuttered in the editor preview (exports were not affected).
 
 ### Validation
 
-- See `docs/speed-and-framing-validation.md` for measurements, failed trials and what remains unmeasured.
+- Measurements, failed trials and remaining limits: `docs/speed-and-framing-validation.md`.
 
 ## [0.11.4] - 2026-09-21
 
