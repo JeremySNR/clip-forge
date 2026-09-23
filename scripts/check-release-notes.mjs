@@ -13,7 +13,18 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const baseRef = process.env.BASE_REF || 'origin/main'
-const labels = JSON.parse(process.env.PR_LABELS || '[]').map((l) => String(l).toLowerCase())
+// Accept a JSON list, a single JSON string or a bare name, whatever the
+// workflow expression renders to.
+const parseLabels = (raw) => {
+  if (!raw) return []
+  try {
+    const value = JSON.parse(raw)
+    return (Array.isArray(value) ? value : [value]).map((l) => String(l).toLowerCase())
+  } catch {
+    return [raw.toLowerCase()]
+  }
+}
+const labels = parseLabels(process.env.PR_LABELS)
 if (labels.includes('no release notes')) {
   console.log('Skipped: labelled "no release notes".')
   process.exit(0)
