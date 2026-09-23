@@ -6,6 +6,15 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [Unreleased]
+
+### Fixed
+
+- If Cutawan couldn't restart itself after updating a source checkout, trying again now finishes the update instead of reporting "already up to date".
+- On Windows, a Python or other command launcher (such as one from conda) is no longer mistaken for a broken Codex install.
+- AI connections that don't support strict JSON output (some local and OpenAI-compatible models) are now told exactly what shape to reply in, and a malformed reply is retried instead of failing.
+- A size-limited export that still ends up over the limit now says so plainly.
+
 ## [0.12.0] - 2026-09-23
 
 ### Added

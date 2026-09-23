@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { accessSync, constants, existsSync } from 'node:fs'
 import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { analysisRequests as requests } from './pipeline/mediaJobs'
 import { DEFAULT_SUBSCRIPTION, type SubscriptionSettings } from '@shared/subscription'
@@ -52,29 +52,47 @@ export function resolveCodexExecutable(executable: string, searchPath = process.
   }) ?? executable
 }
 
-function commandFor(executable: string): { command: string; prefix: string[]; node: boolean } {
-  // npm installs a .cmd shim on Windows; run its JS entry directly, never via a shell.
+function commandFor(executable: string): { command: string; prefix: string[]; node: boolean; shell: boolean } {
+  // npm installs a Codex .cmd shim on Windows; run its JS entry directly, never via a shell.
   if (process.platform === 'win32') {
     const candidates = executable.includes('/') || executable.includes('\\')
       ? [executable] : (process.env.PATH ?? '').split(delimiter).flatMap(dir => [join(dir, executable + '.exe'), join(dir, executable + '.cmd')])
     const found = candidates.find(path => existsSync(path))
     if (found?.endsWith('.cmd')) {
-      const entry = join(dirname(found), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
-      if (!existsSync(entry)) throw new Error('Select the Codex executable in Settings; this command shim is not a Codex installation.')
-      return { command: process.execPath, prefix: [entry], node: true }
+      if (basename(found).toLowerCase() === 'codex.cmd') {
+        const entry = join(dirname(found), 'node_modules', '@openai', 'codex', 'bin', 'codex.js')
+        if (!existsSync(entry)) throw new Error('Select the Codex executable in Settings; this command shim is not a Codex installation.')
+        return { command: process.execPath, prefix: [entry], node: true, shell: false }
+      }
+      // Other .cmd wrappers (e.g. a conda python.cmd) are not Codex; Node needs a shell to launch them.
+      return { command: found, prefix: [], node: false, shell: true }
     }
-    if (found) return { command: found, prefix: [], node: false }
+    if (found) return { command: found, prefix: [], node: false, shell: false }
   }
-  return { command: resolveCodexExecutable(executable), prefix: [], node: false }
+  return { command: resolveCodexExecutable(executable), prefix: [], node: false, shell: false }
+}
+
+/**
+ * Quote arguments for cmd.exe (which Node runs as `cmd /d /s /c "<line>"`).
+ * Inside double quotes cmd treats spaces and & | < > ^ literally; embedded
+ * quotes are doubled. `%VAR%` can still expand, so arguments must not rely on
+ * a literal percent sign.
+ */
+export function cmdLine(parts: string[]): string {
+  return parts.map((part) => `"${part.replace(/"/g, '""')}"`).join(' ')
 }
 
 async function run(executable: string, args: string[], input: string, signal: AbortSignal): Promise<string> {
   signal.throwIfAborted()
-  const { command, prefix, node } = commandFor(executable)
+  const { command, prefix, node, shell } = commandFor(executable)
   return new Promise((accept, reject) => {
     const env = subscriptionEnvironment(process.env)
     if (node) env.ELECTRON_RUN_AS_NODE = '1'
-    const child = spawn(command, [...prefix, ...args], { windowsHide: true, shell: false, env, detached: process.platform !== 'win32' })
+    // A .cmd launcher needs cmd.exe, which splits on spaces and interprets
+    // & | < > ^: pass it one fully quoted command line instead of argv.
+    const child = shell
+      ? spawn(cmdLine([command, ...prefix, ...args]), [], { windowsHide: true, shell: true, env })
+      : spawn(command, [...prefix, ...args], { windowsHide: true, shell: false, env, detached: process.platform !== 'win32' })
     const stop = (): void => {
       // npm/Python launchers can have a native child. Killing just the launcher
       // would leave inference running (and consuming allowance) after Cancel.

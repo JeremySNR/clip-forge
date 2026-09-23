@@ -71,7 +71,9 @@ export interface UploadEncodePlan {
   estimatedBytes: number
   /**
    * True when even `MIN_SCALE` cannot reach `TARGET_BITS_PER_PIXEL`. The
-   * render still goes ahead, but the caller may want to warn.
+   * render still goes ahead, but the caller may want to warn about soft
+   * picture quality. When the video bitrate floor dominates, the finished
+   * file can still exceed `capBytes`.
    */
   overBudget: boolean
 }

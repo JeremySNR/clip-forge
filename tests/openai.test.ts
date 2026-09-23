@@ -135,6 +135,25 @@ describe('chatJSON', () => {
     expect(second.response_format?.type).toBe('json_object')
   })
 
+  it('tells json_object fallbacks the schema and retries after invalid JSON', async () => {
+    delete process.env.OPENAI_BASE_URL
+    configureOpenAiEndpoints({ chatBase: 'http://127.0.0.1:11434/v1' })
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { response_format?: { type?: string } }
+      // The strict attempt comes back as prose; the next format returns JSON.
+      const content = body.response_format?.type === 'json_schema' ? 'Sure! Here you go: ok' : '{"ok":true}'
+      return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const result = await chatJSON<{ ok: boolean }>('sk-test', 'local-model', [{ role: 'user', content: 'hi' }], 'test', schema)
+    expect(result).toEqual({ ok: true })
+    const second = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as {
+      response_format?: { type?: string }; messages: Array<{ content: string }>
+    }
+    expect(second.response_format?.type).toBe('json_object')
+    expect(second.messages.at(-1)?.content).toContain('"required"')
+  })
+
   it('does not fall back on a real 401', async () => {
     delete process.env.OPENAI_BASE_URL
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ error: { message: 'bad key' } }), { status: 401 }))
