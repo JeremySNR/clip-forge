@@ -17,9 +17,10 @@ const LIMIT = 100
 
 /** Top-level clip fields the user edits; edit fields are tracked one by one. */
 const CLIP_KEYS = ['title', 'hook', 'caption', 'broll', 'visualLayout'] as const
+/** Framing that reframe analysis rewrites until the user chooses a layout. */
+const FRAMING_KEYS = ['edit.reframeMode', 'edit.framing', 'edit.focusX', 'edit.autoZoom', 'edit.compositionPreference']
 /** What reframe analysis and caption generation write without a user save. */
-const EXTERNAL_KEYS = ['edit.reframeMode', 'edit.framing', 'edit.focusX', 'edit.autoZoom',
-  'edit.compositionPreference', 'visualLayout', 'caption']
+const EXTERNAL_KEYS = [...FRAMING_KEYS, 'visualLayout', 'caption']
 
 type Values = Map<string, string>
 interface Change { key: string; before: string | undefined; after: string | undefined }
@@ -74,7 +75,9 @@ export function recordSave(clip: Clip): boolean {
   const changes: Change[] = []
   for (const key of keys) {
     const before = history.saved.get(key), after = next.get(key)
-    if (before !== after) changes.push({ key, before, after })
+    // Until the user picks a layout (layoutChosen), framing differences are
+    // analysis results, even if they reached this save unannounced.
+    if (before !== after && (clip.edit.layoutChosen || !FRAMING_KEYS.includes(key))) changes.push({ key, before, after })
   }
   if (!changes.length) return false
   history.past.push(changes)
