@@ -14,8 +14,8 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 - Speaker tracking is roughly 40% faster: faces are detected five times a second instead of every other frame, with half-resolution detection while faces are large. Extreme close-ups that fill the frame are now detected.
 - The auto-reframe crop plans each shot ahead: it holds still while the face stays near centre and pans only when the speaker really moves, keeping faces centred more reliably.
 - Two people trading quick turns in the same shot are shown as a stacked split screen, with captions on the seam. Switch it off per clip in the editor.
-- Pause removal cuts only in detected silence (Silero VAD), so it no longer clips word endings, laughter or the other person's interjections.
-- Macs export with the Apple VideoToolbox hardware encoder at quality matched to the existing tiers (about 5x faster encoding). Layout exports no longer spend most of their time drawing black backgrounds.
+- Pause removal cuts only in detected silence (Silero VAD), so it no longer clips word endings, laughter or the other person's interjections. Filler words such as "um" are still removed.
+- Apple Silicon Macs export with the VideoToolbox hardware encoder at quality matched to the existing tiers (about 5x faster encoding). Layout exports no longer spend most of their time drawing black backgrounds.
 - On Apple Silicon, local Whisper setup adds GPU transcription (about 1.8x faster). Re-run setup to enable it.
 
 ### Fixed

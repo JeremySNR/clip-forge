@@ -37,3 +37,13 @@ describe('snapToSilence', () => {
     expect(snapToSilence(kept)).toBe(kept)
   })
 })
+
+describe('filler removal with voice activity', () => {
+  it('still removes an "um" inside continuous speech', () => {
+    const speech = [{ start: 0, end: 10 }]
+    const kept = [{ start: 0, end: 1.3 }, { start: 1.82, end: 10 }]
+    expect(snapToSilence(kept, speech, [{ start: 1.2, end: 1.8 }])).toEqual(kept)
+    // Without the filler the same gap is sound, so it is not cut.
+    expect(snapToSilence(kept, speech)).toEqual([{ start: 0, end: 10 }])
+  })
+})

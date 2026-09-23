@@ -26,7 +26,7 @@ The pipeline used to analyse the top clips' layouts before showing any clips. It
 | Previous (reactive 0.1 source-width threshold) | 2.2% of time | 0.179 | 0.26 | 0.2 |
 | New, band 0.20 | 0.4% | 0.151 | 0.20 | 1.3 |
 
-The band was chosen from a sweep of 0.12–0.25; narrower bands centre better but pan up to 4 times a minute. Visual inspection of a Flagrant range with an animated guest showed the old crop leaving his face at the frame edge while the new crop stayed centred. Seated guests got identical framing from both. This is a modest improvement, not a transformation: the previous planner was already mostly stable.
+Pans queued behind a face moving faster than a pan can follow never start after the shot ends, so keyframes stay in order across cuts. The band was chosen from a sweep of 0.12–0.25; narrower bands centre better but pan up to 4 times a minute. Visual inspection of a Flagrant range with an animated guest showed the old crop leaving his face at the frame edge while the new crop stayed centred. Seated guests got identical framing from both. This is a modest improvement, not a transformation: the previous planner was already mostly stable.
 
 ## Two-person split screen
 
@@ -36,22 +36,22 @@ Inspected output: the Wozniak sofa exchange (interviewer above, Wozniak below) a
 
 ## Cutting in silence
 
-Silero VAD v5 (MIT, 2.3 MB, bundled) runs in the inference child alongside transcription. It adds 19 s for 30 minutes of audio while other work was running, and it runs once for older projects. Pause removal moves each internal cut to where detected sound actually stops and starts, and skips removals that become shorter than 0.35 s.
+Silero VAD v5 (MIT, 2.3 MB, bundled) runs in the inference child alongside transcription. It adds 19 s for 30 minutes of audio while other work was running, and it runs once for older projects. Pause removal moves each internal cut to where detected sound actually stops and starts, and skips removals that become shorter than 0.35 s. Removals that take out a filler word keep their word-timed edges: "um" is voiced, so voice activity cannot separate it from the speech around it (a review found the first version cancelled filler removal).
 
-| Source | Word-timed cuts inside detected sound | Removed time, word-timed → voice-aware |
-| --- | --- | --- |
-| Flagrant (crosstalk and laughter) | 27 / 34 | 37.3 s → 10.7 s |
-| Hot Ones | 27 / 40 | 31.8 s → 20.2 s |
-| Huberman | 11 / 24 | 9.0 s → 4.1 s |
-| MKBHD | 0 / 0 | 2.3 s → 2.3 s |
-| Saved T3.GG projects (73 clips) | 1 / 8 | 4.7 s → 4.4 s |
+| Source | Pause-cut edges inside detected sound (word-timed) | Filler removals kept | Removed time, word-timed → voice-aware |
+| --- | --- | --- | --- |
+| Flagrant (crosstalk and laughter) | 27 / 34 | 0 of 0 | 37.3 s → 10.7 s |
+| Hot Ones | 25 / 36 | 2 of 2 | 31.8 s → 21.9 s |
+| Huberman | 9 / 22 | 1 of 1 | 9.0 s → 4.5 s |
+| MKBHD | 0 / 0 | 0 of 0 | 2.3 s → 2.3 s |
+| Saved T3.GG projects (73 clips) | 1 / 8 | — | 4.7 s → 4.4 s |
 
-On podcasts, 66% of the old cuts landed inside sound. Inspection showed Whisper word ends up to 0.5 s early (clipping the word's tail) and cuts through laughter or interjections the transcript never contained. Voice-aware cuts remove less time; everything they remove is detected silence. The snapped version scores zero in-speech cuts by construction, so the table measures the size of the old problem, not independent proof of the fix. Listening tests are still outstanding.
+On podcasts, 66% of the old pause-cut edges landed inside sound, not counting filler removals, which are speech by design. Inspection showed Whisper word ends up to 0.5 s early (clipping the word's tail) and cuts through laughter or interjections the transcript never contained. Voice-aware cuts remove less time; every pause they remove is detected silence. The snapped version scores zero in-speech pause cuts by construction, so the table measures the size of the old problem, not independent proof of the fix. Listening tests are still outstanding.
 
 ## Export
 
-- **Layout canvas.** Each composition branch built its black canvas with a full-frame `drawbox` fill, costing 22.6 s per minute of 1080×1920 output per branch. It now blackens a 2×2 seed before padding (0.9 s), and branches process only the frames where they are visible. A Hot Ones minute with three split layouts went from 139 s to 95 s on CPU with frame-identical output (SSIM 1.000 on all 1440 frames).
-- **Apple VideoToolbox.** On macOS, Auto and Hardware exports use the bundled ffmpeg's VideoToolbox encoder after a hardware-only test encode, falling back to CPU on failure. Quality levels were matched to the x264 tiers against a lossless reference: q65 ≈ CRF 23, q75 ≈ CRF 19 and q80 ≈ CRF 17, all within 0.001 SSIM. Encoding is about 5× faster than x264 medium; files are about 40% larger at equal quality. The same Hot Ones minute exports in 38.5 s. Size-targeted exports still use two-pass x264.
+- **Layout canvas.** Each composition branch built its black canvas with a full-frame `drawbox` fill, costing 22.6 s per minute of 1080×1920 output per branch. It now blackens a 2×2 seed before padding (0.9 s). A Hot Ones minute with three split layouts went from 139 s to 51.8 s on CPU with frame-identical output (SSIM 1.000 on all 1440 frames). An intermediate version also dropped frames outside each layout's visible time with `select`. Review found that makes `overlay` buffer the main stream through every gap: peak memory rose to 1508 MB, against 182 MB without it, and the graph was slower (21.6 s vs 15.2 s) once the canvas was cheap. It was removed; output is identical either way (SSIM 1.000).
+- **Apple VideoToolbox.** On macOS, Auto and Hardware exports use the bundled ffmpeg's VideoToolbox encoder after a test encode with the exact export arguments, falling back to CPU on failure. Constant quality (`-q:v`) exists only on Apple Silicon, so Intel or Rosetta builds fail the test and export on the CPU. Quality levels were matched to the x264 tiers against a lossless reference: q65 ≈ CRF 23, q75 ≈ CRF 19 and q80 ≈ CRF 17, all within 0.001 SSIM. Encoding is about 5× faster than x264 medium; files are about 40% larger at equal quality. The same Hot Ones minute exports in 20.3 s. Size-targeted exports still use two-pass x264.
 - **Square pixels.** Crops rounded to even widths carried a sample aspect ratio such as 404:405 into exports. Output is now marked square (`setsar=1`).
 
 ## Local transcription on Apple Silicon

@@ -96,13 +96,17 @@ function getNvencProbe(): Promise<NvencProbe> {
 
 let videoToolboxPromise: Promise<boolean> | null = null
 
-/** Real proof on macOS: hardware-only encode of two frames with the bundled ffmpeg. */
+/**
+ * Real proof on macOS: encode two frames with exactly the export arguments.
+ * Constant quality (`-q:v`) exists only on Apple Silicon, so an Intel or
+ * Rosetta build fails this test and exports on the CPU instead.
+ */
 function videoToolboxWorks(): Promise<boolean> {
   if (process.platform !== 'darwin') return Promise.resolve(false)
   videoToolboxPromise ??= runBinary(FFMPEG_PATH, [
     '-hide_banner', '-v', 'error',
     '-f', 'lavfi', '-i', 'color=c=black:s=256x256:d=0.12',
-    '-frames:v', '2', '-c:v', VIDEOTOOLBOX_ENCODER, '-allow_sw', '0',
+    '-frames:v', '2', ...encoderArgs('videotoolbox', 'standard'),
     '-f', 'null', '-'
   ]).then(() => true, () => false)
   return videoToolboxPromise

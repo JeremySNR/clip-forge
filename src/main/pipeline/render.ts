@@ -266,15 +266,12 @@ function reframeGraph(
     let current = 'layoutCrop'
     for (const [i, shots] of [...groups.values()].entries()) {
       const region = shots[0].region
-      // Only frames this layout is shown for go through its crops and
-      // scales; overlay `enable` alone would still process every frame.
-      // Timestamps are kept, so the overlay pairs frames exactly as before.
-      const visible = shots.map((shot) =>
-        `between(t,${Math.max(0, shot.start - clip.edit.start - 0.1).toFixed(3)},${(shot.end - clip.edit.start + 0.1).toFixed(3)})`).join('+')
-      parts.push(`[layoutFitInput${i}]select='${visible}'[layoutVisible${i}]`)
+      // Every branch must produce every frame: dropping hidden frames (select)
+      // made overlay buffer the main stream through each gap, ~1.5 GB for a
+      // minute of 1080x1920, and was slower once the canvas fill was cheap.
       parts.push(shots[0].composition
-        ? compositionGraph(`layoutVisible${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, shots[0].composition)
-        : fitRegionGraph(`layoutVisible${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
+        ? compositionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, shots[0].composition)
+        : fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
       const enabled = shots.map((shot) =>
         `gte(t,${Math.max(0, shot.start - clip.edit.start).toFixed(3)})*lt(t,${(shot.end - clip.edit.start).toFixed(3)})`).join('+')
       const output = i === groups.size - 1 ? 'reframed' : `layoutOverlay${i}`

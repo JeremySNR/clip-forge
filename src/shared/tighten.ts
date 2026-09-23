@@ -117,7 +117,9 @@ export function computeKeptSegments(
     }
   }
 
-  const kept = snapToSilence(spaced, transcript.speech).filter((s) => s.end - s.start >= MIN_SEGMENT_SEC ||
+  const fillers = transcript.segments.flatMap((s) => s.words)
+    .filter((w) => w.end > clipStart && w.start < clipEnd && isFiller(w.sourceText ?? w.text))
+  const kept = snapToSilence(spaced, transcript.speech, fillers).filter((s) => s.end - s.start >= MIN_SEGMENT_SEC ||
     protectedIntervals.some(r => r.start < s.end && r.end > s.start))
   if (kept.length === 0) return null
 
@@ -133,13 +135,23 @@ export function computeKeptSegments(
  * approximate, so a padded word boundary can still land inside a syllable or
  * an untranscribed laugh; voice activity marks where sound actually stops.
  * A removal left shorter than MIN_REMOVAL_SEC is not cut at all.
+ *
+ * Removals that take out a filler word keep their word-timed edges: "um" is
+ * voiced, so voice activity cannot separate it from the speech around it,
+ * and snapping would cancel the removal.
  */
-export function snapToSilence(segments: KeptSegment[], speech?: SpeechRegion[]): KeptSegment[] {
+export function snapToSilence(
+  segments: KeptSegment[], speech?: SpeechRegion[], fillers: KeptSegment[] = []
+): KeptSegment[] {
   if (!speech?.length || segments.length < 2) return segments
   const inside = (t: number): SpeechRegion | undefined => speech.find(r => r.start < t && t < r.end)
   const out: KeptSegment[] = [{ ...segments[0] }]
   for (const next of segments.slice(1)) {
     const previous = out[out.length - 1]
+    if (fillers.some(f => f.start < next.start && f.end > previous.end)) {
+      out.push({ ...next })
+      continue
+    }
     let end = previous.end, start = next.start
     const ending = inside(end)
     if (ending) end = Math.min(ending.end, start)

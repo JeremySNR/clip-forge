@@ -58,3 +58,13 @@ describe('framingMetrics', () => {
     expect(portraitCropWidth(9 / 16)).toBe(1)
   })
 })
+
+describe('pans near a cut', () => {
+  it('never places a pan after the shot ends, even behind a fast-moving face', () => {
+    // A face darting back and forth faster than a pan can follow, for 3 s.
+    const darting = frames(3, t => (Math.floor(t / 0.45) % 2 ? 0.25 : 0.75))
+    const track = planShot(darting, 10, FPS)
+    expect(track.every(k => k.t < 13)).toBe(true)
+    expect(track.every((k, i) => i === 0 || k.t >= track[i - 1].t)).toBe(true)
+  })
+})

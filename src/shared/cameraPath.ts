@@ -104,6 +104,7 @@ export function planShot(
   }
   const centre = (hold: Hold): number => { const [lo, hi] = feasible(hold); return (lo + hi) / 2 }
   const keyframes: FocusKeyframe[] = []
+  const shotEnd = startSec + centres.length / fps
   let x = centre(plan[0])
   keyframes.push({ t: startSec, x, cut: true })
   let busyUntil = startSec
@@ -117,6 +118,9 @@ export function planShot(
     const pan = Math.min(PAN_MAX_SEC, Math.max(PAN_MIN_SEC, Math.abs(target - x) / cropWidth / PAN_SPEED))
     const change = startSec + hold.start / fps
     const t = Math.max(busyUntil, change - pan / 2)
+    // Pans queued behind a fast-moving face must not spill past the shot:
+    // the next shot's cut keyframe has to stay later than every pan here.
+    if (t >= shotEnd) break
     keyframes.push({ t, x: target, cut: false, pan })
     busyUntil = t + pan
     x = target
