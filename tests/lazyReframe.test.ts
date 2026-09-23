@@ -115,10 +115,11 @@ describe('ensureClipReframe', () => {
     expect(a).toBe(b)
     const done = a.clips.find((c) => c.id === 'faces')!
     expect(done.reframeStatus).toBe('done')
-    // No faces in a test pattern: classified as a screencast and letterboxed.
+    // No faces in a test pattern: classified as a screencast; the layout
+    // review did not call it a screen, so it fits with a blurred fill.
     expect(done.contentType).toBe('screencast')
     expect(done.focusTrack).toBeNull()
-    expect(done.edit.reframeMode).toBe('fit-letterbox')
+    expect(done.edit.reframeMode).toBe('fit-blur')
     expect(done.edit.autoZoom).toBe(false)
 
     const onDisk = JSON.parse(

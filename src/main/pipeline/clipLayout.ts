@@ -6,7 +6,9 @@ import { refineComposition } from './composition'
 import { assessClipVisuals } from './visualScore'
 import { screenTransitions } from './screenCuts'
 import type { LayoutMemory } from './layoutMemory'
-import { triageClipStyle, type ClipTriage } from './shotTriage'
+import { detectPresenterPanel, triageClipStyle, type ClipTriage } from './shotTriage'
+import { panelScreenLayout } from '@shared/shotStyle'
+import { probeVideo } from './ffmpeg'
 
 /** One route for initial analysis and on-demand/legacy projects. */
 export async function analyzeClipLayout(
@@ -29,6 +31,23 @@ export async function analyzeClipLayout(
       (!clip.visualLayout?.kind || clip.visualLayout.start > clip.edit.start || clip.visualLayout.end < clip.edit.end)) {
     const visual = await assessClipVisuals(apiKey, model, videoPath, transcript, clip, signal)
     if (visual) clip.visualLayout = visual.visualLayout
+  }
+  // A fixed webcam panel over a screen share is unmistakable in the pixels.
+  // Route such clips as screen recordings even when the review called them
+  // camera footage (a face is visible) or never ran (offline): face tracking
+  // would otherwise crop the whole clip down to the webcam.
+  if (videoType !== 'talking-head' && clip.visualLayout?.kind !== 'screen' && clip.visualLayout?.kind !== 'mixed') {
+    const panel = await detectPresenterPanel(videoPath, clip.edit.start, clip.edit.end, signal).catch((error: unknown) => {
+      if (signal?.aborted) throw error
+      console.warn('Local presenter panel detection failed:', error)
+      return undefined
+    })
+    if (panel) {
+      const source = await probeVideo(videoPath)
+      clip.visualLayout = panelScreenLayout(clip.edit.start, clip.edit.end, panel, source,
+        Boolean(apiKey) && clip.edit.aspect === '9:16', clip.visualLayout)
+      console.info('[presenter-panel]', JSON.stringify({ clipId: clip.id, route: 'screen', panel, verified: Boolean(apiKey) }))
+    }
   }
   const screen = clip.visualLayout?.kind === 'screen' && videoType !== 'talking-head' &&
     clip.visualLayout.start <= clip.edit.start && clip.visualLayout.end >= clip.edit.end

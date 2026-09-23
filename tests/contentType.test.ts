@@ -29,9 +29,11 @@ describe('visual content preservation', () => {
   const assessment = { start: 0, end: 30, preserveContext: true, allowZoom: false, reason: 'Keep the puzzle and both hands visible' }
   it('preserves essential content even when face tracking found a speaker', () => {
     const edit = applyVisualLayout(baseEdit(), assessment, 'auto')
-    expect(edit.reframeMode).toBe('fit-letterbox')
+    // Camera footage fills the canvas with a blurred copy rather than black bars.
+    expect(edit.reframeMode).toBe('fit-blur')
     expect(edit.autoZoom).toBe(false)
     expect(edit.framing).toBe('manual')
+    expect(applyVisualLayout(baseEdit(), { ...assessment, kind: 'screen' }, 'auto').reframeMode).toBe('fit-letterbox')
   })
   it('keeps ordinary interviews cropped but disables unsafe zoom', () => {
     const edit = applyVisualLayout(baseEdit(), { ...assessment, preserveContext: false }, 'auto')

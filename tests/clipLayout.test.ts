@@ -1,7 +1,9 @@
-import { beforeEach, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Clip } from '@shared/types'
 import { needsReframe } from '@shared/reframe'
-const mocks = vi.hoisted(() => ({ faces: vi.fn(), apply: vi.fn(), compose: vi.fn(), assess: vi.fn(), cuts: vi.fn() }))
+const mocks = vi.hoisted(() => ({ faces: vi.fn(), apply: vi.fn(), compose: vi.fn(), assess: vi.fn(), cuts: vi.fn(), panel: vi.fn() }))
+vi.mock('../src/main/pipeline/shotTriage', () => ({ detectPresenterPanel: mocks.panel, triageClipStyle: vi.fn() }))
+vi.mock('../src/main/pipeline/ffmpeg', () => ({ probeVideo: vi.fn().mockResolvedValue({ width: 1920, height: 1080 }) }))
 vi.mock('../src/main/pipeline/faces', () => ({ analyzeClipFocus: mocks.faces, applyFocusAnalysis: mocks.apply }))
 vi.mock('../src/main/pipeline/composition', () => ({ refineComposition: mocks.compose }))
 vi.mock('../src/main/pipeline/screenCuts', () => ({ screenTransitions: mocks.cuts }))
@@ -15,6 +17,7 @@ const clip = (kind?: 'screen' | 'camera' | 'mixed'): Clip => ({ id: 'clip',
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.cuts.mockResolvedValue([])
+  mocks.panel.mockResolvedValue(undefined)
   mocks.faces.mockResolvedValue({ focusTrack: [{ t: 5, x: .5 }], contentType: 'speaker' })
 })
 it('splits changed screen geometry before spending a whole-clip review', async () => {
@@ -74,4 +77,33 @@ it('migrates old automatic letterboxes once while retaining manual corrections',
   c.visualLayout!.revision = 0
   c.reframeAnalysis.version = 2
   expect(needsReframe(c)).toBe(false)
+})
+
+describe('webcam panels found in the pixels', () => {
+  const panel = { x: 0.75, y: 0, width: 0.25, height: 0.3 }
+  it('routes camera-labelled screen shares as screens instead of cropping to the webcam', async () => {
+    mocks.panel.mockResolvedValue(panel)
+    const c = clip('camera')
+    await analyzeClipLayout('video.mp4', c, 'auto', 'key', 'model')
+    expect(mocks.faces).not.toHaveBeenCalled()
+    expect(mocks.compose).toHaveBeenCalledOnce()
+    expect(mocks.compose.mock.calls[0][3].visualLayout).toMatchObject({ kind: 'screen', start: 5, end: 25 })
+  })
+  it('composes content and webcam offline, flagged for review', async () => {
+    mocks.panel.mockResolvedValue(panel)
+    const c = { ...clip(), visualLayout: undefined } as Clip
+    await analyzeClipLayout('video.mp4', c, 'auto', '', 'model')
+    expect(mocks.faces).not.toHaveBeenCalled()
+    expect(mocks.compose).not.toHaveBeenCalled()
+    const shot = c.visualLayout!.shots![0]
+    expect(shot.composition?.layers.map(l => l.role)).toEqual(['content', 'presenter'])
+    expect(shot.review?.status).toBe('needs-review')
+  })
+  it('leaves mixed footage and explicit talking heads on speaker tracking', async () => {
+    mocks.panel.mockResolvedValue(panel)
+    await analyzeClipLayout('video.mp4', clip('mixed'), 'auto', 'key', 'model')
+    await analyzeClipLayout('video.mp4', clip('camera'), 'talking-head', 'key', 'model')
+    expect(mocks.panel).not.toHaveBeenCalled()
+    expect(mocks.faces).toHaveBeenCalledTimes(2)
+  })
 })

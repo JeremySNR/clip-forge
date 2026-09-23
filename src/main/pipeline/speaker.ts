@@ -111,6 +111,8 @@ export interface FocusSelection {
   centres: Array<number | null>
   /** Frames where the speaker changed — treated like camera cuts downstream. */
   switchCuts: number[]
+  /** Followed track index per frame (-1: none); score-based selection only. */
+  speakers?: number[]
 }
 
 function weight(t: Track): number {
@@ -362,6 +364,7 @@ export function chooseSpeakerByScores(
 
   const centres: Array<number | null> = []
   const switchCuts: number[] = []
+  const speakers: number[] = []
   let current = -1
   /** Has the current focus target actually spoken while focused? */
   let confirmed = false
@@ -384,6 +387,7 @@ export function chooseSpeakerByScores(
     const candidates = perFrame[f]
     if (candidates.length === 0) {
       centres.push(null)
+      speakers.push(-1)
       continue
     }
     if (cooldown > 0) cooldown--
@@ -448,7 +452,110 @@ export function chooseSpeakerByScores(
 
     lastCentre = at(current, f).centre
     centres.push(lastCentre)
+    speakers.push(current)
   }
 
-  return { centres, switchCuts }
+  return { centres, switchCuts, speakers }
+}
+
+/** A switch to someone who speaks for less than this and hands back is a backchannel. */
+const MIN_EXCURSION_SEC = 1.5
+/** Cut this far ahead of the new speaker's first word, as editors do. */
+const ONSET_LEAD_SEC = 0.15
+/** How far back from the detected switch the onset search may go. */
+const ONSET_LOOKBACK_SEC = SWITCH_SEC + 0.5
+/** Never move a cut closer than this to the previous cut. */
+const MIN_SHOT_SEC = 1.0
+
+/**
+ * Offline polish of a reactive speaker selection. The analysis already knows
+ * the whole clip, so it does not have to cut the way a live switcher would:
+ *
+ * 1. **Backchannels.** A → B → A where B holds focus for under
+ *    MIN_EXCURSION_SEC ("yeah", "right", a laugh) is dropped: the camera stays
+ *    on A, provided A's face is tracked throughout. Brief cutaways read as a
+ *    nervous camera on a vertical crop.
+ * 2. **Late cuts.** The reactive rule confirms a new speaker after
+ *    SWITCH_SEC of speech, so every cut lands after their first words. Each
+ *    remaining switch moves back to where the new speaker's speaking run
+ *    began, slightly ahead of it, never across a camera cut or closer than
+ *    MIN_SHOT_SEC to the previous cut.
+ *
+ * Pure; returns a new selection. Requires `speakers` from chooseSpeakerByScores.
+ */
+export function refineSpeakerSwitches(
+  selection: FocusSelection, tracks: SpeakerCandidate[], sceneCuts: number[], fps: number
+): FocusSelection {
+  const speakers = selection.speakers
+  if (!speakers?.length) return selection
+  const ids = [...speakers]
+  const centres = [...selection.centres]
+  const at = (i: number, f: number): { centre: number; score: number } | undefined => {
+    const track = tracks[i], k = f - track.start
+    return k >= 0 && k < track.centres.length ? { centre: track.centres[k], score: track.scores[k] } : undefined
+  }
+  const cutSet = new Set(sceneCuts)
+  const runs = (): Array<{ id: number; start: number; end: number }> => {
+    const out: Array<{ id: number; start: number; end: number }> = []
+    for (let f = 0; f < ids.length; f++) {
+      const last = out[out.length - 1]
+      if (last && last.id === ids[f] && !cutSet.has(f)) last.end = f + 1
+      else out.push({ id: ids[f], start: f, end: f + 1 })
+    }
+    return out
+  }
+  const sameShot = (from: number, to: number): boolean => {
+    for (let f = from + 1; f <= to; f++) if (cutSet.has(f)) return false
+    return true
+  }
+
+  // 1. Drop backchannel excursions, repeatedly (a dropped one can merge runs).
+  const minExcursion = Math.round(MIN_EXCURSION_SEC * fps)
+  for (let changed = true; changed;) {
+    changed = false
+    const list = runs()
+    for (let r = 1; r < list.length - 1; r++) {
+      const [before, run, after] = [list[r - 1], list[r], list[r + 1]]
+      if (run.end - run.start >= minExcursion || before.id < 0 || before.id !== after.id || run.id < 0 ||
+          !sameShot(before.start, after.start)) continue
+      const held: number[] = []
+      for (let f = run.start; f < run.end; f++) {
+        const face = at(before.id, f)
+        if (!face) break
+        held.push(face.centre)
+      }
+      if (held.length !== run.end - run.start) continue
+      for (let f = run.start; f < run.end; f++) { ids[f] = before.id; centres[f] = held[f - run.start] }
+      changed = true
+      break
+    }
+  }
+
+  // 2. Move each remaining switch back to the new speaker's onset.
+  const lookback = Math.round(ONSET_LOOKBACK_SEC * fps), lead = Math.round(ONSET_LEAD_SEC * fps)
+  const minShot = Math.round(MIN_SHOT_SEC * fps)
+  const list = runs()
+  let lastCut = 0
+  for (let r = 0; r < list.length; r++) {
+    const run = list[r], previous = list[r - 1]
+    if (!previous || cutSet.has(run.start) || previous.id < 0 || run.id < 0 || run.id === previous.id) {
+      if (!previous || cutSet.has(run.start)) lastCut = run.start
+      continue
+    }
+    const floor = Math.max(lastCut + minShot, previous.start + 1, run.start - lookback)
+    let onset = run.start
+    while (onset - 1 >= floor && (at(run.id, onset - 1)?.score ?? -Infinity) > SPEAK_ON) onset--
+    let target = Math.min(run.start, Math.max(floor, onset - lead))
+    // Move only through frames where the new face is visible, so the cut
+    // stays one clean switch.
+    for (let f = run.start - 1; f >= target; f--) if (!at(run.id, f)) { target = f + 1; break }
+    for (let f = target; f < run.start; f++) { ids[f] = run.id; centres[f] = at(run.id, f)!.centre }
+    lastCut = target
+  }
+
+  const switchCuts: number[] = []
+  for (let f = 1; f < ids.length; f++) {
+    if (!cutSet.has(f) && ids[f] >= 0 && ids[f - 1] >= 0 && ids[f] !== ids[f - 1]) switchCuts.push(f)
+  }
+  return { centres, switchCuts, speakers: ids }
 }

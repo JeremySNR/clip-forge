@@ -1,4 +1,5 @@
-import type { ContentRegion } from './types'
+import type { Clip, ContentRegion } from './types'
+import { presenterComposition, usefulComposition } from './composition'
 
 /**
  * Fast, local shot-style triage: which reframing primitive a clip most
@@ -460,4 +461,30 @@ export function classifyClipStyle(samples: StyleSample[]): ClipStyle {
     width: median(insets.map(r => r.width)), height: median(insets.map(r => r.height))
   } : undefined
   return { style, recommendation: recommendLayout(style, smallFaces), confidence, inset, smallFaces, samples: results }
+}
+
+/**
+ * Screen-recording layout for a clip whose pixels show a fixed webcam panel.
+ * With an AI connection, the composition route chooses the content region
+ * and verifies the result, so only the route is set. Offline, the content
+ * beside the panel and the panel itself are composed directly, marked for
+ * review because nothing checked the rendered output.
+ */
+export function panelScreenLayout(
+  start: number, end: number, panel: ContentRegion, source: { width: number; height: number },
+  verified: boolean, previous?: Clip['visualLayout']
+): NonNullable<Clip['visualLayout']> {
+  const reason = [previous?.reason, 'A fixed webcam panel over screen content was found in the video.'].filter(Boolean).join(' ')
+  const base = { ...(previous ?? {}), start, end, kind: 'screen' as const, preserveContext: true, allowZoom: false,
+    reason, panels: undefined, shots: undefined }
+  if (verified) return base
+  // Same slight overscan as reviewed compositions, trimming the panel border.
+  const presenter = { x: panel.x + panel.width * .03, y: panel.y + panel.height * .03,
+    width: panel.width * .94, height: panel.height * .94 }
+  const composition = (['content-first', 'stacked'] as const)
+    .map(preset => presenterComposition(contentBesideInset(panel), presenter, preset))
+    .find(c => c && usefulComposition(c, source))
+  if (!composition) return base
+  return { ...base, shots: [{ start, end, mode: 'fit', composition,
+    review: { status: 'needs-review', reason: 'Arranged from the webcam found in the video without an AI check. Check the preview before exporting.' } }] }
 }

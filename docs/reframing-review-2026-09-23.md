@@ -135,6 +135,14 @@ Rendered review is unchanged. The existing enlargement, presenter-size and overl
 
 Not validated on real T3.GG footage here (downloads were blocked). Tests cover scrolling and embedded-video samples, an embedded second face, a head blob, content trimming and the composition flow with mocked model responses.
 
+## 4b. Follow-up: general fixes that apply to every source
+
+- **Offline speaker cuts** (`refineSpeakerSwitches`, after `chooseSpeakerByScores`). An A → B → A excursion shorter than 1.5 s is dropped when A stays tracked, so backchannels no longer cut away. Each remaining switch moves back to where the new speaker's speaking run began, 0.15 s ahead of it. It never crosses a camera cut, never comes within 1 s of the previous cut, and only covers frames where the new face is visible. The reactive rule used to cut about 0.4 s after the first word.
+- **Blurred fill instead of black bars for camera fits** (`blurredFitShot`, `fitRegionGraph(..., blur)`). This covers whole-clip context preservation (`fit-blur` instead of `fit-letterbox` unless the review said `screen`) and automatic full-frame or region fit shots inside cropped clips (for example low-detail shots). The export blurs at an eighth of the output size to keep the per-frame branch cheap. The preview shows the existing blurred thumbnail behind those shots. Screens, overview/detail views and compositions keep black.
+- **Webcam panels decide the route.** `analyzeClipLayout` runs `detectPresenterPanel` on non-screen, non-mixed clips (four frame pairs, ~1–2 s). A panel routes the clip as a screen recording, skipping dense face tracking, which would crop the whole clip to the webcam. With a connection, the composition route then proposes content and verifies. Offline, `panelScreenLayout` composes the content beside the panel with the panel itself, marked needs-review because nothing checked the rendered output.
+
+Remaining obvious gaps, in order: y/scale crop keyframes (tight framing of small faces, headroom), gallery tile layouts, per-shot routing for mixed clips, and single-face clips skipping ASD.
+
 ## 5. What the research supports
 
 The research pass read primary sources where the network allowed: the AutoFlip source code, model cards and repository READMEs. Items marked *(summary)* could only be seen through search summaries because arXiv and several publisher sites were blocked. Check those against the PDFs before relying on the numbers.

@@ -16,7 +16,7 @@ import type {
 import type { EncoderPreference } from '@shared/types'
 import { clipKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
-import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
+import { automaticLayoutShots, blurredFitShot, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
 import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
@@ -271,7 +271,8 @@ function reframeGraph(
       // minute of 1080x1920, and was slower once the canvas fill was cheap.
       parts.push(shots[0].composition
         ? compositionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, shots[0].composition)
-        : fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
+        : fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview,
+          blurredFitShot(clip, shots[0])))
       const enabled = shots.map((shot) =>
         `gte(t,${Math.max(0, shot.start - clip.edit.start).toFixed(3)})*lt(t,${(shot.end - clip.edit.start).toFixed(3)})`).join('+')
       const output = i === groups.size - 1 ? 'reframed' : `layoutOverlay${i}`

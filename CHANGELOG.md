@@ -10,6 +10,9 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
 ### Improved
 
+- Cuts between speakers now land just as the next person starts talking instead of a moment after, and short replies such as "yeah" or "right" no longer pull the camera away and back.
+- When a shot has to keep the whole scene, camera footage now fills the vertical frame with a blurred copy of itself instead of black bars. Screen recordings keep their plain background.
+- Screen recordings with a webcam box are now treated as screen recordings even when the AI review took them for camera footage, so the clip is no longer cropped down to the webcam. Without an AI connection they get a screen-and-webcam layout too, marked for you to check.
 - Screen recordings with a webcam box (for example a presenter in the top-right corner over a screen share) now find the webcam from the video itself instead of relying on the AI to draw it. This avoids layouts that merged two webcams, left a strip of page beside the presenter, or cut the content under the webcam, and needs fewer retries.
 
 ## [0.12.0] - 2026-09-23

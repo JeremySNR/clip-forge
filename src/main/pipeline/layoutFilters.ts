@@ -20,14 +20,28 @@ export function compositionGraph(
   return parts.join(';')
 }
 
-/** Identical fit/overview graph for final exports and the model's review images. */
+/**
+ * Identical fit/overview graph for final exports and the model's review images.
+ * `blur` fills the unused canvas with a blurred, darkened copy of the full
+ * frame instead of black (camera footage; overview layouts keep black).
+ */
 export function fitRegionGraph(
   input: string, output: string, prefix: string, source: { width: number; height: number },
-  width: number, height: number, region?: ContentRegion, overview = false
+  width: number, height: number, region?: ContentRegion, overview = false, blur = false
 ): string {
   const pixels = region ? contentRegionPixels(region, source.width, source.height) : null
   const crop = pixels ? `crop=${pixels.width}:${pixels.height}:${pixels.x}:${pixels.y},` : ''
   const fit = (h: number): string => `scale=${width}:${h}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${h}:(ow-iw)/2:(oh-ih)/2:color=black`
+  if (blur && !overview) {
+    // Blur at an eighth of the size: the same look as a full-size blur for a
+    // fraction of the cost, since this branch renders every output frame.
+    const even = (v: number): number => Math.max(2, Math.round(v / 16) * 2)
+    return `[${input}]split=2[${prefix}Back][${prefix}Front];` +
+      `[${prefix}Back]scale=${even(width)}:${even(height)}:force_original_aspect_ratio=increase,crop=${even(width)}:${even(height)},` +
+      `gblur=sigma=3,eq=brightness=-0.12,scale=${width}:${height},setsar=1[${prefix}Blur];` +
+      `[${prefix}Front]${crop}scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,setsar=1[${prefix}Fit];` +
+      `[${prefix}Blur][${prefix}Fit]overlay=(W-w)/2:(H-h)/2[${output}]`
+  }
   if (!overview || !pixels) return `[${input}]${crop}${fit(height)}[${output}]`
   const panels = detailPanelGeometry(height)
   const stroke = Math.max(2, Math.round(source.width / 320))

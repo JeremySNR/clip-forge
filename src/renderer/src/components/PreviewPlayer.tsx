@@ -9,7 +9,7 @@ import {
   wordsInRange
 } from '@shared/captionLayout'
 import { clipKeptSegments, TimeMap } from '@shared/tighten'
-import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
+import { automaticLayoutShots, blurredFitShot, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
 import { captionPositionAt } from '@shared/contentRegion'
 import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
@@ -203,7 +203,10 @@ export default function PreviewPlayer({
 
   const src = window.cutawan.mediaUrl(project.video.path)
   const isCrop = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'crop'
-  const isFitBlur = clip.edit.aspect !== 'original' && clip.edit.reframeMode === 'fit-blur'
+  // Blurred backdrop: fit-blur mode, or automatic camera fits that export
+  // with a blurred fill (crops and compositions cover it completely).
+  const isFitBlur = clip.edit.aspect !== 'original' && (clip.edit.reframeMode === 'fit-blur' ||
+    automaticLayoutShots(clip).some(shot => blurredFitShot(clip, shot)))
 
   useEffect(() => {
     previewPlanRef.current = {

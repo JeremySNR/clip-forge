@@ -15,6 +15,7 @@ import { detectFaces, frameDifference, MODEL_H, MODEL_W, SCENE_CUT_THRESHOLD } f
 import {
   chooseFocusCentres,
   chooseSpeakerByScores,
+  refineSpeakerSwitches,
   lowDetailShotRanges,
   mouthActivity,
   type FaceBox
@@ -250,12 +251,9 @@ async function analyzeFocus(
       if (asd.tracks.length === 0) {
         return { focusTrack: null, contentType: classifyClipContent(detectionFaceCoverage, false), sceneCuts, sceneTransitions, lowDetailShots }
       }
-      const { centres, switchCuts } = chooseSpeakerByScores(
-        asd.tracks,
-        asd.frameCount,
-        asd.sceneCuts,
-        asd.fps
-      )
+      const { centres, switchCuts } = refineSpeakerSwitches(
+        chooseSpeakerByScores(asd.tracks, asd.frameCount, asd.sceneCuts, asd.fps),
+        asd.tracks, asd.sceneCuts, asd.fps)
       const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
       const cropWidth = asd.cropSize ? portraitCropWidth(asd.cropSize.width / Math.max(1, asd.cropSize.height)) : undefined
       const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps, { cropWidth })

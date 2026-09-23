@@ -44,9 +44,20 @@ export function applyVisualLayout(
       assessment.shots!.some(shot => (shot.mode === 'crop' || validContentRegion(shot.region, shot.overview) || validComposition(shot.composition)) && shot.start < edit.end && shot.end > edit.start)) {
       return { ...edit, reframeMode: 'crop', framing: 'auto', autoZoom: false }
     }
-    return { ...edit, reframeMode: 'fit-letterbox', framing: 'manual', focusX: 0.5, autoZoom: false }
+    // Camera footage fills the frame with a blurred copy; screens keep black bars.
+    return { ...edit, reframeMode: assessment.kind === 'screen' ? 'fit-letterbox' : 'fit-blur',
+      framing: 'manual', focusX: 0.5, autoZoom: false }
   }
   return assessment.allowZoom ? edit : { ...edit, autoZoom: false }
+}
+
+/**
+ * Automatic full-frame fits of camera footage fill the canvas with a blurred
+ * copy instead of black bars. Screen recordings, overview/detail views and
+ * compositions keep their black canvas. Shared by preview and export.
+ */
+export function blurredFitShot(clip: Pick<Clip, 'visualLayout'>, shot: LayoutShot): boolean {
+  return shot.mode === 'fit' && !shot.overview && !shot.composition && clip.visualLayout?.kind !== 'screen'
 }
 
 export function validLayoutShots(assessment: Clip['visualLayout'], start: number, end: number): boolean {
