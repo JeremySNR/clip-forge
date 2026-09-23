@@ -12,7 +12,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
-const base = process.env.BASE_REF || 'origin/main'
+const baseRef = process.env.BASE_REF || 'origin/main'
 const labels = JSON.parse(process.env.PR_LABELS || '[]').map((l) => String(l).toLowerCase())
 if (labels.includes('no release notes')) {
   console.log('Skipped: labelled "no release notes".')
@@ -20,26 +20,34 @@ if (labels.includes('no release notes')) {
 }
 
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' })
-const changed = git('diff', '--name-only', `${base}...HEAD`).split('\n').filter(Boolean)
+const changed = git('diff', '--name-only', `${baseRef}...HEAD`).split('\n').filter(Boolean)
 const userFacing = changed.filter((f) => /^(src|resources)\//.test(f) || f === 'package.json')
 if (!userFacing.length) {
   console.log('No app changes; release notes not required.')
   process.exit(0)
 }
 
-const unreleased = (text) => {
-  const lines = text.split(/\r?\n/)
-  const start = lines.findIndex((l) => /^##\s+\[?unreleased\]?/i.test(l))
-  if (start === -1) return ''
-  const rest = lines.slice(start + 1)
-  const end = rest.findIndex((l) => /^##\s+/.test(l))
-  return (end === -1 ? rest : rest.slice(0, end)).filter((l) => /^\s*[-*]\s+\S/.test(l)).join('\n')
+// Bullets under [Unreleased] and under every version section. A release PR
+// renames [Unreleased] to the new version, so a new or changed section of
+// either kind counts as release notes.
+const sections = (text) => {
+  const out = new Map()
+  let name = null
+  for (const line of text.split(/\r?\n/)) {
+    const heading = line.match(/^##\s+\[?([^\]\s]+)\]?/)
+    if (heading) { name = heading[1].toLowerCase(); out.set(name, []); continue }
+    if (name && /^\s*[-*]\s+\S/.test(line)) out.get(name).push(line.trim())
+  }
+  return out
 }
-let before = ''
-try { before = unreleased(git('show', `${base}:CHANGELOG.md`)) } catch { /* new file */ }
-const after = unreleased(readFileSync('CHANGELOG.md', 'utf8'))
+let baseSections = new Map()
+try { baseSections = sections(git('show', `${baseRef}:CHANGELOG.md`)) } catch { /* new file */ }
+const head = sections(readFileSync('CHANGELOG.md', 'utf8'))
+const added = [...head].filter(([name, bullets]) =>
+  (name === 'unreleased' || /^[0-9]+\.[0-9]+\.[0-9]+$/.test(name)) && bullets.length &&
+  bullets.join('\n') !== (baseSections.get(name) ?? []).join('\n'))
 
-if (!after || after === before) {
+if (!added.length) {
   console.error([
     'This pull request changes the app but adds no release notes.',
     '',
@@ -51,4 +59,4 @@ if (!after || after === before) {
   ].join('\n'))
   process.exit(1)
 }
-console.log('Release notes present under [Unreleased].')
+console.log(`Release notes present: ${added.map(([name]) => `[${name}]`).join(', ')}.`)

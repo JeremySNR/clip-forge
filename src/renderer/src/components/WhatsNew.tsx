@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Sparkles, X } from 'lucide-react'
 import changelog from '../../../../CHANGELOG.md?raw'
 import { changelogSection, parseNotes, type NotesBlock } from '@shared/releaseNotes'
@@ -43,8 +44,10 @@ export function WhatsNewDialog({ version, onClose }: { version: string; onClose:
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm" onClick={onClose}>
+  // Portalled: opened from Settings, a transformed/clipping ancestor would
+  // otherwise confine the full-window overlay to the settings panel.
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-6 backdrop-blur-sm" onClick={onClose}>
       <div role="dialog" aria-label={`What's new in Cutawan ${version}`} data-testid="whats-new"
         className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl shadow-black/70"
         onClick={(e) => e.stopPropagation()}>
@@ -61,7 +64,8 @@ export function WhatsNewDialog({ version, onClose }: { version: string; onClose:
           {blocks.length ? <NotesList blocks={blocks} /> : <p className="text-xs text-zinc-500">No release notes for this version.</p>}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -76,9 +80,10 @@ export default function WhatsNewAfterUpdate(): React.JSX.Element | null {
   const version = useStore((s) => s.settings?.setupComplete ? s.settings.appVersion : null)
   const hasProjects = useStore((s) => s.projects.length > 0)
   const [dismissed, setDismissed] = useState<string | null>(null)
-  const seen = useMemo(() => {
-    try { return localStorage.getItem(SEEN_KEY) } catch { return version }
-  }, [version])
+  // Read every render (cheap): a fresh install's silent write below must be
+  // seen before a first project would otherwise make this look like an update.
+  let seen: string | null
+  try { seen = localStorage.getItem(SEEN_KEY) } catch { seen = version }
   const pending = Boolean(version && seen !== version && (seen || hasProjects) && bundledNotes(version).length)
   // A fresh install (or a version without notes) is recorded silently.
   useEffect(() => {
