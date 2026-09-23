@@ -183,8 +183,12 @@ export default function PreviewPlayer({
   }, [setScrubHandler, requestSeek])
 
   // Mirrors the export by skipping removed pauses and the user's cuts.
-  const keptSegments = useMemo(() => clipKeptSegments(clip, project.transcript),
-    [clip, project.transcript])
+  // An edit with nothing left plays the trim rather than seeking every frame;
+  // export reports it instead.
+  const keptSegments = useMemo(() => {
+    const kept = clipKeptSegments(clip, project.transcript)
+    return kept?.length ? kept : null
+  }, [clip, project.transcript])
   const timeMap = useMemo(() => (keptSegments ? new TimeMap(keptSegments) : null), [keptSegments])
   const outputDuration = timeMap?.outputDuration ?? duration
   const outputTime = timeMap ? timeMap.toOutput(time) : Math.max(0, time - start)

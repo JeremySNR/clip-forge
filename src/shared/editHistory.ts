@@ -1,88 +1,112 @@
 import type { Clip } from './types'
 
 /**
- * Per-clip undo/redo over what the user owns: the edit state, text, B-roll
- * and manually set layouts. Analysis results (focus track, automatic layout)
- * are never undone. Typing and drags update the clip locally many times
- * before one save, so a step is recorded against the last *saved* state.
+ * Per-clip undo/redo of the user's own edits.
+ *
+ * Each step records only the fields that save actually changed, with their
+ * values before and after, so undo touches nothing else. Results merged in
+ * from elsewhere (reframe analysis, generated captions) are absorbed into the
+ * baseline with `noteExternal` instead of becoming steps, so undoing a cut can
+ * never put back an old crop or an old caption.
+ *
+ * Typing and drags update the clip locally many times before one save, so a
+ * step is measured against the last *saved* state, not the live copy.
  */
-
-type Snapshot = Pick<Clip, 'edit' | 'title' | 'hook' | 'caption' | 'broll' | 'visualLayout'>
 
 const LIMIT = 100
 
-interface History { saved: Snapshot; past: Snapshot[]; future: Snapshot[] }
+/** Top-level clip fields the user edits; edit fields are tracked one by one. */
+const CLIP_KEYS = ['title', 'hook', 'caption', 'broll', 'visualLayout'] as const
+/** What reframe analysis and caption generation write without a user save. */
+const EXTERNAL_KEYS = ['edit.reframeMode', 'edit.framing', 'edit.focusX', 'edit.autoZoom',
+  'edit.compositionPreference', 'visualLayout', 'caption']
+
+type Values = Map<string, string>
+interface Change { key: string; before: string | undefined; after: string | undefined }
+interface History { saved: Values; past: Change[][]; future: Change[][] }
 const histories = new Map<string, History>()
 
-function snapshot(clip: Clip): Snapshot {
-  return structuredClone({ edit: clip.edit, title: clip.title, hook: clip.hook, caption: clip.caption,
-    broll: clip.broll, visualLayout: clip.visualLayout })
+function values(clip: Clip): Values {
+  const out: Values = new Map()
+  for (const key of CLIP_KEYS) out.set(key, JSON.stringify(clip[key] ?? null))
+  for (const [key, value] of Object.entries(clip.edit)) out.set(`edit.${key}`, JSON.stringify(value ?? null))
+  return out
 }
 
-const same = (a: Snapshot, b: Snapshot): boolean => JSON.stringify(a) === JSON.stringify(b)
-
-/** Framing fields the reframe analysis also sets (see shared/reframe.ts). */
-const FRAMING_FIELDS = ['reframeMode', 'framing', 'focusX', 'autoZoom', 'compositionPreference', 'layoutChosen'] as const
-
-/**
- * Apply `target`, the other side of the step being undone or redone from
- * `from`. Framing fields change only when that step was a user layout choice
- * (`layoutChosen`): analysis may rewrite the crop between saves without a
- * history step, and the next unrelated save must not make that crop undoable.
- */
-function restore(clip: Clip, target: Snapshot, from: Snapshot): Clip {
-  const edit = { ...structuredClone(target.edit) }
-  const framingStep = FRAMING_FIELDS.some(
-    (field) => JSON.stringify(target.edit[field]) !== JSON.stringify(from.edit[field])
-  )
-  const userFraming = Boolean(target.edit.layoutChosen || from.edit.layoutChosen)
-  if (!(framingStep && userFraming)) {
-    for (const field of FRAMING_FIELDS) {
-      (edit as Record<string, unknown>)[field] = clip.edit[field]
+function apply(clip: Clip, changes: Change[], side: 'before' | 'after'): Clip {
+  const next: Clip = { ...clip, edit: { ...clip.edit } }
+  for (const change of changes) {
+    const raw = change[side]
+    const value = raw === undefined ? undefined : JSON.parse(raw)
+    if (change.key.startsWith('edit.')) {
+      const field = change.key.slice(5) as keyof Clip['edit']
+      if (value === null || value === undefined) delete next.edit[field]
+      else (next.edit as unknown as Record<string, unknown>)[field] = value
+    } else {
+      (next as unknown as Record<string, unknown>)[change.key] = value ?? undefined
     }
   }
-  const manual = (target.visualLayout?.revision ?? 0) > 0 || (clip.visualLayout?.revision ?? 0) > 0
-  return { ...clip, ...structuredClone(target), edit, visualLayout: manual ? structuredClone(target.visualLayout) : clip.visualLayout }
+  return next
 }
 
-/** Start tracking a clip as last saved; keeps existing history. Call before each save. */
+/** Start tracking a clip as last saved; keeps existing history. */
 export function trackClip(clip: Clip): void {
-  if (!histories.has(clip.id)) histories.set(clip.id, { saved: snapshot(clip), past: [], future: [] })
+  if (!histories.has(clip.id)) histories.set(clip.id, { saved: values(clip), past: [], future: [] })
+}
+
+/** Absorb results that arrived from analysis or caption generation. */
+export function noteExternal(clip: Clip): void {
+  const history = histories.get(clip.id)
+  if (!history) return
+  const current = values(clip)
+  for (const key of EXTERNAL_KEYS) {
+    if (current.has(key)) history.saved.set(key, current.get(key)!)
+    else history.saved.delete(key)
+  }
 }
 
 /** Record a save. Returns true when it created an undo step. */
 export function recordSave(clip: Clip): boolean {
   const history = histories.get(clip.id)
-  const next = snapshot(clip)
+  const next = values(clip)
   if (!history) { histories.set(clip.id, { saved: next, past: [], future: [] }); return false }
-  if (same(history.saved, next)) return false
-  history.past.push(history.saved)
+  const keys = new Set([...history.saved.keys(), ...next.keys()])
+  const changes: Change[] = []
+  for (const key of keys) {
+    const before = history.saved.get(key), after = next.get(key)
+    if (before !== after) changes.push({ key, before, after })
+  }
+  if (!changes.length) return false
+  history.past.push(changes)
   if (history.past.length > LIMIT) history.past.shift()
   history.future = []
   history.saved = next
   return true
 }
 
-/** The clip as it was one step back, or null. */
-export function undo(clip: Clip): Clip | null {
+function step(clip: Clip, from: 'past' | 'future'): Clip | null {
   const history = histories.get(clip.id)
-  const previous = history?.past.pop()
-  if (!history || !previous) return null
-  const from = history.saved
-  history.future.push(snapshot(clip))
-  history.saved = previous
-  return restore(clip, previous, from)
+  const changes = history?.[from].pop()
+  if (!history || !changes) return null
+  const side = from === 'past' ? 'before' : 'after'
+  const next = apply(clip, changes, side)
+  for (const change of changes) {
+    const value = change[side]
+    if (value === undefined) history.saved.delete(change.key)
+    else history.saved.set(change.key, value)
+  }
+  history[from === 'past' ? 'future' : 'past'].push(changes)
+  return next
 }
 
-/** The clip one step forward again, or null. */
+/** The clip with the last recorded step undone, or null. */
+export function undo(clip: Clip): Clip | null {
+  return step(clip, 'past')
+}
+
+/** The clip with the last undone step reapplied, or null. */
 export function redo(clip: Clip): Clip | null {
-  const history = histories.get(clip.id)
-  const next = history?.future.pop()
-  if (!history || !next) return null
-  const from = history.saved
-  history.past.push(snapshot(clip))
-  history.saved = next
-  return restore(clip, next, from)
+  return step(clip, 'future')
 }
 
 export function historyState(clipId: string): { canUndo: boolean; canRedo: boolean } {

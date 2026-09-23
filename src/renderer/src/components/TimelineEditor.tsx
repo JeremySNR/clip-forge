@@ -65,8 +65,8 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
     if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
     setSelected(null)
   }
-  // Trims go through the same guard as cuts: narrowing the trim onto a
-  // stretch that is all cut would otherwise leave nothing to play.
+  // Trims and re-removed pauses go through the same guard as cuts: they could
+  // otherwise leave nothing to play.
   const saveTrim = (next: Clip['edit']): void => {
     if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
   }
@@ -135,10 +135,7 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
         playsFor={editedClipDuration(clip, transcript)}
         onMarkClick={(mark) => {
           if (mark.kind === 'cut') onSave(uncutAt(edit, (mark.range.start + mark.range.end) / 2))
-          else {
-            const next = toggleRestored(edit, mark.range)
-            if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
-          }
+          else saveTrim(toggleRestored(edit, mark.range))
         }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-1.5">

@@ -200,8 +200,8 @@ export default function EditorScreen(): React.JSX.Element {
               label="Tighten cuts — remove pauses and filler words"
               checked={clip.edit.tightenCuts}
               onChange={(v) => {
-                const next = userClipEdit(clip.edit, { tightenCuts: v })
-                if (keepsPlayback({ ...clip, edit: next }, project.transcript)) set({ tightenCuts: v })
+                // Pause removal must not remove the last playable span.
+                if (keepsPlayback({ ...clip, edit: { ...clip.edit, tightenCuts: v } }, project.transcript)) set({ tightenCuts: v })
               }}
             />
             {clip.edit.end - clip.edit.start > TIGHTEN_WARN_SEC && (

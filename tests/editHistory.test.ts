@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { clearHistory, historyState, recordSave, redo, trackClip, undo } from '@shared/editHistory'
+import { clearHistory, historyState, noteExternal, recordSave, redo, trackClip, undo } from '@shared/editHistory'
 import type { Clip } from '@shared/types'
 
 const base = { id: 'c', title: 'T', hook: '', caption: '', broll: [], focusTrack: [{ t: 0, x: 0.5 }],
@@ -79,5 +79,38 @@ describe('undo and automatic framing', () => {
     expect(back.title).toBe('T')
     expect(back.edit.framing).toBe('auto')
     expect(back.edit.focusX).toBe(0.31)
+  })
+})
+
+describe('results that arrive between saves', () => {
+  it('does not treat analysis landing between two saves as a user step', () => {
+    const opened = { ...base, edit: { ...base.edit, framing: 'manual', focusX: 0.5 } } as unknown as Clip
+    trackClip(opened)
+    recordSave({ ...opened, edit: { ...opened.edit, cuts: [{ start: 2, end: 3 }] } })
+    // Analysis lands (merged by the store, not saved by the user)…
+    const analysed = { ...opened, edit: { ...opened.edit, cuts: [{ start: 2, end: 3 }], framing: 'auto', focusX: 0.31 } } as unknown as Clip
+    noteExternal(analysed)
+    // …then the user renames and undoes the rename.
+    const renamed = { ...analysed, title: 'New' }
+    recordSave(renamed)
+    const back = undo(renamed)!
+    expect(back.title).toBe('T')
+    expect(back.edit.framing).toBe('auto')
+    expect(back.edit.focusX).toBe(0.31)
+    // Undoing the cut after that still leaves the analysis framing alone.
+    const beforeCut = undo(back)!
+    expect(beforeCut.edit.cuts).toEqual([])
+    expect(beforeCut.edit.framing).toBe('auto')
+  })
+
+  it('keeps a generated caption when an earlier edit is undone', () => {
+    trackClip(base)
+    const trimmed = { ...base, edit: { ...base.edit, end: 15 } }
+    recordSave(trimmed)
+    const captioned = { ...trimmed, caption: 'Generated caption' }
+    noteExternal(captioned)
+    const back = undo(captioned)!
+    expect(back.edit.end).toBe(20)
+    expect(back.caption).toBe('Generated caption')
   })
 })

@@ -17,12 +17,18 @@ import type {
 
 import { findWholeVideoClip, highlightClips, isWholeVideoClip } from '@shared/wholeVideo'
 import { mergeReframeResult, needsReframe } from '@shared/reframe'
-import { clearHistory, recordSave, redo as redoEdit, trackClip, undo as undoEdit } from '@shared/editHistory'
+import { clearHistory, noteExternal, recordSave, redo as redoEdit, trackClip, undo as undoEdit } from '@shared/editHistory'
 
 /** Font faces already registered with document.fonts (FontFace API). */
 const loadedFontFaces = new Map<string, FontFace>()
 /** Saved trim changes that arrived while a reframe request was in flight. */
 const queuedReframes = new Set<string>()
+
+/** Analysis and caption results are not user edits: keep them out of undo steps. */
+function absorbExternal(clipId: string): void {
+  const clip = useStore.getState().project?.clips.find((c) => c.id === clipId)
+  if (clip) noteExternal(clip)
+}
 
 /** Apply an undo/redo step and save it without recording a new step. */
 async function stepHistory(clipId: string, step: (clip: Clip) => Clip | null): Promise<void> {
@@ -217,6 +223,7 @@ export const useStore = create<AppState>((set, get) => ({
             )
           }
         })
+        absorbExternal(event.clipId)
       } else {
         // A failed background run stays pending without an error, so opening
         // the clip retries it.
@@ -432,9 +439,6 @@ export const useStore = create<AppState>((set, get) => ({
       const current = get().project
       // Only graft the caption on: other clip edits may be in flight.
       if (fresh && current?.id === updated.id) {
-        const live = current.clips.find((c) => c.id === clipId)
-        if (live) trackClip(live)
-        const grafted = live ? { ...live, caption: fresh.caption } : null
         set({
           project: {
             ...current,
@@ -443,9 +447,7 @@ export const useStore = create<AppState>((set, get) => ({
             )
           }
         })
-        // Caption generation is otherwise outside history, so the next cut or
-        // rename would snapshot it and an undo of that edit would wipe it.
-        if (grafted && recordSave(grafted)) set({ historyVersion: get().historyVersion + 1 })
+        absorbExternal(clipId)
       }
     } finally {
       const busy = { ...get().captionBusy }
@@ -482,6 +484,7 @@ export const useStore = create<AppState>((set, get) => ({
             )
           }
         })
+        absorbExternal(clipId)
       }
     } catch (err) {
       // The clip stays pending; the editor shows the failure with a retry and
