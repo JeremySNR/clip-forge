@@ -1,7 +1,7 @@
 import { fork, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { InferenceResponse, TensorData } from './protocol'
+import type { InferenceRequest, InferenceResponse, TensorData } from './protocol'
 
 /** Serialize native inference across clips and contain a native crash to one child. */
 export class InferenceClient {
@@ -18,8 +18,9 @@ export class InferenceClient {
     private readonly timeoutMs = 120_000
   ) {}
 
-  run(modelPath: string, inputs: Record<string, TensorData>, signal?: AbortSignal): Promise<Record<string, TensorData>> {
-    const result = this.queue.then(() => this.execute(modelPath, inputs, signal))
+  run(modelPath: string, inputs: Record<string, TensorData>, signal?: AbortSignal,
+    vad?: InferenceRequest['vad']): Promise<Record<string, TensorData>> {
+    const result = this.queue.then(() => this.execute(modelPath, inputs, signal, vad))
     this.queue = result.catch(() => undefined)
     return result
   }
@@ -31,7 +32,8 @@ export class InferenceClient {
     child?.kill('SIGKILL')
   }
 
-  private execute(modelPath: string, inputs: Record<string, TensorData>, signal?: AbortSignal): Promise<Record<string, TensorData>> {
+  private execute(modelPath: string, inputs: Record<string, TensorData>, signal?: AbortSignal,
+    vad?: InferenceRequest['vad']): Promise<Record<string, TensorData>> {
     signal?.throwIfAborted()
     if (this.failure) throw this.failure
     clearTimeout(this.idle)
@@ -98,7 +100,7 @@ export class InferenceClient {
       signal?.addEventListener('abort', abort, { once: true })
       if (signal?.aborted) return abort()
       try {
-        active.send({ id, modelPath, inputs }, error => { if (error && !settled) failed(error) })
+        active.send({ id, modelPath, inputs, vad }, error => { if (error && !settled) failed(error) })
       } catch (error) {
         failed(error instanceof Error ? error : new Error(String(error)))
       }

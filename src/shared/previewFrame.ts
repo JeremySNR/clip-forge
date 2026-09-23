@@ -16,8 +16,13 @@ import { zoomAt } from './zoom'
 export const PREVIEW_ZOOM_ORIGIN_Y = 0.42
 
 export interface PlaybackClock {
+  /** Media time at `wallAt` (the anchor extrapolation runs from). */
   mediaTime: number
   wallAt: number
+  /** Last raw currentTime seen, so each new report nudges the anchor once. */
+  lastRaw?: number
+  /** Last time returned; output never runs backwards between resets. */
+  t?: number
 }
 
 export interface PreviewFramePlan {
@@ -29,29 +34,35 @@ export interface PreviewFramePlan {
   fitRanges?: Array<Omit<LayoutShot, 'mode'>>
 }
 
+/** Share of the gap to each fresh currentTime report closed per report. */
+const CLOCK_CORRECTION = 0.15
+/** Beyond this the element really jumped (seek, stall, loop): resynchronise. */
+const CLOCK_RESYNC_SEC = 0.25
+
 /**
- * Extrapolate playback time between coarse video.currentTime updates so slow
- * zoom ramps advance every display frame, not just when the demuxer bumps time.
+ * Smooth, monotonic playback time for per-display-frame zoom and crop.
+ *
+ * video.currentTime advances in coarse steps and is reported late by a
+ * varying fraction of a frame. Snapping to each report made time jump
+ * backwards by up to a display frame, so zoom ramps wobbled visibly at the
+ * video frame rate even though the export was smooth. Instead the clock runs
+ * on wall time and each new report only nudges its anchor.
  */
 export function smoothPlaybackTime(
-  video: { currentTime: number; paused: boolean; seeking: boolean },
+  video: { currentTime: number; paused: boolean; seeking: boolean; playbackRate?: number },
   clock: PlaybackClock,
   wallNow = performance.now()
 ): { t: number; clock: PlaybackClock } {
   const raw = video.currentTime
-  if (video.paused || video.seeking) {
-    return { t: raw, clock: { mediaTime: raw, wallAt: wallNow } }
-  }
-  if (clock.wallAt === 0 || Math.abs(raw - clock.mediaTime) > 0.25) {
-    return { t: raw, clock: { mediaTime: raw, wallAt: wallNow } }
-  }
-  if (raw !== clock.mediaTime) {
-    return { t: raw, clock: { mediaTime: raw, wallAt: wallNow } }
-  }
-  return {
-    t: clock.mediaTime + (wallNow - clock.wallAt) / 1000,
-    clock
-  }
+  const reset = { t: raw, clock: { mediaTime: raw, wallAt: wallNow, lastRaw: raw, t: raw } }
+  if (video.paused || video.seeking || clock.wallAt === 0) return reset
+  const rate = video.playbackRate ?? 1
+  let anchor = clock.mediaTime
+  const predicted = anchor + (wallNow - clock.wallAt) / 1000 * rate
+  if (Math.abs(raw - predicted) > CLOCK_RESYNC_SEC) return reset
+  if (clock.lastRaw !== undefined && raw !== clock.lastRaw) anchor += (raw - predicted) * CLOCK_CORRECTION
+  const t = Math.max(clock.t ?? -Infinity, anchor + (wallNow - clock.wallAt) / 1000 * rate)
+  return { t, clock: { mediaTime: anchor, wallAt: clock.wallAt, lastRaw: raw, t } }
 }
 
 export function previewFocusX(plan: PreviewFramePlan, t: number): number {

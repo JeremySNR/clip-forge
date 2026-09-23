@@ -2,6 +2,8 @@ import type { PipelineProgress, Project, Transcript } from '@shared/types'
 import { extractAudioChunks } from './ffmpeg'
 import { transcribeChunks } from './transcribe'
 import { annotateEnergy } from './energy'
+import { detectSpeech, vadAvailable } from './vad'
+import { timed } from './timing'
 import { updateProject } from '../projects'
 
 /**
@@ -40,6 +42,15 @@ export async function ensureTranscript(
 
   if (project.transcript) {
     onProgress({ stage: 'transcribe', progress: at(1), message: 'Using saved transcript…' })
+    if (!project.transcript.speech && project.video.hasAudio) {
+      // Older projects: add voice activity once so cuts land in silence.
+      onProgress({ stage: 'transcribe', progress: at(1), message: 'Detecting speech…' })
+      const speech = await speechFor(project.video.path, signal)
+      if (speech) {
+        project.transcript = { ...project.transcript, speech }
+        await updateProject(project.id, (p) => { if (p.transcript) p.transcript.speech = speech })
+      }
+    }
     return project.transcript
   }
 
@@ -47,6 +58,10 @@ export async function ensureTranscript(
     throw new Error('This video has no audio track. Speech-based clip selection needs a video with spoken audio.')
   }
 
+  // Voice activity is local and independent of the transcription route, so
+  // it runs alongside it rather than adding to the wait.
+  const speech = speechFor(project.video.path, signal)
+  speech.catch(() => undefined) // awaited below; only cancellation rejects
   onProgress({ stage: 'audio', progress: at(0), message: 'Extracting audio…' })
   const chunks = await extractAudioChunks(
     project.video.path,
@@ -79,6 +94,7 @@ export async function ensureTranscript(
     signal
   )
   if (transcript.segments.length === 0) throw new Error(options.noSpeechError)
+  transcript.speech = (await speech) ?? undefined
 
   // Vocal energy feeds the virality analysis (arousal signal) and the auto
   // zoom's emphasis punch-ins, so both flows want it annotated.
@@ -96,4 +112,16 @@ export async function ensureTranscript(
     p.transcript = transcript
   })
   return transcript
+}
+
+/** Voice activity for the source, or null when unavailable; never fails the stage. */
+async function speechFor(videoPath: string, signal?: AbortSignal): Promise<Transcript['speech'] | null> {
+  if (!vadAvailable()) return null
+  try {
+    return await timed('speech', () => detectSpeech(videoPath, signal))
+  } catch (error) {
+    if (signal?.aborted) throw error
+    console.error('Speech detection failed; cuts will use word timing only:', error)
+    return null
+  }
 }

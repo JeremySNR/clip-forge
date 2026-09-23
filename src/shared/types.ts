@@ -30,10 +30,18 @@ export interface TranscriptSegment {
   energy?: number
 }
 
+/** A span of detected speech, in source seconds. */
+export interface SpeechRegion { start: number; end: number }
+
 export interface Transcript {
   language: string
   durationSec: number
   segments: TranscriptSegment[]
+  /**
+   * Voice activity across the whole source (Silero VAD). Pause removal and
+   * clip boundaries cut only in silence when present; older projects lack it.
+   */
+  speech?: SpeechRegion[]
 }
 
 export type AspectRatio = '9:16' | '1:1' | '16:9' | 'original'
@@ -89,6 +97,8 @@ export interface FocusKeyframe {
    * moves of the same person, which the crop reaches with a smooth pan.
    */
   cut?: boolean
+  /** Planned pan duration in seconds for a within-shot move (default FOCUS_PAN_SEC). */
+  pan?: number
 }
 
 export interface ClipEditState {
@@ -97,6 +107,8 @@ export interface ClipEditState {
   framing: FramingMode
   /** A user choice; automatic analysis must not overwrite it. */
   compositionPreference?: 'auto' | 'content-first' | 'stacked' | 'content-only'
+  /** False turns detected two-person split-screen ranges back into speaker crops. */
+  speakerSplit?: boolean
   /** Explicit framing choice, even when its values match generated defaults. */
   layoutChosen?: boolean
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
@@ -202,8 +214,9 @@ export interface ContentRegion { x: number; y: number; width: number; height: nu
 /** Independent crops of one source frame, rendered on one playback clock. */
 export interface Composition {
   version: 1
-  preset: 'content-first' | 'stacked' | 'content-only'
-  layers: Array<{ role: 'content' | 'presenter'; source: ContentRegion; target: ContentRegion }>
+  /** `speakers`: two people from one wide shot, stacked, during a quick exchange. */
+  preset: 'content-first' | 'stacked' | 'content-only' | 'speakers'
+  layers: Array<{ role: 'content' | 'presenter' | 'speaker'; source: ContentRegion; target: ContentRegion }>
   captionY: number
 }
 
@@ -314,6 +327,12 @@ export interface ExportProgress {
   progress: number
   message: string
 }
+
+/** Layout analysis for a clip running after the clip list is shown. */
+export type BackgroundReframeEvent =
+  | { projectId: string; clipId: string; state: 'running' }
+  | { projectId: string; clipId: string; state: 'done'; clip: Clip }
+  | { projectId: string; clipId: string; state: 'failed'; message: string }
 
 export interface ExportResult {
   clipId: string

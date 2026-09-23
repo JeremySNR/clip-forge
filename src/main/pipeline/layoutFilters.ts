@@ -10,7 +10,9 @@ export function compositionGraph(
   const layers = compositionPixels(composition, source, width, height)
   if (!layers.length) throw new Error('Invalid composition')
   const parts = [`[${input}]split=${layers.length + 1}[${prefix}BaseInput]${layers.map((_, i) => `[${prefix}Input${i}]`).join('')}`,
-    `[${prefix}BaseInput]scale=2:2,pad=${width}:${height}:0:0:color=black,drawbox=color=black:t=fill[${prefix}Base]`]
+    // Blacken the 2x2 seed before padding: a full-frame drawbox fill costs a
+    // per-pixel blend of every output frame (~0.4 s per second of 1080x1920).
+    `[${prefix}BaseInput]scale=2:2,drawbox=color=black:t=fill,pad=${width}:${height}:0:0:color=black[${prefix}Base]`]
   for (const [i, { source: s, target: d }] of layers.entries()) {
     parts.push(`[${prefix}Input${i}]crop=${s.width}:${s.height}:${s.x}:${s.y},scale=${d.width}:${d.height}:flags=lanczos,setsar=1[${prefix}Layer${i}]`)
     parts.push(`[${i === 0 ? `${prefix}Base` : `${prefix}Out${i - 1}`}][${prefix}Layer${i}]overlay=${d.x}:${d.y}:eof_action=pass[${i === layers.length - 1 ? output : `${prefix}Out${i}`}]`)

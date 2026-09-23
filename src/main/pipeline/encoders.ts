@@ -12,8 +12,10 @@ import { FFMPEG_PATH, runBinary } from './ffmpeg'
 import { mediaThreads } from './mediaJobs'
 
 /**
- * Hardware (NVENC) export support. The bundled ffmpeg-static binary is built
- * without hardware encoders, so GPU export needs a capable ffmpeg: either one
+ * Hardware export support. On macOS the bundled ffmpeg includes Apple's
+ * VideoToolbox encoder, verified with a hardware-only test encode. For NVIDIA
+ * (NVENC) the bundled ffmpeg-static binary is built without hardware
+ * encoders, so GPU export needs a capable ffmpeg: either one
  * already on the system PATH, or a GPU-enabled static build (BtbN) that the
  * app can download on demand. A candidate binary only counts as "available"
  * after a real NVENC test encode succeeds — having the encoder compiled in
@@ -21,9 +23,13 @@ import { mediaThreads } from './mediaJobs'
  */
 
 const NVENC_ENCODER = 'h264_nvenc'
+/** Apple's hardware H.264 encoder; the bundled macOS ffmpeg includes it. */
+const VIDEOTOOLBOX_ENCODER = 'h264_videotoolbox'
+
+export type EncoderKind = 'nvenc' | 'videotoolbox' | 'cpu'
 
 export interface ResolvedEncoder {
-  kind: 'nvenc' | 'cpu'
+  kind: EncoderKind
   /** ffmpeg binary to use for the export. */
   bin: string
 }
@@ -88,13 +94,35 @@ function getNvencProbe(): Promise<NvencProbe> {
   return probePromise
 }
 
+let videoToolboxPromise: Promise<boolean> | null = null
+
+/**
+ * Real proof on macOS: encode two frames with exactly the export arguments.
+ * Constant quality (`-q:v`) exists only on Apple Silicon, so an Intel or
+ * Rosetta build fails this test and exports on the CPU instead.
+ */
+function videoToolboxWorks(): Promise<boolean> {
+  if (process.platform !== 'darwin') return Promise.resolve(false)
+  videoToolboxPromise ??= runBinary(FFMPEG_PATH, [
+    '-hide_banner', '-v', 'error',
+    '-f', 'lavfi', '-i', 'color=c=black:s=256x256:d=0.12',
+    '-frames:v', '2', ...encoderArgs('videotoolbox', 'standard'),
+    '-f', 'null', '-'
+  ]).then(() => true, () => false)
+  return videoToolboxPromise
+}
+
 export function invalidateEncoderCache(): void {
   probePromise = null
+  videoToolboxPromise = null
 }
 
 export async function getGpuStatus(): Promise<GpuEncoderStatus> {
   const canDownload = process.platform === 'linux' || process.platform === 'win32'
   const probe = await getNvencProbe()
+  if (!probe.bin && await videoToolboxWorks()) {
+    return { available: true, detail: 'Apple VideoToolbox hardware encoder ready', canDownloadFfmpeg: false }
+  }
   if (probe.bin) {
     return {
       available: true,
@@ -125,16 +153,17 @@ export async function resolveEncoder(preference: 'auto' | 'cpu' | 'gpu'): Promis
   if (preference === 'cpu') return { kind: 'cpu', bin: FFMPEG_PATH }
   const probe = await getNvencProbe()
   if (probe.bin) return { kind: 'nvenc', bin: probe.bin }
+  if (await videoToolboxWorks()) return { kind: 'videotoolbox', bin: FFMPEG_PATH }
   if (preference === 'gpu') {
     throw new Error(
-      'GPU encoding is not available: no working NVENC ffmpeg was found. Check Settings → Export.'
+      'GPU encoding is not available: no working NVENC or VideoToolbox encoder was found. Check Settings → Export.'
     )
   }
   return { kind: 'cpu', bin: FFMPEG_PATH }
 }
 
 /** Video encoder args for a given encoder kind and quality tier. */
-export function encoderArgs(kind: 'nvenc' | 'cpu', quality: QualityPreference): string[] {
+export function encoderArgs(kind: EncoderKind, quality: QualityPreference): string[] {
   switch (kind) {
     case 'cpu': {
       const preset = quality === 'draft' ? 'veryfast' : quality === 'high' ? 'slow' : 'medium'
@@ -157,12 +186,24 @@ export function encoderArgs(kind: 'nvenc' | 'cpu', quality: QualityPreference): 
         '-pix_fmt', 'yuv420p'
       ]
     }
+    case 'videotoolbox': {
+      const q = VIDEOTOOLBOX_QUALITY[quality]
+      return ['-c:v', VIDEOTOOLBOX_ENCODER, '-allow_sw', '0', '-q:v', String(q), '-profile:v', 'high', '-pix_fmt', 'yuv420p']
+    }
     default: {
       const exhaustive: never = kind
       return exhaustive
     }
   }
 }
+
+/**
+ * VideoToolbox constant-quality levels (1-100) matched to the x264 tiers on a
+ * 1080x1920 podcast export against a lossless reference (M1): q65 ≈ CRF 23
+ * (SSIM 0.992), q75 ≈ CRF 19 (0.995), q80 ≈ CRF 17 (0.996). Encoding is ~5x
+ * faster than x264 medium; files are ~40% larger at the same quality.
+ */
+const VIDEOTOOLBOX_QUALITY: Record<QualityPreference, number> = { draft: 65, standard: 75, high: 80 }
 
 export function audioArgs(quality: QualityPreference): string[] {
   return ['-c:a', 'aac', '-b:a', quality === 'high' ? '192k' : '160k']

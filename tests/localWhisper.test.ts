@@ -27,25 +27,71 @@ it('keeps Python and model downloads inside app data on each platform', () => {
   expect(localWhisperPaths('/app-data', 'win32').python).toBe(join('/app-data', 'local-whisper', 'venv', 'Scripts', 'python.exe'))
 })
 
-it('creates a private environment and downloads only the selected model', async () => {
-  mock.root = await mkdtemp(join(tmpdir(), 'cutawan-whisper-test-'))
-  mock.spawn.mockImplementation(() => {
+function fakePlatform(platform: string, arch: string): () => void {
+  const saved = { platform: process.platform, arch: process.arch }
+  Object.defineProperty(process, 'platform', { value: platform })
+  Object.defineProperty(process, 'arch', { value: arch })
+  return () => {
+    Object.defineProperty(process, 'platform', { value: saved.platform })
+    Object.defineProperty(process, 'arch', { value: saved.arch })
+  }
+}
+
+function succeedUnless(failing?: (args: string[]) => boolean): void {
+  mock.spawn.mockImplementation((_command: string, args: string[]) => {
     const child = Object.assign(new EventEmitter(), {
       stdout: new EventEmitter(), stderr: new EventEmitter(), kill: vi.fn()
     })
-    setTimeout(() => child.emit('close', 0), 0)
+    setTimeout(() => child.emit('close', failing?.(args) ? 1 : 0), 0)
     return child
   })
-  const progress = vi.fn()
-  const result = await installLocalWhisper('small', 'python3', progress)
-  const paths = localWhisperPaths(mock.root)
-  expect(result).toEqual({
-    pythonPath: paths.python,
-    modelPath: join(paths.models, 'small')
-  })
-  expect(mock.spawn).toHaveBeenCalledTimes(4)
-  expect(mock.spawn).toHaveBeenNthCalledWith(1, 'python3', ['-m', 'venv', paths.environment],
-    expect.objectContaining({ shell: false }))
-  expect(mock.spawn.mock.calls[2][1]).toContain('small')
-  expect(progress).toHaveBeenCalledWith({ progress: 1, message: 'Local Whisper is ready.' })
+}
+
+const downloadCall = (): string[] => mock.spawn.mock.calls.map(c => c[1] as string[]).find(a => a.some(x => x.endsWith('install.py')))!
+
+it('creates a private environment and downloads only the selected model', async () => {
+  const restore = fakePlatform('linux', 'x64')
+  try {
+    mock.root = await mkdtemp(join(tmpdir(), 'cutawan-whisper-test-'))
+    succeedUnless()
+    const progress = vi.fn()
+    const result = await installLocalWhisper('small', 'python3', progress)
+    const paths = localWhisperPaths(mock.root)
+    expect(result).toEqual({
+      pythonPath: paths.python,
+      modelPath: join(paths.models, 'small')
+    })
+    expect(mock.spawn).toHaveBeenCalledTimes(4)
+    expect(mock.spawn).toHaveBeenNthCalledWith(1, 'python3', ['-m', 'venv', paths.environment],
+      expect.objectContaining({ shell: false }))
+    expect(downloadCall()).toContain('small')
+    expect(downloadCall()).not.toContain('--mlx')
+    expect(progress).toHaveBeenCalledWith({ progress: 1, message: 'Local Whisper is ready.' })
+  } finally { restore() }
+})
+
+it('adds GPU transcription on Apple Silicon, and still installs when it is unavailable', async () => {
+  const restore = fakePlatform('darwin', 'arm64')
+  try {
+    mock.root = await mkdtemp(join(tmpdir(), 'cutawan-whisper-test-'))
+    succeedUnless()
+    await installLocalWhisper('small', 'python3', vi.fn())
+    expect(mock.spawn.mock.calls.some(c => (c[1] as string[]).includes('mlx-whisper'))).toBe(true)
+    expect(downloadCall()).toContain('--mlx')
+
+    mock.spawn.mockReset()
+    succeedUnless(args => args.includes('mlx-whisper'))
+    const result = await installLocalWhisper('small', 'python3', vi.fn())
+    expect(result.modelPath).toContain('small')
+    expect(downloadCall()).not.toContain('--mlx')
+
+    // A failed optional MLX model download must not block the CPU setup.
+    mock.spawn.mockReset()
+    succeedUnless(args => args.some(x => x.endsWith('install.py')) && args.includes('--mlx'))
+    const afterMlxModelFail = await installLocalWhisper('small', 'python3', vi.fn())
+    expect(afterMlxModelFail.modelPath).toContain('small')
+    const downloads = mock.spawn.mock.calls.map(c => c[1] as string[]).filter(a => a.some(x => x.endsWith('install.py')))
+    expect(downloads.some(a => a.includes('--mlx'))).toBe(true)
+    expect(downloads.some(a => !a.includes('--mlx'))).toBe(true)
+  } finally { restore() }
 })

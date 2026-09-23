@@ -124,6 +124,8 @@ interface AppState {
   ensureReframe: (clipId: string, retry?: boolean) => Promise<void>
   reframeBusy: Record<string, boolean>
   reframeError: Record<string, string>
+  /** Clips whose layout is being analysed in the background after the pipeline. */
+  backgroundReframing: Record<string, boolean>
   updateTranscriptWord: (segmentId: number, wordIndex: number, text: string) => Promise<void>
   exportClip: (clipId: string) => Promise<void>
   cancelExport: (clipId: string) => Promise<void>
@@ -166,6 +168,7 @@ export const useStore = create<AppState>((set, get) => ({
   captionBusy: {},
   reframeBusy: {},
   reframeError: {},
+  backgroundReframing: {},
 
   init: async () => {
     const [settings, projects, customFonts] = await Promise.all([
@@ -178,6 +181,28 @@ export const useStore = create<AppState>((set, get) => ({
     window.cutawan.onPipelineProgress((p) => set({ pipelineProgress: p }))
     window.cutawan.onImportProgress((p) => {
       if (get().importProgress !== null) set({ importProgress: p })
+    })
+    window.cutawan.onBackgroundReframe((event) => {
+      const running = { ...get().backgroundReframing }
+      if (event.state === 'running') running[event.clipId] = true
+      else delete running[event.clipId]
+      const current = get().project
+      if (event.state === 'done' && current?.id === event.projectId) {
+        // Graft only what the analysis owns: edits made while it ran stay.
+        set({
+          backgroundReframing: running,
+          project: {
+            ...current,
+            clips: current.clips.map((c) =>
+              c.id === event.clipId ? mergeReframeResult(c, event.clip, current.videoType) : c
+            )
+          }
+        })
+      } else {
+        // A failed background run stays pending without an error, so opening
+        // the clip retries it.
+        set({ backgroundReframing: running })
+      }
     })
     window.cutawan.onExportProgress((p) => {
       const entry = get().exports[p.clipId]

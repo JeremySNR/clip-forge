@@ -38,7 +38,8 @@ export function focusEase(p: number): number {
 /** Pan duration for the keyframe at `index`, capped so it never overruns the next keyframe. */
 export function focusPanDuration(track: FocusKeyframe[], index: number): number {
   const next = track[index + 1]
-  return next ? Math.min(FOCUS_PAN_SEC, Math.max(0, next.t - track[index].t)) : FOCUS_PAN_SEC
+  const pan = track[index].pan ?? FOCUS_PAN_SEC
+  return next ? Math.min(pan, Math.max(0, next.t - track[index].t)) : pan
 }
 
 /** Whether the crop snaps to the keyframe at `index` instead of panning to it. */
@@ -48,7 +49,8 @@ export function focusSnaps(track: FocusKeyframe[], index: number): boolean {
   if (!prev) return true
   return (
     kf.cut === true ||
-    Math.abs(kf.x - prev.x) > FOCUS_PAN_MAX_SHIFT ||
+    // Planned pans (kf.pan) are deliberate within-shot moves of any size.
+    (kf.pan === undefined && Math.abs(kf.x - prev.x) > FOCUS_PAN_MAX_SHIFT) ||
     focusPanDuration(track, index) < 0.05
   )
 }

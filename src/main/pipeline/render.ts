@@ -16,12 +16,13 @@ import type {
 import type { EncoderPreference } from '@shared/types'
 import { computeKeptSegments, remapTranscript, TimeMap, type KeptSegment } from '@shared/tighten'
 import { focusPanDuration, focusSnaps } from '@shared/focusTrack'
-import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges } from '@shared/contentType'
+import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
 import { compositionGraph, fitRegionGraph } from './layoutFilters'
 import { resolveCaptionStyle } from '@shared/captionStyles'
 import { computeZoomEvents, fitZoomEvents, remapZoomEvents, type ZoomEvent } from '@shared/zoom'
 import { planUploadEncode, type UploadEncodePlan } from '@shared/uploadBudget'
 import { FFMPEG_PATH, probeVideo, runFfmpegWith } from './ffmpeg'
+import { timed } from './timing'
 import { loudnormFilter, measureLoudness, normalisationMode, type LoudnessStats } from './loudness'
 import { buildAss, fontsDir } from './captions'
 import { fontMetricsForFamily } from '../fonts'
@@ -265,6 +266,9 @@ function reframeGraph(
     let current = 'layoutCrop'
     for (const [i, shots] of [...groups.values()].entries()) {
       const region = shots[0].region
+      // Every branch must produce every frame: dropping hidden frames (select)
+      // made overlay buffer the main stream through each gap, ~1.5 GB for a
+      // minute of 1080x1920, and was slower once the canvas fill was cheap.
       parts.push(shots[0].composition
         ? compositionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, shots[0].composition)
         : fitRegionGraph(`layoutFitInput${i}`, `layoutFit${i}`, `layout${i}`, source, w, h, region, shots[0].overview))
@@ -500,7 +504,6 @@ export function buildFilterGraph(
     parts.push(zoomGraph(zoomEvents, source.fps))
     current = 'zoomed'
   }
-  const initial = current
 
   items.forEach((item, i) => {
     const input = i + 1
@@ -549,17 +552,15 @@ export function buildFilterGraph(
     current = 'wmk'
   }
 
+  // Square pixels: an even-rounded crop scaled to exact output dimensions
+  // otherwise carries a sample aspect like 404:405 that players honour.
   if (assPath) {
     const fontsDirPath = options?.fontsDirPath ?? fontsDir()
     parts.push(
-      `[${current}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDirPath)}'[vout]`
+      `[${current}]ass=filename='${escapeFilterPath(assPath)}':fontsdir='${escapeFilterPath(fontsDirPath)}',setsar=1[vout]`
     )
-  } else if (current === initial) {
-    parts.push(`[${current}]null[vout]`)
   } else {
-    // Rename the last overlay output to [vout].
-    const last = parts.pop()!
-    parts.push(last.replace(`[${current}]`, '[vout]'))
+    parts.push(`[${current}]setsar=1[vout]`)
   }
 
   return {
@@ -603,12 +604,12 @@ export function renderClip(job: RenderJob): Promise<RenderResult> {
   return mediaJobs.run(async () => {
     const temporary = `${job.outputPath}.partial-${randomUUID()}.mp4`
     try {
-      const result = await render({ ...job, outputPath: temporary,
-        onProgress: progress => job.onProgress?.(progress * .95) })
+      const result = await timed('export/render', () => render({ ...job, outputPath: temporary,
+        onProgress: progress => job.onProgress?.(progress * .95) }))
       // Preserve any previous export until the new file passes a complete decode.
-      await runFfmpegWith(FFMPEG_PATH, ['-v', 'error', '-xerror', '-i', temporary,
+      await timed('export/validate', () => runFfmpegWith(FFMPEG_PATH, ['-v', 'error', '-xerror', '-i', temporary,
         '-map', '0:v:0', '-map', '0:a?', '-f', 'null', '-'], { signal: job.signal,
-        onProgress: seconds => job.onProgress?.(.95 + .05 * Math.min(1, seconds / Math.max(.1, job.clip.edit.end - job.clip.edit.start))) })
+        onProgress: seconds => job.onProgress?.(.95 + .05 * Math.min(1, seconds / Math.max(.1, job.clip.edit.end - job.clip.edit.start))) }))
       job.signal?.throwIfAborted()
       await rename(temporary, job.outputPath)
       job.onProgress?.(1)
@@ -703,7 +704,7 @@ async function render(job: RenderJob): Promise<RenderResult> {
   // Auto zoom: plan in source time (shared with the preview), then remap to
   // the clip-relative output timeline the filters run on.
   let zoomEvents: ZoomEvent[] | null = null
-  if (clipAllowsAutoZoom(clip.edit) && automaticLayoutShots(clip).length === 0) {
+  if (clipAllowsAutoZoom(clip.edit) && !layoutBlocksAutoZoom(clip)) {
     const planned = computeZoomEvents(transcript, start, clip.edit.end, segments)
     zoomEvents = remapZoomEvents(planned, (t) => (map ? map.toOutput(t) : t - start))
     if (zoomEvents.length === 0) zoomEvents = null
@@ -714,7 +715,7 @@ async function render(job: RenderJob): Promise<RenderResult> {
   // integrated loudness gates out silence anyway, so removing pauses changes
   // the reading by a fraction of a dB — not worth a second trim+concat graph.
   const loudness = source.hasAudio
-    ? await measureLoudness(source.path, start, duration, job.signal)
+    ? await timed('export/loudness', () => measureLoudness(source.path, start, duration, job.signal))
     : null
   if (process.env.CUTAWAN_DEBUG) {
     console.error(`[render] loudness normalisation: ${normalisationMode(loudness)}`, loudness)
@@ -780,6 +781,7 @@ async function render(job: RenderJob): Promise<RenderResult> {
     }
   }
 
+  if (process.env.CUTAWAN_DEBUG_GRAPH) await writeFile(process.env.CUTAWAN_DEBUG_GRAPH, filterComplex, 'utf8')
   let filterArgs = ['-filter_complex', filterComplex]
   let filterScriptPath: string | null = null
   if (filterComplex.length > FILTER_ARG_MAX_CHARS) {
@@ -856,10 +858,10 @@ async function render(job: RenderJob): Promise<RenderResult> {
           runOpts(0, 1)
         )
       } catch (err) {
-        // NVENC can fail at runtime (driver updates, GPU busy, session limits).
-        // Unless the user explicitly demanded GPU, fall back to a CPU encode.
-        if (resolved.kind === 'nvenc' && job.encoder !== 'gpu' && !job.signal?.aborted) {
-          console.error('NVENC render failed, retrying on CPU:', err)
+        // Hardware encoders can fail at runtime (driver updates, GPU busy, session
+        // limits). Unless the user explicitly demanded GPU, fall back to CPU.
+        if (resolved.kind !== 'cpu' && job.encoder !== 'gpu' && !job.signal?.aborted) {
+          console.error(`${resolved.kind} render failed, retrying on CPU:`, err)
           await rm(job.outputPath, { force: true }).catch(() => undefined)
           await runFfmpegWith(
             resolved.bin,

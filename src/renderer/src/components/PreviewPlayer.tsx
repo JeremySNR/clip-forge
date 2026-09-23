@@ -9,7 +9,7 @@ import {
   wordsInRange
 } from '@shared/captionLayout'
 import { computeKeptSegments, TimeMap } from '@shared/tighten'
-import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges } from '@shared/contentType'
+import { automaticLayoutShots, clipAllowsAutoZoom, compositionHidesTitle, detailCaptionRanges, layoutBlocksAutoZoom } from '@shared/contentType'
 import { captionPositionAt } from '@shared/contentRegion'
 import { computeZoomEvents, fitZoomEvents } from '@shared/zoom'
 import { formatTimecode } from '../lib/format'
@@ -38,6 +38,7 @@ export default function PreviewPlayer({
   const zoomLayerRef = useRef<HTMLDivElement>(null)
   const overviewRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
+  const publishedRef = useRef(-Infinity)
   const playbackClockRef = useRef<PlaybackClock>({ mediaTime: 0, wallAt: 0 })
   const previewPlanRef = useRef<PreviewFramePlan>({
     zoomEvents: null,
@@ -193,7 +194,7 @@ export default function PreviewPlayer({
   // Mirrors the export's auto-zoom plan (same shared generator), including the
   // trim the export has to make when a plan outgrows one ffmpeg expression.
   const zoomEvents = useMemo(() => {
-    if (!clipAllowsAutoZoom(clip.edit) || automaticLayoutShots(clip).length > 0) return null
+    if (!clipAllowsAutoZoom(clip.edit) || layoutBlocksAutoZoom(clip)) return null
     const events = fitZoomEvents(computeZoomEvents(project.transcript, start, end, keptSegments))
     return events.length > 0 ? events : null
   }, [clip, project.transcript, start, end, keptSegments])
@@ -243,8 +244,15 @@ export default function PreviewPlayer({
         }
         const smoothed = smoothPlaybackTime(video, playbackClockRef.current)
         playbackClockRef.current = smoothed.clock
+        // Zoom and crop follow every display frame directly on the DOM.
+        // React (captions, playhead, transcript) only needs ~30 updates a
+        // second; re-rendering it every frame dropped frames and made the
+        // zoom stutter.
         applyFrame(smoothed.t)
-        setTime(smoothed.t)
+        if (Math.abs(smoothed.t - publishedRef.current) >= 1 / 30) {
+          publishedRef.current = smoothed.t
+          setTime(smoothed.t)
+        }
       }
       rafRef.current = requestAnimationFrame(tick)
     }

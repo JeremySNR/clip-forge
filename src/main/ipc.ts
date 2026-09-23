@@ -22,6 +22,7 @@ import { probeVideo } from './pipeline/ffmpeg'
 import { getTimeline } from './pipeline/timeline'
 import { renderClip } from './pipeline/render'
 import { ensureClipReframe } from './pipeline/reframe'
+import { cancelBackgroundReframes, startBackgroundReframes } from './pipeline/backgroundReframe'
 import { generateSocialCaption } from './pipeline/socialCaption'
 import { addCustomFonts, listCustomFonts, removeCustomFont, renderFontsDir } from './fonts'
 import { clearImportCookiesFile, installImportCookiesFile } from './cookies'
@@ -108,6 +109,7 @@ export function registerIpcHandlers(): void {
     }
     const controller = new AbortController()
     runningAnalyses.set(projectId, controller)
+    cancelBackgroundReframes(projectId)
     try {
       const project = await loadProject(projectId)
       if (project.sourceMissing) {
@@ -115,7 +117,7 @@ export function registerIpcHandlers(): void {
           `The source video is missing (${project.video.path}). Relink it before generating clips.`
         )
       }
-      return await analyzeProject(
+      const analysed = await analyzeProject(
         project,
         options,
         (p) => {
@@ -123,6 +125,11 @@ export function registerIpcHandlers(): void {
         },
         controller.signal
       )
+      // Show the clips now; the top clips' layouts finish in the background.
+      void startBackgroundReframes(analysed, (state) => {
+        if (!event.sender.isDestroyed()) event.sender.send('clip:backgroundReframe', state)
+      })
+      return analysed
     } catch (err) {
       if (controller.signal.aborted) throw new Error(ANALYSIS_CANCELLED_MESSAGE, { cause: err })
       throw err
@@ -141,6 +148,7 @@ export function registerIpcHandlers(): void {
       }
       const controller = new AbortController()
       runningAnalyses.set(projectId, controller)
+      cancelBackgroundReframes(projectId)
       try {
         const project = await loadProject(projectId)
         if (project.sourceMissing) {
@@ -171,7 +179,10 @@ export function registerIpcHandlers(): void {
 
   handle('project:list', async () => listProjects())
   handle('project:load', async (_e, id: string) => loadProject(id))
-  handle('project:delete', async (_e, id: string) => deleteProject(id))
+  handle('project:delete', async (_e, id: string) => {
+    cancelBackgroundReframes(id)
+    return deleteProject(id)
+  })
 
   handle('project:updateClip', async (_e, projectId: string, clip: Clip) => {
     return updateProject(projectId, (project) => {
@@ -225,6 +236,7 @@ export function registerIpcHandlers(): void {
           'pick the same video.'
       )
     }
+    cancelBackgroundReframes(projectId)
     return updateProject(projectId, (fresh) => {
       fresh.video = video
       fresh.sourceMissing = false

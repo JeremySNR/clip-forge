@@ -39,7 +39,7 @@ describe('continuous face scouting', () => {
     const result = await runDetectionPass('unused', 0, 30)
     expect(result.frameCount).toBe(750)
     expect(result.facesPerFrame.slice(500, 513).some((f) => f?.length)).toBe(true)
-    expect(result.facesPerFrame[748]).toHaveLength(1)
+    expect(result.facesPerFrame[745]).toHaveLength(1) // dense (every 5th frame) while a face is present
     expect(result.sceneCuts).toContain(451)
     expect(result.faceFrameRatio).toBeCloseTo(earlier ? 0.5 : 1 / 3, 1)
   })
@@ -48,7 +48,8 @@ describe('continuous face scouting', () => {
     expect(shouldDetectFaces(1200, -1)).toBe(true)
     expect(shouldDetectFaces(1201, -1)).toBe(false)
     expect(shouldDetectFaces(1201, -1, true)).toBe(true)
-    expect(shouldDetectFaces(1202, 1200)).toBe(true)
+    expect(shouldDetectFaces(1205, 1200)).toBe(true)
+    expect(shouldDetectFaces(1202, 1200)).toBe(false)
   })
 
   it('honours user cancellation', async () => {
@@ -67,5 +68,16 @@ describe('track coverage', () => {
     expect(trackCoverageRatio([track(80, 40), track(0, 50)], 100)).toBe(0.7)
     expect(trackCoverageRatio([track(0, 200)], 100)).toBe(1)
     expect(trackCoverageRatio([], 0)).toBe(0)
+  })
+})
+
+describe('halveRgb', () => {
+  it('averages 2x2 blocks per channel for half-resolution face detection', async () => {
+    const { halveRgb } = await import('../src/main/pipeline/asd')
+    // 2x2 RGB image: red, green / blue, white.
+    const rgb = Buffer.from([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255])
+    const half = halveRgb(rgb, 2, 2)
+    expect([half.width, half.height]).toEqual([1, 1])
+    expect([...half.data]).toEqual([128, 128, 128])
   })
 })

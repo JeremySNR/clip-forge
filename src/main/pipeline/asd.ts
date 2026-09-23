@@ -12,6 +12,7 @@ import { buildFaceTracks, type FaceTrack } from './facetracks'
 import { detectFaces, frameDifference, modelsDir, MODEL_W, MODEL_H } from './detect'
 import type { FaceBox } from './speaker'
 import { detectFacesYuNet, faceDetectionSize, yunetAvailable } from './yunet'
+import { timed } from './timing'
 
 /**
  * Audio-visual active speaker detection with LR-ASD (Liao et al., IJCV 2025).
@@ -31,8 +32,14 @@ import { detectFacesYuNet, faceDetectionSize, yunetAvailable } from './yunet'
  */
 
 export const ASD_FPS = 25
-/** Detect faces on every Nth analysis frame; boxes in between interpolate. */
-const DETECT_STRIDE = 2
+/**
+ * Detect faces on every Nth analysis frame (5 fps); boxes in between
+ * interpolate and are median-smoothed over 0.5 s anyway. On the Wozniak
+ * interview this cut reframing time ~30% versus every 2nd frame with the
+ * focus path unchanged (scripts/bench-reframe.ts). Scene cuts still detect
+ * immediately.
+ */
+const DETECT_STRIDE = 5
 const CROP_SIZE = 112
 /**
  * ASD input crop, replicating the reference preprocessing: a square of
@@ -68,6 +75,16 @@ const FACE_PROBE_SEC = 8
 const FACE_ABSENT_SPARSE_SEC = 3
 const SCOUT_STRIDE = 12 // at most 0.48 seconds to reacquire a returning face
 /**
+ * Half-resolution detection is ~5x cheaper. It is used only between
+ * full-resolution checks (each shot start and every 2 s) while every face
+ * found is large; a frame where it finds fewer faces is redone at full size.
+ * It also runs when full size finds nothing, catching extreme close-ups.
+ * Measured on five podcast/talking-head sources: ~17% less reframing time,
+ * focus unchanged except where close-ups were newly found.
+ */
+const FULL_DETECT_EVERY = 50
+const LARGE_FACE_HEIGHT = 0.1
+/**
  * Tracks must cover at least this fraction of analysis frames before we run
  * the heavy crop + LR-ASD passes (buildFocusTrack needs ~30%).
  */
@@ -87,6 +104,8 @@ export interface ScoredFaceTrack {
   areas: number[]
   /** Active-speaker logit per frame from `start` (> 0 means speaking). */
   scores: number[]
+  /** Smoothed face box per frame from `start`, for layouts that need more than x. */
+  boxes?: FaceBox[]
 }
 
 export interface AsdAnalysis {
@@ -131,12 +150,13 @@ export function sceneTransitionRanges(differences: number[], fps = ASD_FPS): Arr
 export function shouldDetectFaces(
   frameIndex: number,
   lastFaceFrame: number,
-  sceneCut = false
+  sceneCut = false,
+  stride = DETECT_STRIDE
 ): boolean {
   const sparse = lastFaceFrame < 0
     ? frameIndex >= FACE_PROBE_SEC * ASD_FPS
     : frameIndex - lastFaceFrame >= FACE_ABSENT_SPARSE_SEC * ASD_FPS
-  return sceneCut || frameIndex % (sparse ? SCOUT_STRIDE : DETECT_STRIDE) === 0
+  return sceneCut || frameIndex % (sparse ? SCOUT_STRIDE : stride) === 0
 }
 
 /** Fraction of analysis frames covered by face tracks (unit-tested). */
@@ -157,9 +177,31 @@ export async function runDetectionPass(
   startSec: number,
   duration: number,
   signal?: AbortSignal,
-  highResolution?: { width: number; height: number }
+  highResolution?: { width: number; height: number },
+  stride = DETECT_STRIDE,
+  adaptive = true
 ): Promise<DetectionPass> {
   const facesPerFrame: Array<FaceBox[] | null> = []
+  let lastFull = -Infinity, fullCount = 0, allLarge = false
+  const detectHigh = async (frame: Buffer, f: number, cut: boolean): Promise<FaceBox[]> => {
+    const halfOk = adaptive && !cut && allLarge && f - lastFull < FULL_DETECT_EVERY
+    if (halfOk) {
+      const half = halveRgb(frame, width, height)
+      const faces = await detectFacesYuNet(half.data, half.width, half.height, signal)
+      if (faces.length >= fullCount) return faces
+    }
+    let faces = await detectFacesYuNet(frame, width, height, signal)
+    // A face filling the frame (an extreme close-up) exceeds YuNet's largest
+    // scale at full size but fits at half size.
+    if (!faces.length && adaptive) {
+      const half = halveRgb(frame, width, height)
+      faces = await detectFacesYuNet(half.data, half.width, half.height, signal)
+    }
+    lastFull = f
+    fullCount = faces.length
+    allLarge = faces.length > 0 && faces.every(face => face.y2 - face.y1 >= LARGE_FACE_HEIGHT)
+    return faces
+  }
   const rawCuts: number[] = []
   const differences: number[] = []
   let prev: Buffer | null = null
@@ -186,8 +228,8 @@ export async function runDetectionPass(
       differences.push(difference)
       const cut = difference > ASD_SCENE_CUT_THRESHOLD
       if (cut) rawCuts.push(f)
-      if (shouldDetectFaces(f, lastFaceFrame, cut)) {
-        const faces = highResolution ? await detectFacesYuNet(frame, width, height, signal) : await detectFaces(frame, undefined, signal)
+      if (shouldDetectFaces(f, lastFaceFrame, cut, stride)) {
+        const faces = highResolution ? await detectHigh(frame, f, cut) : await detectFaces(frame, undefined, signal)
         facesPerFrame.push(faces)
         facePresent = faces.length > 0
         if (facePresent) {
@@ -210,6 +252,20 @@ export async function runDetectionPass(
   const mergeWindow = Math.max(1, Math.round(CUT_MERGE_SEC * ASD_FPS))
   const sceneCuts = rawCuts.filter((cut, i) => i === rawCuts.length - 1 || rawCuts[i + 1] - cut > mergeWindow)
   return { facesPerFrame, sceneCuts, sceneTransitions: sceneTransitionRanges(differences), frameCount, faceFrameRatio }
+}
+
+/** 2x2 box downscale of packed RGB (odd trailing row/column dropped). */
+export function halveRgb(rgb: Buffer, width: number, height: number): { data: Buffer; width: number; height: number } {
+  const w = Math.floor(width / 2), h = Math.floor(height / 2)
+  const out = Buffer.alloc(w * h * 3)
+  for (let y = 0; y < h; y++) {
+    const r0 = 2 * y * width * 3, r1 = r0 + width * 3
+    for (let x = 0; x < w; x++) {
+      const a = r0 + 6 * x, b = r1 + 6 * x, o = (y * w + x) * 3
+      for (let c = 0; c < 3; c++) out[o + c] = (rgb[a + c] + rgb[a + 3 + c] + rgb[b + c] + rgb[b + 3 + c] + 2) >> 2
+    }
+  }
+  return { data: out, width: w, height: h }
 }
 
 /** Bilinear sample of a square region into a CROP_SIZE² grayscale patch. */
@@ -411,7 +467,7 @@ export async function analyzeClipASD(
   startSec: number,
   endSec: number,
   signal?: AbortSignal,
-  comparison?: { detector?: 'ultraface' | 'yunet'; cropWidth?: number }
+  comparison?: { detector?: 'ultraface' | 'yunet'; cropWidth?: number; detectStride?: number; fixedResolution?: boolean }
 ): Promise<AsdAnalysis | null> {
   if (!(await asdAvailable())) return null
 
@@ -421,13 +477,14 @@ export async function analyzeClipASD(
   if (comparison?.detector === 'yunet' && !useYuNet) throw new Error('YuNet comparison model is unavailable')
   let detection: DetectionPass
   try {
-    detection = await runDetectionPass(videoPath, startSec, duration, signal,
-      useYuNet ? faceDetectionSize(info.width, info.height) : undefined)
+    detection = await timed('asd/detect', () => runDetectionPass(videoPath, startSec, duration, signal,
+      useYuNet ? faceDetectionSize(info.width, info.height) : undefined, comparison?.detectStride,
+      !comparison?.fixedResolution), { duration })
   } catch (error) {
     if (!useYuNet || signal?.aborted || comparison?.detector === 'yunet') throw error
     console.error('High-resolution face detection failed; retrying with UltraFace:', error)
     useYuNet = false
-    detection = await runDetectionPass(videoPath, startSec, duration, signal)
+    detection = await runDetectionPass(videoPath, startSec, duration, signal, undefined, comparison?.detectStride)
   }
   if (detection.frameCount === 0) return null
 
@@ -458,25 +515,29 @@ export async function analyzeClipASD(
   try {
     // Settle both processes before cleaning up their files on cancellation/failure.
     const [cropResult, audioResult] = await Promise.allSettled([
-      runCropPass(videoPath, startSec, duration, tracks, cropW, cropH, crops, signal),
-      info.hasAudio ? extractMfcc(videoPath, startSec, duration, signal) : Promise.resolve(null)
+      timed('asd/crops', () => runCropPass(videoPath, startSec, duration, tracks, cropW, cropH, crops, signal),
+        { duration, tracks: tracks.length, cropW }),
+      info.hasAudio ? timed('asd/mfcc', () => extractMfcc(videoPath, startSec, duration, signal)) : Promise.resolve(null)
     ])
     if (cropResult.status === 'rejected') throw cropResult.reason
     if (audioResult.status === 'rejected') throw audioResult.reason
     const mfcc = audioResult.value
-    for (let t = 0; t < tracks.length; t++) {
-      signal?.throwIfAborted()
-      const track = tracks[t]
-      const scores = await crops.read(t, frames => frames.length < 2 ? Promise.resolve([]) : scoreTrack(frames, mfcc, track.start, signal))
-      const frames = scores.length
-      if (frames < 2) continue
-      scored.push({
-        start: track.start,
-        centres: track.boxes.slice(0, frames).map((b) => (b.x1 + b.x2) / 2),
-        areas: track.boxes.slice(0, frames).map((b) => (b.x2 - b.x1) * (b.y2 - b.y1)),
-        scores
-      })
-    }
+    await timed('asd/score', async () => {
+      for (let t = 0; t < tracks.length; t++) {
+        signal?.throwIfAborted()
+        const track = tracks[t]
+        const scores = await crops.read(t, frames => frames.length < 2 ? Promise.resolve([]) : scoreTrack(frames, mfcc, track.start, signal))
+        const frames = scores.length
+        if (frames < 2) continue
+        scored.push({
+          start: track.start,
+          centres: track.boxes.slice(0, frames).map((b) => (b.x1 + b.x2) / 2),
+          areas: track.boxes.slice(0, frames).map((b) => (b.x2 - b.x1) * (b.y2 - b.y1)),
+          scores,
+          boxes: track.boxes.slice(0, frames)
+        })
+      }
+    }, { tracks: tracks.length, frames: tracks.reduce((sum, track) => sum + track.boxes.length, 0) })
   } finally { await crops.close() }
   return {
     tracks: scored,

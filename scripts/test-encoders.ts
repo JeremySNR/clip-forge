@@ -58,6 +58,7 @@ function testArgBuilding(): void {
   assert.ok(cpuHigh.includes('libx264') && cpuHigh.includes('slow') && cpuHigh.includes('17'))
   const cpuDraft = encoderArgs('cpu', 'draft')
   assert.ok(cpuDraft.includes('veryfast') && cpuDraft.includes('23'))
+  assert.ok(encoderArgs('videotoolbox', 'standard').includes('h264_videotoolbox'))
   const nv = encoderArgs('nvenc', 'high')
   assert.ok(nv.includes('h264_nvenc') && nv.includes('p7') && nv.includes('vbr'))
   assert.ok(encoderArgs('nvenc', 'standard').includes('p5'))
@@ -79,6 +80,16 @@ async function testDetectionHonesty(): Promise<void> {
 
   const status = await getGpuStatus()
   console.log(`   status: available=${status.available} — "${status.detail}"`)
+  if (process.platform === 'darwin' && status.available) {
+    // Apple Silicon/Intel Macs: the bundled ffmpeg's VideoToolbox passed a real
+    // hardware-only test encode.
+    assert.match(status.detail, /VideoToolbox/)
+    assert.equal((await resolveEncoder('auto')).kind, 'videotoolbox')
+    assert.equal((await resolveEncoder('gpu')).kind, 'videotoolbox')
+    assert.equal((await resolveEncoder('cpu')).kind, 'cpu')
+    console.log('✓ VideoToolbox verified by test encode and preferred for auto/hardware exports')
+    return
+  }
   assert.equal(status.available, false, 'no GPU present, must not report available')
   if (systemHasNvencCompiled) {
     assert.match(status.detail, /no working NVIDIA GPU/)

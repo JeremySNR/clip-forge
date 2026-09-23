@@ -52,10 +52,13 @@ function lerpBox(a: FaceBox, b: FaceBox, t: number): FaceBox {
   }
 }
 
-/** Fill every frame between detections by linear interpolation, then smooth. */
-function finalizeTrack(detections: Detection[], smoothWindow: number): FaceTrack {
+/**
+ * Fill every frame between detections by linear interpolation, hold the last
+ * box through `end` (skipped frames before the face was next missed), then
+ * smooth.
+ */
+function finalizeTrack(detections: Detection[], smoothWindow: number, end: number): FaceTrack {
   const start = detections[0].frame
-  const end = detections[detections.length - 1].frame
   const boxes: FaceBox[] = new Array(end - start + 1)
   let d = 0
   for (let f = start; f <= end; f++) {
@@ -102,23 +105,28 @@ export function buildFaceTracks(
   const minLen = Math.max(2, Math.round(MIN_TRACK_SEC * fps))
   const smoothWindow = Math.max(3, Math.round(SMOOTH_SEC * fps)) | 1
 
-  const done: Detection[][] = []
-  let active: Detection[][] = []
+  interface Track { detections: Detection[]; missedAt?: number }
+  const done: Array<{ detections: Detection[]; end: number }> = []
+  let active: Track[] = []
 
-  const finish = (track: Detection[]): void => {
-    const span = track[track.length - 1].frame - track[0].frame + 1
-    if (track.length >= MIN_DETECTIONS && span >= minLen) done.push(track)
+  // A track lasts until the frame before its face was first missed by a
+  // detection pass (or a cut), so strided detection does not trim its tail.
+  const finish = (track: Track, stop: number): void => {
+    const detections = track.detections
+    const last = detections[detections.length - 1].frame
+    const end = Math.max(last, Math.min(stop, track.missedAt ?? stop) - 1)
+    if (detections.length >= MIN_DETECTIONS && end - detections[0].frame + 1 >= minLen) done.push({ detections, end })
   }
 
   for (let f = 0; f < facesPerFrame.length; f++) {
     if (cutSet.has(f)) {
-      active.forEach(finish)
+      active.forEach(track => finish(track, f))
       active = []
     }
     // Expire tracks whose last detection is too old to bridge.
     active = active.filter((track) => {
-      if (f - track[track.length - 1].frame > maxGap) {
-        finish(track)
+      if (f - track.detections[track.detections.length - 1].frame > maxGap) {
+        finish(track, f)
         return false
       }
       return true
@@ -126,13 +134,13 @@ export function buildFaceTracks(
 
     const faces = facesPerFrame[f]
     if (!faces) continue
-    const used = new Set<Detection[]>()
+    const used = new Set<Track>()
     for (const box of faces) {
-      let best: Detection[] | null = null
+      let best: Track | null = null
       let bestIou = MATCH_IOU
       for (const track of active) {
         if (used.has(track)) continue
-        const v = iou(track[track.length - 1].box, box)
+        const v = iou(track.detections[track.detections.length - 1].box, box)
         if (v > bestIou) {
           best = track
           bestIou = v
@@ -140,15 +148,17 @@ export function buildFaceTracks(
       }
       if (best) {
         used.add(best)
-        best.push({ frame: f, box })
+        best.detections.push({ frame: f, box })
+        best.missedAt = undefined
       } else {
-        const fresh: Detection[] = [{ frame: f, box }]
+        const fresh: Track = { detections: [{ frame: f, box }] }
         active.push(fresh)
         used.add(fresh)
       }
     }
+    for (const track of active) if (!used.has(track)) track.missedAt ??= f
   }
-  active.forEach(finish)
+  active.forEach(track => finish(track, facesPerFrame.length))
 
-  return done.map((track) => finalizeTrack(track, smoothWindow))
+  return done.map(({ detections, end }) => finalizeTrack(detections, smoothWindow, end))
 }

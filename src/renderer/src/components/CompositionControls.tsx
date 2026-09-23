@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Clip, Composition, ContentRegion } from '@shared/types'
-import { presenterComposition } from '@shared/composition'
+import { isPresenterComposition, presenterComposition } from '@shared/composition'
 import { compositionHidesTitle, layoutReviewMessage, layoutShotAt, validLayoutShots } from '@shared/contentType'
 import { usePreviewBus } from '../lib/previewBus'
 import { useStore } from '../store'
@@ -18,7 +18,9 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
   const retry = useStore(s => s.ensureReframe)
   const busy = useStore(s => s.reframeBusy[clip.id])
   const error = useStore(s => s.reframeError[clip.id])
-  const hasComposition = clip.visualLayout?.shots?.some(s => s.composition)
+  const hasComposition = clip.visualLayout?.shots?.some(s => isPresenterComposition(s.composition))
+  const hasSplits = clip.visualLayout?.shots?.some(s => s.composition?.preset === 'speakers')
+  const splitsOn = clip.edit.speakerSplit !== false
   const issue = layoutReviewMessage(clip)
   const active = clip.edit.aspect === '9:16' && clip.edit.framing === 'auto' && clip.edit.reframeMode === 'crop'
   const saveRegions = (composition: Composition): void => {
@@ -43,6 +45,16 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
       <p className="text-[11px] text-zinc-500">Reviews this clip using your configured AI provider. Keeps the transcript and clip selection.</p>
       {error && <p role="alert" className="text-xs text-amber-300">{error}</p>}
     </div>}
+    {hasSplits && clip.edit.aspect === '9:16' && <div className="space-y-1">
+      <button type="button" aria-pressed={splitsOn}
+        onClick={() => void update({ ...clip, edit: { ...clip.edit, speakerSplit: !splitsOn } })}
+        className={`w-full rounded-lg border px-2 py-2 text-xs transition ${splitsOn ? 'border-white/30 bg-white/[0.07] text-zinc-100' : 'border-surface-600 text-zinc-400 hover:bg-surface-800'}`}>
+        Split screen during conversations: {splitsOn ? 'on' : 'off'}
+      </button>
+      <p className="text-[11px] leading-relaxed text-zinc-500">
+        Stacks both people while they trade quick turns in the same shot. Off follows whoever is speaking.
+      </p>
+    </div>}
     {hasComposition && <>
       <div className="grid grid-cols-2 gap-1.5" role="group" aria-label="Presenter and content layout">
         {preferences.map(([value, label]) => <button key={value} type="button"
@@ -58,8 +70,8 @@ export default function CompositionControls({ clip }: { clip: Clip }): React.JSX
           'Separate crops from the original video. Automatic layouts are checked on sampled frames; review motion before exporting.'}
       </p>
       {compositionHidesTitle(clip) && clip.edit.showTitle && <p className="text-[11px] text-zinc-500">The hook title is hidden to keep the presenter clear.</p>}
-      {active && shot?.composition && <RegionForm key={`${shot.start}:${JSON.stringify(shot.composition)}`}
-        composition={shot.composition} onSave={saveRegions} />}
+      {active && isPresenterComposition(shot?.composition) && <RegionForm key={`${shot!.start}:${JSON.stringify(shot!.composition)}`}
+        composition={shot!.composition!} onSave={saveRegions} />}
     </>}
     {clip.edit.aspect === '9:16' && !shot?.composition && <>
       <button type="button" className="text-xs text-zinc-400 underline underline-offset-4" onClick={() => setAdding(!adding)}>

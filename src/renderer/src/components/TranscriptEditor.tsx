@@ -37,7 +37,6 @@ export default function TranscriptEditor({
   onTrim: (start: number, end: number) => void
 }): React.JSX.Element {
   const updateTranscriptWord = useStore((s) => s.updateTranscriptWord)
-  const time = usePreviewBus((s) => s.time)
   const seek = usePreviewBus((s) => s.seek)
   const [editing, setEditing] = useState<{ segmentId: number; wordIndex: number } | null>(null)
   const [draft, setDraft] = useState('')
@@ -59,6 +58,8 @@ export default function TranscriptEditor({
     }
     return out
   }, [transcript, clipStart, clipEnd])
+  // Re-render when the spoken word changes, not on every playback tick.
+  const spokenIndex = usePreviewBus((s) => words.findIndex((w) => s.time >= w.start && s.time < w.end))
 
   useEffect(() => {
     if (editing) inputRef.current?.select()
@@ -111,7 +112,7 @@ export default function TranscriptEditor({
             )
           }
           const selected = range !== null && i >= range[0] && i <= range[1]
-          const isSpoken = time >= w.start && time < w.end
+          const isSpoken = i === spokenIndex
           return (
             <button
               key={`${w.segmentId}-${w.wordIndex}`}

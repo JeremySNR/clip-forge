@@ -6,6 +6,7 @@ import type {
   Clip,
   CustomFont,
   ExportOptions,
+  BackgroundReframeEvent,
   ExportProgress,
   ExportResult,
   GpuEncoderStatus,
@@ -107,6 +108,11 @@ const api = {
     const listener = (_e: Electron.IpcRendererEvent, p: PipelineProgress): void => cb(p)
     ipcRenderer.on('pipeline:progress', listener)
     return () => ipcRenderer.removeListener('pipeline:progress', listener)
+  },
+  onBackgroundReframe: (cb: (e: BackgroundReframeEvent) => void): (() => void) => {
+    const listener = (_e: Electron.IpcRendererEvent, e: BackgroundReframeEvent): void => cb(e)
+    ipcRenderer.on('clip:backgroundReframe', listener)
+    return () => ipcRenderer.removeListener('clip:backgroundReframe', listener)
   },
   onExportProgress: (cb: (p: ExportProgress) => void): (() => void) => {
     const listener = (_e: Electron.IpcRendererEvent, p: ExportProgress): void => cb(p)
