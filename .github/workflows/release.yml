@@ -49,6 +49,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Every release says what changed; fail before spending build time.
+      - name: Check release notes
+        shell: bash
+        run: node scripts/changelog-section.mjs "$(node -p "require('./package.json').version")" --require > /dev/null
       - run: npm ci
       - name: Validate packaged Mac before publishing
         if: runner.os == 'macOS'
@@ -100,7 +104,7 @@ jobs:
           set -euo pipefail
           node scripts/verify-release.mjs release
           version=$(node -p "require('./package.json').version")
-          node scripts/changelog-section.mjs "$version" > notes.md
+          node scripts/changelog-section.mjs "$version" --require > notes.md
           if gh release view "v$version" --json isDraft > release-state.json; then
             node -e 'if (!require("./release-state.json").isDraft) throw new Error("This version is already published; bump the version before releasing.")'
           else

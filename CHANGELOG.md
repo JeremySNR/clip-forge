@@ -14,6 +14,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 - Cut words straight from the transcript: drag across them and press Delete or "Cut selection". Cut words are struck through.
 - Undo and redo for clip edits (⌘Z / ⇧⌘Z), and Premiere-style keys: Space or K play/pause, J/L step a second, arrow keys step a frame, I/O set in and out.
 - The trim bar shows how long the clip plays after pauses and cuts.
+- "What's new" after each update, and any time from Settings → Updates. When an update is available, its notes show there before you download it.
 
 ### Improved
 

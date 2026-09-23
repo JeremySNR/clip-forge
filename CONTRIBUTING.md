@@ -38,6 +38,29 @@ npm run typecheck # both tsconfigs, node and web
 npm run lint      # eslint
 ```
 
+### Release notes
+
+Every change people will notice needs a line in `CHANGELOG.md` under
+`## [Unreleased]`, grouped as `### Added`, `### Improved` or `### Fixed`. CI
+fails a pull request that changes `src/`, `resources/` or `package.json`
+without one. For internal-only changes (tests, CI, docs, refactors with no
+visible effect), add the `no release notes` label instead.
+
+These lines are what people read: the release workflow publishes a version's
+section as its GitHub release notes, the app shows the same text in Settings →
+Updates before someone updates, and again as "What's new" after they do. So
+write them for someone using Cutawan, not for a code reviewer:
+
+- Say what changed for them: "Clips appear as soon as they're scored" rather
+  than "Move eager reframe out of analyzeProject".
+- One change per bullet, plain words, no file or function names.
+- Measurements, failed trials and limits go in a `### Validation` section (or
+  a doc linked from it). It appears on GitHub but not in the app.
+
+To release, rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD` in the same
+commit as the version bump. The release workflow refuses to build a version
+with no notes.
+
 ## How the code is laid out
 
 `README.md` has the full tree. The short version:

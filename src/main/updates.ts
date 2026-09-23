@@ -23,6 +23,7 @@ const CHECK_TIMEOUT_MS = 10_000
 interface GithubRelease {
   tag_name?: string
   html_url?: string
+  body?: string | null
   draft?: boolean
   prerelease?: boolean
   assets?: ReleaseAsset[]
@@ -132,6 +133,7 @@ export function evaluateUpdate(
     latestVersion,
     updateAvailable: latestVersion !== null && compareVersions(latestVersion, currentVersion) > 0,
     releaseUrl: (usable ? release?.html_url : null) ?? (latestVersion ? RELEASES_PAGE : null),
+    releaseNotes: usable ? release?.body?.trim() || null : null,
     autoUpdateSupported,
     sourceUpdateSupported,
     error: null,
