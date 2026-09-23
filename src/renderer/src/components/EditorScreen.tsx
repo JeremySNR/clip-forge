@@ -24,7 +24,9 @@ import { automaticLayoutShots, validLayoutShots } from '@shared/contentType'
 import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import CompositionControls from './CompositionControls'
-import TrimBar from './TrimBar'
+import TimelineEditor from './TimelineEditor'
+import { cutRange, keepsPlayback } from '@shared/editOps'
+import { trackClip } from '@shared/editHistory'
 import ScoreBadge from './ScoreBadge'
 import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
@@ -95,6 +97,12 @@ export default function EditorScreen(): React.JSX.Element {
   // opening one is what triggers the analysis (see shared/reframe.ts).
   const clipId = clip?.id ?? null
   const reframePending = clip ? needsReframe(clip) : false
+  // Undo history starts from the clip as opened, whichever screen led here
+  // (whole-video projects open straight into the editor).
+  useEffect(() => {
+    const opened = useStore.getState().project?.clips.find((c) => c.id === clipId)
+    if (opened) trackClip(opened)
+  }, [clipId])
   useEffect(() => {
     if (clipId && !sourceMissing) void ensureReframe(clipId)
     // Later trim changes trigger analysis after updateClip has saved them.
@@ -173,27 +181,28 @@ export default function EditorScreen(): React.JSX.Element {
         )}
 
         <Section icon={Scissors} title="Trim">
-          <TrimBar
+          <TimelineEditor
+            clip={clip}
             windowStart={windowStart}
             windowEnd={windowEnd}
-            start={clip.edit.start}
-            end={clip.edit.end}
+            fps={project.video.fps || 30}
             timeline={timeline}
-            onChange={(start, end) => setLocal({ start, end })}
-            onCommit={() => {
-              // Read the live clip: the pointerup closure inside TrimBar was
-              // created at drag start, so `clip` here would be pre-drag.
-              const current = useStore
-                .getState()
-                .project?.clips.find((c) => c.id === clip.id)
-              if (current) void updateClip(current)
+            // Timeline edits never touch layout fields, so they save as-is
+            // (userClipEdit would mark the layout as manually chosen).
+            onLocal={(edit) => updateClipLocal({ ...clip, edit })}
+            onSave={(edit) => {
+              const live = useStore.getState().project?.clips.find((c) => c.id === clip.id) ?? clip
+              void updateClip({ ...live, edit })
             }}
           />
           <div className="mt-3">
             <Toggle
               label="Tighten cuts — remove pauses and filler words"
               checked={clip.edit.tightenCuts}
-              onChange={(v) => set({ tightenCuts: v })}
+              onChange={(v) => {
+                // Pause removal must not remove the last playable span.
+                if (keepsPlayback({ ...clip, edit: { ...clip.edit, tightenCuts: v } }, project.transcript)) set({ tightenCuts: v })
+              }}
             />
             {clip.edit.end - clip.edit.start > TIGHTEN_WARN_SEC && (
               <p className="mt-1 text-[10px] leading-relaxed text-zinc-600">
@@ -527,15 +536,14 @@ export default function EditorScreen(): React.JSX.Element {
               transcript={project.transcript}
               clipStart={clip.edit.start}
               clipEnd={clip.edit.end}
+              cuts={clip.edit.cuts}
+              onCut={(range) => {
+                const next = { ...clip, edit: cutRange(clip.edit, range) }
+                if (keepsPlayback(next, project.transcript)) void updateClip(next)
+              }}
               onTrim={(start, end) => {
-                void updateClip({
-                  ...clip,
-                  edit: {
-                    ...clip.edit,
-                    start: Math.max(windowStart, start),
-                    end: Math.min(windowEnd, end)
-                  }
-                })
+                const next = { ...clip, edit: { ...clip.edit, start: Math.max(windowStart, start), end: Math.min(windowEnd, end) } }
+                if (keepsPlayback(next, project.transcript)) void updateClip(next)
               }}
             />
           ) : (

@@ -24,6 +24,10 @@ interface PreviewBus {
   scrubHandler: ((t: number) => void) | null
   setScrubHandler: (fn: ((t: number) => void) | null) => void
   scrub: (t: number) => void
+  /** Play/pause the mounted preview (keyboard shortcuts). */
+  toggleHandler: (() => void) | null
+  setToggleHandler: (fn: (() => void) | null) => void
+  togglePlay: () => void
 }
 
 export const usePreviewBus = create<PreviewBus>((set, get) => ({
@@ -34,5 +38,8 @@ export const usePreviewBus = create<PreviewBus>((set, get) => ({
   seek: (t) => get().seekHandler?.(t),
   scrubHandler: null,
   setScrubHandler: (fn) => set({ scrubHandler: fn }),
-  scrub: (t) => get().scrubHandler?.(t)
+  scrub: (t) => get().scrubHandler?.(t),
+  toggleHandler: null,
+  setToggleHandler: (fn) => set({ toggleHandler: fn }),
+  togglePlay: () => get().toggleHandler?.()
 }))

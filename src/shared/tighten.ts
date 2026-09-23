@@ -1,4 +1,4 @@
-import type { Clip, SpeechRegion, Transcript } from './types'
+import type { Clip, SpeechRegion, TimeRange, Transcript } from './types'
 
 /**
  * "Tighten cuts": compute which sub-segments of a clip to keep so that long
@@ -13,12 +13,66 @@ export interface KeptSegment {
   end: number
 }
 
-/** Actual playback length, including protected visual footage and removed pauses. */
-export function editedClipDuration(clip: Clip, transcript: Transcript | null): number {
-  const kept = transcript && clip.edit.tightenCuts
-    ? computeKeptSegments(transcript, clip.edit.start, clip.edit.end, clip.visualStory?.protectedRanges)
-    : null
+/** Actual playback length, after pause removal and the user's cuts. */
+export function editedClipDuration(clip: Pick<Clip, 'edit' | 'visualStory'>, transcript: Transcript | null): number {
+  const kept = clipKeptSegments(clip, transcript)
   return kept ? kept.reduce((sum, range) => sum + range.end - range.start, 0) : clip.edit.end - clip.edit.start
+}
+
+/** Pieces shorter than this after cutting are dropped rather than flashed. */
+const MIN_PIECE_SEC = 0.08
+
+/** Sorted, merged ranges clipped to [from, to]. */
+export function normalizeRanges(ranges: TimeRange[] | undefined, from: number, to: number): TimeRange[] {
+  const clipped = (ranges ?? [])
+    .filter(r => Number.isFinite(r.start) && Number.isFinite(r.end))
+    .map(r => ({ start: Math.max(from, Math.min(r.start, r.end)), end: Math.min(to, Math.max(r.start, r.end)) }))
+    .filter(r => r.end > r.start)
+    .sort((a, b) => a.start - b.start)
+  const out: TimeRange[] = []
+  for (const r of clipped) {
+    const last = out[out.length - 1]
+    if (last && r.start <= last.end) last.end = Math.max(last.end, r.end)
+    else out.push({ ...r })
+  }
+  return out
+}
+
+/** `ranges` minus `remove`, both normalized. */
+export function subtractRanges(ranges: TimeRange[], remove: TimeRange[]): TimeRange[] {
+  let out = ranges.map(r => ({ ...r }))
+  for (const cut of remove) {
+    out = out.flatMap(r => cut.end <= r.start || cut.start >= r.end ? [r]
+      : [{ start: r.start, end: cut.start }, { start: cut.end, end: r.end }].filter(p => p.end > p.start))
+  }
+  return out
+}
+
+/**
+ * The single source of truth for what plays: automatic pause removal (when
+ * enabled), plus pauses the user restored, minus the user's cuts. Null means
+ * the whole trim plays untouched. Export, preview, durations and the AI's
+ * view of the edit all go through here.
+ */
+export function clipKeptSegments(clip: Pick<Clip, 'edit' | 'visualStory'>, transcript: Transcript | null): KeptSegment[] | null {
+  const { start, end } = clip.edit
+  const auto = clip.edit.tightenCuts && transcript
+    ? computeKeptSegments(transcript, start, end, clip.visualStory?.protectedRanges)
+    : null
+  const cuts = normalizeRanges(clip.edit.cuts, start, end)
+  const restored = auto ? normalizeRanges(clip.edit.restored, start, end) : []
+  if (!cuts.length && !restored.length) return auto
+  const base = normalizeRanges([...(auto ?? [{ start, end }]), ...restored], start, end)
+  const kept = subtractRanges(base, cuts).filter(r => r.end - r.start >= MIN_PIECE_SEC)
+  if (kept.length === 1 && kept[0].start <= start + 1e-6 && kept[0].end >= end - 1e-6) return null
+  return kept
+}
+
+/** What automatic pause removal takes out of the trim, for display and restore. */
+export function autoRemovedRanges(clip: Pick<Clip, 'edit' | 'visualStory'>, transcript: Transcript | null): TimeRange[] {
+  if (!clip.edit.tightenCuts || !transcript) return []
+  const auto = computeKeptSegments(transcript, clip.edit.start, clip.edit.end, clip.visualStory?.protectedRanges)
+  return auto ? subtractRanges([{ start: clip.edit.start, end: clip.edit.end }], auto) : []
 }
 
 /** Pause longer than this (between words) gets cut down. */

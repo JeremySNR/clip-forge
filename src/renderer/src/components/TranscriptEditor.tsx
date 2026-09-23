@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Scissors, X } from 'lucide-react'
-import type { Transcript } from '@shared/types'
+import { Scissors, Trash2, X } from 'lucide-react'
+import type { TimeRange, Transcript } from '@shared/types'
+import { wordsRange } from '@shared/editOps'
 import { useStore } from '../store'
 import { usePreviewBus } from '../lib/previewBus'
 import { formatTimecode } from '../lib/format'
@@ -29,12 +30,18 @@ export default function TranscriptEditor({
   transcript,
   clipStart,
   clipEnd,
-  onTrim
+  onTrim,
+  cuts = [],
+  onCut
 }: {
   transcript: Transcript
   clipStart: number
   clipEnd: number
   onTrim: (start: number, end: number) => void
+  /** Source ranges the user has cut; their words are shown struck through. */
+  cuts?: TimeRange[]
+  /** Cut the selected words out of the clip (ripple). */
+  onCut?: (range: TimeRange) => void
 }): React.JSX.Element {
   const updateTranscriptWord = useStore((s) => s.updateTranscriptWord)
   const seek = usePreviewBus((s) => s.seek)
@@ -65,6 +72,27 @@ export default function TranscriptEditor({
     if (editing) inputRef.current?.select()
   }, [editing])
 
+  const range = selection ? [Math.min(selection.a, selection.b), Math.max(selection.a, selection.b)] : null
+  const cutSelection = (): void => {
+    if (!range || !onCut) return
+    onCut(wordsRange(words, range[0], range[1]))
+    setSelection(null)
+  }
+  // Delete cuts the selected words. Capture phase, so the timeline's
+  // piece-cut shortcut sees the event as handled.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && range && onCut) {
+        e.preventDefault()
+        cutSelection()
+      }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
+
   // Word selection drags end wherever the pointer is released.
   useEffect(() => {
     const up = (): void => {
@@ -84,7 +112,6 @@ export default function TranscriptEditor({
     return <p className="text-xs leading-relaxed text-zinc-500">No speech in this range.</p>
   }
 
-  const range = selection ? [Math.min(selection.a, selection.b), Math.max(selection.a, selection.b)] : null
   const selDuration = range
     ? words[range[1]].end + TRIM_POST_ROLL_SEC - (words[range[0]].start - TRIM_PRE_ROLL_SEC)
     : 0
@@ -113,6 +140,8 @@ export default function TranscriptEditor({
           }
           const selected = range !== null && i >= range[0] && i <= range[1]
           const isSpoken = i === spokenIndex
+          const mid = (w.start + w.end) / 2
+          const isCut = cuts.some((c) => mid >= c.start && mid <= c.end)
           return (
             <button
               key={`${w.segmentId}-${w.wordIndex}`}
@@ -147,7 +176,7 @@ export default function TranscriptEditor({
                   : isSpoken
                     ? 'bg-white/15 text-white'
                     : 'hover:bg-surface-700'
-              } ${w.text ? '' : 'border border-dashed border-surface-600 text-zinc-600'}`}
+              } ${w.text ? '' : 'border border-dashed border-surface-600 text-zinc-600'} ${isCut ? 'text-zinc-600 line-through decoration-red-400/70' : ''}`}
             >
               {w.text || '·'}
             </button>
@@ -169,6 +198,16 @@ export default function TranscriptEditor({
             <Scissors size={12} />
             Trim clip to selection ({formatTimecode(selDuration)})
           </button>
+          {onCut && (
+            <button
+              onClick={cutSelection}
+              title="Remove these words from the clip (Delete)"
+              className="flex items-center gap-1.5 rounded-lg border border-surface-600 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-200 transition hover:bg-surface-700"
+            >
+              <Trash2 size={12} />
+              Cut selection
+            </button>
+          )}
           <button
             onClick={() => setSelection(null)}
             title="Clear selection"
@@ -179,7 +218,7 @@ export default function TranscriptEditor({
         </div>
       ) : (
         <p className="mt-2 text-[11px] leading-relaxed text-zinc-600">
-          Click a word to jump there · drag across words to trim the clip to them · double-click
+          Click a word to jump there · drag across words to trim to them or cut them · double-click
           to fix the transcription (clear a word to hide it from captions).
         </p>
       )}

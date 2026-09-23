@@ -98,6 +98,36 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   await click('[data-testid="clip-thumb"]')
   await sleep(800)
   await shot('editor')
+  // Timeline editing with real key events: two razor splits, select the
+  // middle piece, ripple-delete it, then undo.
+  const key = async (keyCode: string, modifiers: Array<'meta' | 'control'> = []): Promise<void> => {
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode, modifiers })
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode, modifiers })
+    await sleep(250)
+  }
+  const hasText = (text: string): Promise<boolean> =>
+    win.webContents.executeJavaScript(`document.body.innerText.includes(${JSON.stringify(text)})`)
+  for (let i = 0; i < 4; i++) await key('L')
+  await key('S')
+  for (let i = 0; i < 3; i++) await key('L')
+  await key('S')
+  await win.webContents.executeJavaScript(`(() => {
+    const track = document.querySelector('[data-testid="trim-track"]')
+    const rect = track.getBoundingClientRect()
+    const splits = [...document.querySelectorAll('[data-testid="trim-track"] .bg-amber-300')]
+    const x = splits.length >= 2
+      ? (splits[0].getBoundingClientRect().left + splits[1].getBoundingClientRect().left) / 2
+      : rect.left + rect.width / 2
+    track.dispatchEvent(new PointerEvent('pointerdown', { clientX: x, bubbles: true }))
+  })()`)
+  await sleep(400)
+  await key('Delete')
+  await sleep(600)
+  if (!(await hasText('1 cut'))) throw new Error('Smoke capture: splitting and deleting a piece did not cut it')
+  await shot('editor-cut')
+  await key('Z', [process.platform === 'darwin' ? 'meta' : 'control'])
+  await sleep(600)
+  if (await hasText('1 cut')) throw new Error('Smoke capture: undo did not restore the cut piece')
   // Out to the setup screen, which is where the two modes are chosen.
   await click('[data-testid="back-button"]')
   await click('[data-testid="regenerate-button"]')

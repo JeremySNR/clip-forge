@@ -1,5 +1,17 @@
 import { useCallback, useRef } from 'react'
-import type { TimelineData } from '@shared/types'
+import type { TimelineData, TimeRange } from '@shared/types'
+
+/** A span the timeline marks: removed by pause removal, restored by the user, or cut. */
+export interface TimelineMark { range: TimeRange; kind: 'auto' | 'restored' | 'cut' }
+
+const MARK_STYLE: Record<TimelineMark['kind'], { className: string; title: string }> = {
+  auto: { className: 'bg-[repeating-linear-gradient(135deg,rgba(0,0,0,.7)_0_4px,rgba(255,255,255,.18)_4px_7px)]',
+    title: 'Pause removed automatically — click to keep it' },
+  restored: { className: 'border-x-2 border-dashed border-sky-300/80 bg-sky-300/10',
+    title: 'Pause kept — click to remove it again' },
+  cut: { className: 'bg-[repeating-linear-gradient(135deg,rgba(127,29,29,.8)_0_4px,rgba(248,113,113,.35)_4px_7px)]',
+    title: 'Cut — click to put it back' }
+}
 import { formatTimecode } from '../lib/format'
 import { usePreviewBus } from '../lib/previewBus'
 
@@ -16,7 +28,13 @@ export default function TrimBar({
   end,
   timeline,
   onChange,
-  onCommit
+  onCommit,
+  marks = [],
+  splits = [],
+  selected = null,
+  onMarkClick,
+  onPieceClick,
+  playsFor
 }: {
   windowStart: number
   windowEnd: number
@@ -25,6 +43,14 @@ export default function TrimBar({
   timeline: TimelineData | null
   onChange: (start: number, end: number) => void
   onCommit: () => void
+  marks?: TimelineMark[]
+  splits?: number[]
+  selected?: TimeRange | null
+  onMarkClick?: (mark: TimelineMark) => void
+  /** Clicking the track selects the piece under the pointer as well as seeking. */
+  onPieceClick?: (t: number) => void
+  /** Playback length after pauses and cuts are removed, when it differs from the trim. */
+  playsFor?: number
 }): React.JSX.Element {
   const trackRef = useRef<HTMLDivElement>(null)
   const time = usePreviewBus((s) => s.time)
@@ -93,8 +119,13 @@ export default function TrimBar({
     <div>
       <div
         ref={trackRef}
+        data-testid="trim-track"
         className="relative h-16 cursor-pointer overflow-hidden rounded-lg bg-surface-800"
-        onPointerDown={(e) => seek(fromClientX(e.clientX))}
+        onPointerDown={(e) => {
+          const t = fromClientX(e.clientX)
+          seek(t)
+          onPieceClick?.(t)
+        }}
       >
         {/* Filmstrip */}
         {timeline && timeline.frames.length > 0 && (
@@ -137,6 +168,30 @@ export default function TrimBar({
           className="pointer-events-none absolute inset-y-0 border-y-2 border-zinc-100"
           style={{ left: `${leftPct}%`, width: `${rightPct - leftPct}%` }}
         />
+        {/* Removed, restored and cut spans */}
+        {marks.map((mark) => (
+          <div
+            key={`${mark.kind}-${mark.range.start}`}
+            title={MARK_STYLE[mark.kind].title}
+            className={`absolute inset-y-0 cursor-pointer ${MARK_STYLE[mark.kind].className}`}
+            style={{ left: `${toFrac(mark.range.start) * 100}%`, width: `${(toFrac(mark.range.end) - toFrac(mark.range.start)) * 100}%` }}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              onMarkClick?.(mark)
+            }}
+          />
+        ))}
+        {/* Selected piece and razor points */}
+        {selected && (
+          <div
+            className="pointer-events-none absolute inset-y-0 border-2 border-amber-300 bg-amber-300/10"
+            style={{ left: `${toFrac(selected.start) * 100}%`, width: `${(toFrac(selected.end) - toFrac(selected.start)) * 100}%` }}
+          />
+        )}
+        {splits.filter((t) => t > start && t < end).map((t) => (
+          <div key={t} className="pointer-events-none absolute inset-y-0 w-[2px] -translate-x-1/2 bg-amber-300"
+            style={{ left: `${toFrac(t) * 100}%` }} />
+        ))}
         {/* Playhead: white core with a dark halo so it reads on bright frames */}
         {time >= windowStart && time <= windowEnd && (
           <div
@@ -164,7 +219,10 @@ export default function TrimBar({
       </div>
       <div className="mt-1.5 flex justify-between text-[11px] tabular-nums text-zinc-500">
         <span>In {formatTimecode(start)}</span>
-        <span className="font-medium text-zinc-400">{formatTimecode(end - start)} long</span>
+        <span className="font-medium text-zinc-400">
+          {formatTimecode(end - start)} long
+          {playsFor !== undefined && Math.abs(playsFor - (end - start)) > 0.05 && ` · plays ${formatTimecode(playsFor)}`}
+        </span>
         <span>Out {formatTimecode(end)}</span>
       </div>
     </div>

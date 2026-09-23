@@ -30,8 +30,11 @@ export interface TranscriptSegment {
   energy?: number
 }
 
+/** A span of source time, in seconds. */
+export interface TimeRange { start: number; end: number }
+
 /** A span of detected speech, in source seconds. */
-export interface SpeechRegion { start: number; end: number }
+export type SpeechRegion = TimeRange
 
 export interface Transcript {
   language: string
@@ -109,6 +112,12 @@ export interface ClipEditState {
   compositionPreference?: 'auto' | 'content-first' | 'stacked' | 'content-only'
   /** False turns detected two-person split-screen ranges back into speaker crops. */
   speakerSplit?: boolean
+  /** Source ranges the user cut out (always removed, ripple-closed). */
+  cuts?: TimeRange[]
+  /** Source ranges automatic pause removal took out that the user put back. */
+  restored?: TimeRange[]
+  /** Razor points (source seconds) dividing the timeline into selectable pieces. */
+  splits?: number[]
   /** Explicit framing choice, even when its values match generated defaults. */
   layoutChosen?: boolean
   /** Remove long pauses and filler words ("um", "uh") from the clip. */
