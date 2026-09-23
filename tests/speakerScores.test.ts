@@ -160,10 +160,21 @@ describe('buildFaceTracks', () => {
     const tracks = buildFaceTracks(frames, [], FPS)
     expect(tracks.length).toBe(1)
     expect(tracks[0].start).toBe(0)
-    expect(tracks[0].boxes.length).toBe(29) // last detection at frame 28
+    expect(tracks[0].boxes.length).toBe(30) // last detection at frame 28, held through skipped frame 29
     // Interpolated odd frames sit between their neighbours.
     const c = (b: FaceBox): number => (b.x1 + b.x2) / 2
     expect(c(tracks[0].boxes[15])).toBeGreaterThan(c(tracks[0].boxes[13]))
+  })
+
+  it('holds a track only until its face is missed, never across a cut', () => {
+    // Detected every 5th frame through 20, missed at 25; cut at 32.
+    const frames: Array<FaceBox[] | null> = Array.from({ length: 40 }, (_, f) =>
+      f % 5 === 0 ? (f <= 20 ? [box(0.4)] : []) : null)
+    expect(buildFaceTracks(frames, [], FPS)[0].boxes.length).toBe(25) // frames 0..24
+    const cut: Array<FaceBox[] | null> = Array.from({ length: 50 }, (_, f) => f % 5 === 0 ? [box(0.4)] : null)
+    const tracks = buildFaceTracks(cut, [32], FPS)
+    expect(tracks[0].boxes.length).toBe(32) // frames 0..31, ends at the cut
+    expect(tracks[1].start).toBe(35)
   })
 
   it('keeps two people as two separate tracks', () => {

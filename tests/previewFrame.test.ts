@@ -44,14 +44,34 @@ describe('smoothPlaybackTime', () => {
     const video = { currentTime: 10, paused: false, seeking: false }
     const anchored = smoothPlaybackTime(video, { mediaTime: 10, wallAt: 1000 }, 1033.333)
     expect(anchored.t).toBeCloseTo(10.0333, 3)
-    expect(anchored.clock.mediaTime).toBe(10)
   })
 
-  it('re-anchors when currentTime advances', () => {
-    const video = { currentTime: 10.033, paused: false, seeking: false }
-    const next = smoothPlaybackTime(video, { mediaTime: 10, wallAt: 1000 }, 1033.333)
-    expect(next.clock.mediaTime).toBe(10.033)
-    expect(next.t).toBeCloseTo(10.033, 3)
+  it('resynchronises after a real jump such as a loop or tighten skip', () => {
+    const video = { currentTime: 42, paused: false, seeking: false }
+    expect(smoothPlaybackTime(video, { mediaTime: 10, wallAt: 1000, lastRaw: 10, t: 10.5 }, 1500).t).toBe(42)
+  })
+
+  it('stays smooth and monotonic while currentTime is reported late and unevenly', () => {
+    // 24 fps video whose currentTime reports arrive 0-16 ms late, sampled at 60 Hz.
+    let seed = 7
+    const random = (): number => { seed = (seed * 16807) % 2147483647; return seed / 2147483647 }
+    const reports: Array<{ at: number; value: number }> = []
+    for (let frame = 0; frame < 24 * 10; frame++) reports.push({ at: frame * 1000 / 24 + random() * 16, value: frame / 24 })
+    let clock = { mediaTime: 0, wallAt: 0.001 } as Parameters<typeof smoothPlaybackTime>[1]
+    const out: number[] = []
+    for (let wall = 0.001; wall < 9900; wall += 1000 / 60) {
+      const raw = [...reports].reverse().find(r => r.at <= wall)?.value ?? 0
+      const next = smoothPlaybackTime({ currentTime: raw, paused: false, seeking: false }, clock, wall)
+      clock = next.clock
+      out.push(next.t)
+      expect(Math.abs(next.t - wall / 1000)).toBeLessThan(0.06) // tracks the media within about a frame
+    }
+    const steps = out.slice(1).map((t, i) => t - out[i])
+    expect(Math.min(...steps)).toBeGreaterThanOrEqual(0)
+    // Each display frame advances close to 1/60 s; snapping to reports made
+    // steps swing between negative and double-length.
+    const late = steps.slice(60)
+    expect(Math.max(...late) - Math.min(...late)).toBeLessThan(0.008)
   })
 })
 

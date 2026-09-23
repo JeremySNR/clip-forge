@@ -137,6 +137,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
   const cancelExport = useStore((s) => s.cancelExport)
   const exports = useStore((s) => s.exports)
   const entry = exports[clip.id]
+  const framing = useStore((s) => s.backgroundReframing[clip.id] === true)
   const transcript = useStore((s) => s.project?.transcript ?? null)
   const duration = useMemo(() => editedClipDuration(clip, transcript), [clip, transcript])
 
@@ -162,6 +163,12 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
           </span>
           <ScoreBadge score={clip.viralityScore} />
         </div>
+        {framing && (
+          <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-zinc-300 backdrop-blur">
+            <Loader2 size={11} className="animate-spin" />
+            Framing…
+          </span>
+        )}
         <span className="absolute bottom-2.5 right-2.5 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-zinc-200 backdrop-blur">
           {formatDuration(duration)}
         </span>

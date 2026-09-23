@@ -6,6 +6,27 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [Unreleased]
+
+### Improved
+
+- Show found clips as soon as they are scored; the top clips' layouts finish in the background, each marked "Framing…". A failed background layout no longer fails the run.
+- Speaker tracking is roughly 40% faster: faces are detected five times a second instead of every other frame, with half-resolution detection while faces are large. Extreme close-ups that fill the frame are now detected.
+- The auto-reframe crop plans each shot ahead: it holds still while the face stays near centre and pans only when the speaker really moves, keeping faces centred more reliably.
+- Two people trading quick turns in the same shot are shown as a stacked split screen, with captions on the seam. Switch it off per clip in the editor.
+- Pause removal cuts only in detected silence (Silero VAD), so it no longer clips word endings, laughter or the other person's interjections.
+- Macs export with the Apple VideoToolbox hardware encoder at quality matched to the existing tiers (about 5x faster encoding). Layout exports no longer spend most of their time drawing black backgrounds.
+- On Apple Silicon, local Whisper setup adds GPU transcription (about 1.8x faster). Re-run setup to enable it.
+
+### Fixed
+
+- Cropped exports carried a slightly non-square sample aspect ratio (for example 404:405).
+- Auto zoom stuttered in the editor preview (not in exports). The preview clock snapped back to each late video time report, and captions, playhead and transcript re-rendered on every display frame; the clock is now smooth and monotonic and those parts update about 30 times a second.
+
+### Validation
+
+- See `docs/speed-and-framing-validation.md` for measurements, failed trials and what remains unmeasured.
+
 ## [0.11.4] - 2026-09-21
 
 ### Fixed

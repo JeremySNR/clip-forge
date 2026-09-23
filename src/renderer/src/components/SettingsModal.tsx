@@ -57,7 +57,7 @@ const TRANSCRIPTION_LANGUAGES: Array<{ value: string; label: string }> = [
 
 const ENCODERS: Array<{ value: EncoderPreference; label: string; hint: string }> = [
   { value: 'auto', label: 'Auto', hint: 'GPU when ready' },
-  { value: 'gpu', label: 'NVIDIA GPU', hint: 'NVENC' },
+  { value: 'gpu', label: 'Hardware', hint: navigator.platform.startsWith('Mac') ? 'VideoToolbox' : 'NVIDIA NVENC' },
   { value: 'cpu', label: 'CPU', hint: 'libx264' }
 ]
 

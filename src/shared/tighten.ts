@@ -1,4 +1,4 @@
-import type { Clip, Transcript } from './types'
+import type { Clip, SpeechRegion, Transcript } from './types'
 
 /**
  * "Tighten cuts": compute which sub-segments of a clip to keep so that long
@@ -117,7 +117,7 @@ export function computeKeptSegments(
     }
   }
 
-  const kept = spaced.filter((s) => s.end - s.start >= MIN_SEGMENT_SEC ||
+  const kept = snapToSilence(spaced, transcript.speech).filter((s) => s.end - s.start >= MIN_SEGMENT_SEC ||
     protectedIntervals.some(r => r.start < s.end && r.end > s.start))
   if (kept.length === 0) return null
 
@@ -126,6 +126,29 @@ export function computeKeptSegments(
   // Nothing meaningful to remove -> keep the untouched clip.
   if (removed < 0.4) return null
   return kept
+}
+
+/**
+ * Move internal cut points out of detected speech. Word timestamps are
+ * approximate, so a padded word boundary can still land inside a syllable or
+ * an untranscribed laugh; voice activity marks where sound actually stops.
+ * A removal left shorter than MIN_REMOVAL_SEC is not cut at all.
+ */
+export function snapToSilence(segments: KeptSegment[], speech?: SpeechRegion[]): KeptSegment[] {
+  if (!speech?.length || segments.length < 2) return segments
+  const inside = (t: number): SpeechRegion | undefined => speech.find(r => r.start < t && t < r.end)
+  const out: KeptSegment[] = [{ ...segments[0] }]
+  for (const next of segments.slice(1)) {
+    const previous = out[out.length - 1]
+    let end = previous.end, start = next.start
+    const ending = inside(end)
+    if (ending) end = Math.min(ending.end, start)
+    const starting = inside(start)
+    if (starting) start = Math.max(starting.start, end)
+    if (start - end < MIN_REMOVAL_SEC) previous.end = next.end
+    else { previous.end = end; out.push({ start, end: next.end }) }
+  }
+  return out
 }
 
 /** Monotonic mapping from source time to the compacted output timeline. */

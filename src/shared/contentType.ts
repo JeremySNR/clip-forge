@@ -1,6 +1,6 @@
 import type { Clip, ClipContentType, ClipEditState, LayoutShot, VideoType } from './types'
 import { DETAIL_CAPTION_Y, validContentRegion, type CaptionPositionRange } from './contentRegion'
-import { presenterComposition, validComposition } from './composition'
+import { isPresenterComposition, presenterComposition, validComposition } from './composition'
 
 /** Face coverage below this is treated as a screencast / demo / slides clip. */
 export const SCREENCAST_FACE_COVERAGE = 0.25
@@ -65,6 +65,33 @@ export function validLayoutShots(assessment: Clip['visualLayout'], start: number
   return Math.abs(cursor - assessment.end) <= 0.001
 }
 
+/**
+ * Add two-speaker split ranges to a camera clip's layout. Only clips without
+ * inspected screen regions or presenter compositions get them; everything
+ * outside a split keeps the speaker-following crop.
+ */
+export function applySpeakerSplits(
+  assessment: Clip['visualLayout'], start: number, end: number,
+  splits: Array<{ start: number; end: number; composition: LayoutShot['composition'] }>
+): Clip['visualLayout'] {
+  const inside = splits.filter(r => validComposition(r.composition) && r.end > r.start && r.start < end && r.end > start)
+    .map(r => ({ ...r, start: Math.max(start, r.start), end: Math.min(end, r.end) }))
+  if (!inside.length || assessment?.preserveContext || assessment?.kind === 'screen' ||
+    assessment?.shots?.some(shot => shot.mode === 'fit')) return assessment
+  const shots: LayoutShot[] = []
+  let cursor = start
+  for (const split of inside.sort((a, b) => a.start - b.start)) {
+    if (split.start < cursor) continue
+    if (split.start > cursor) shots.push({ start: cursor, end: split.start, mode: 'crop' })
+    shots.push({ start: split.start, end: split.end, mode: 'fit', composition: split.composition })
+    cursor = split.end
+  }
+  if (cursor < end) shots.push({ start: cursor, end, mode: 'crop' })
+  if (shots.length > 48) return assessment
+  return { ...(assessment ?? { preserveContext: false, allowZoom: true, reason: '' }), start, end, kind: assessment?.kind ?? 'camera',
+    reason: [assessment?.reason, 'Split screen during two-person exchanges.'].filter(Boolean).join(' '), shots }
+}
+
 /** Retain the full scene where face detail cannot support a reliable close-up. */
 export function protectLayoutRanges(
   assessment: Clip['visualLayout'], start: number, end: number,
@@ -104,10 +131,14 @@ export function automaticLayoutShots(clip: Pick<Clip, 'edit' | 'visualLayout'>):
   }
   const regions = new Set<string>()
   return clip.visualLayout!.shots!.filter((shot) => shot.start < clip.edit.end && shot.end > clip.edit.start).map(shot => {
+    // The editor's split-screen switch turns conversations back into speaker crops.
+    if (shot.composition?.preset === 'speakers' && clip.edit.speakerSplit === false) {
+      return { start: shot.start, end: shot.end, mode: 'crop' as const }
+    }
     let composition = shot.composition
     if (composition && clip.edit.aspect !== '9:16') return { ...shot, composition: undefined }
     const preference = clip.edit.compositionPreference
-    if (composition && preference && preference !== 'auto' && preference !== composition.preset) {
+    if (composition && isPresenterComposition(composition) && preference && preference !== 'auto' && preference !== composition.preset) {
       const content = composition.layers.find(l => l.role === 'content')!
       const presenter = composition.layers.find(l => l.role === 'presenter')
       if (presenter) composition = presenterComposition(content.source, presenter.source, preference)
@@ -130,6 +161,11 @@ export function detailCaptionRanges(clip: Pick<Clip, 'edit' | 'visualLayout'>): 
 }
 
 /** Existing full-width hook titles would cover a composited presenter. */
+/** Auto zoom would magnify an overlaid layout, so it runs only on plain crops. */
+export function layoutBlocksAutoZoom(clip: Pick<Clip, 'edit' | 'visualLayout'>): boolean {
+  return automaticLayoutShots(clip).some(shot => shot.mode === 'fit')
+}
+
 export function compositionHidesTitle(clip: Pick<Clip, 'edit' | 'visualLayout'>): boolean {
   return automaticLayoutShots(clip).some(shot => shot.composition)
 }

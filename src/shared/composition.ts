@@ -13,6 +13,7 @@ function intersection(a: ContentRegion, b: ContentRegion): number {
 }
 
 export function validComposition(c: Composition | undefined): c is Composition {
+  if (c?.version === 1 && c.preset === 'speakers') return validSpeakerComposition(c)
   if (!c || c.version !== 1 || !['content-first', 'stacked', 'content-only'].includes(c.preset) ||
     !Array.isArray(c.layers) || c.layers.length < 1 || c.layers.length > 2 ||
     !Number.isFinite(c.captionY) || c.captionY < .78 || c.captionY > .86) return false
@@ -24,6 +25,33 @@ export function validComposition(c: Composition | undefined): c is Composition {
     roles.add(layer.role)
   }
   return roles.has('content') && (c.layers.length === 1 || intersection(c.layers[0].target, c.layers[1].target) < .000001)
+}
+
+/** Two stacked speaker panels, captions on the seam between them. */
+const SPEAKER_PANELS: ContentRegion[] = [{ x: 0, y: 0, width: 1, height: .5 }, { x: 0, y: .5, width: 1, height: .5 }]
+export const SPEAKER_CAPTION_Y = .5
+
+function validSpeakerComposition(c: Composition): boolean {
+  return Array.isArray(c.layers) && c.layers.length === 2 && Number.isFinite(c.captionY) &&
+    c.captionY >= .4 && c.captionY <= .6 &&
+    c.layers.every(l => l?.role === 'speaker' && validRectangle(l.source) && validRectangle(l.target)) &&
+    intersection(c.layers[0].target, c.layers[1].target) < .000001
+}
+
+/**
+ * Stack two people from the same shot: `top` and `bottom` are source
+ * rectangles already shaped like a half-height 9:16 panel, so each fills its
+ * panel exactly.
+ */
+export function speakerComposition(top: ContentRegion, bottom: ContentRegion): Composition | undefined {
+  if (!validRectangle(top) || !validRectangle(bottom)) return undefined
+  return { version: 1, preset: 'speakers', captionY: SPEAKER_CAPTION_Y,
+    layers: [{ role: 'speaker', source: top, target: SPEAKER_PANELS[0] }, { role: 'speaker', source: bottom, target: SPEAKER_PANELS[1] }] }
+}
+
+/** Whether a composition separates screen content from a presenter inset. */
+export function isPresenterComposition(c: Composition | undefined): boolean {
+  return Boolean(c && c.preset !== 'speakers')
 }
 
 /** The source rectangles are independent of the source webcam's corner. */

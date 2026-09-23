@@ -97,8 +97,22 @@ export async function installLocalWhisper(
     announce(0.2, 'Installing faster-whisper in the private environment…')
     await run(paths.python, ['-m', 'pip', 'install', '--disable-pip-version-check', 'faster-whisper', 'huggingface-hub'],
       controller.signal, message => announce(0.3, message))
+    // Apple Silicon also gets the MLX build, which transcribes on the GPU.
+    // Optional: the CPU path still works if it cannot be installed.
+    let gpu = false
+    if (process.platform === 'darwin' && process.arch === 'arm64') {
+      announce(0.35, 'Installing Apple Silicon acceleration…')
+      try {
+        await run(paths.python, ['-m', 'pip', 'install', '--disable-pip-version-check', 'mlx-whisper'],
+          controller.signal, message => announce(0.4, message))
+        gpu = true
+      } catch (error) {
+        controller.signal.throwIfAborted()
+        console.warn('Apple Silicon Whisper acceleration unavailable; using the CPU:', error)
+      }
+    }
     announce(0.45, `Downloading the ${model} speech model…`)
-    await run(paths.python, ['-u', installScript(), model, modelPath], controller.signal,
+    await run(paths.python, ['-u', installScript(), model, modelPath, ...(gpu ? ['--mlx'] : [])], controller.signal,
       message => announce(-1, message))
     announce(0.95, 'Checking the local transcription setup…')
     await run(paths.python, ['-c', 'import ctranslate2, faster_whisper; print("ready")'], controller.signal, () => {})

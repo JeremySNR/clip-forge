@@ -2,13 +2,15 @@ import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
+import { planShot, portraitCropWidth } from '@shared/cameraPath'
 import type { Clip, FocusKeyframe, ClipContentType, ClipEditState, VideoType } from '@shared/types'
-import { applyVisualLayout, classifyClipContent, protectLayoutRanges } from '@shared/contentType'
+import { applySpeakerSplits, applyVisualLayout, classifyClipContent, protectLayoutRanges } from '@shared/contentType'
 import { applyVideoTypeLayout, resolveContentType } from '@shared/videoType'
 import { mapLimit } from './concurrency'
 import { mediaJobs } from './mediaJobs'
 import { runFfmpeg } from './ffmpeg'
 import { analyzeClipASD } from './asd'
+import { planSpeakerSplits, type SpeakerSplit } from './speakerSplit'
 import { detectFaces, frameDifference, MODEL_H, MODEL_W, SCENE_CUT_THRESHOLD } from './detect'
 import {
   chooseFocusCentres,
@@ -122,16 +124,21 @@ function medianSmooth(values: number[], window: number): number[] {
 }
 
 /**
- * Turn per-frame centres into a piecewise-constant focus track. Camera cuts
+ * Turn per-frame centres into a focus track. Camera cuts and speaker switches
  * split the analysis into independent runs — smoothing never bleeds across a
- * shot change, and every cut gets an immediate refocus keyframe. Returns null
- * when too few faces were found to be useful (caller falls back to manual).
+ * shot change, and every cut gets an immediate refocus keyframe. Each run is
+ * planned with lookahead (shared/cameraPath.ts): held still while the face
+ * stays near the crop centre, with eased pans only when it genuinely moves.
+ * Returns null when too few faces were found to be useful (caller falls back
+ * to manual).
  */
 export function buildFocusTrack(
   centres: Array<number | null>,
   clipStartSec: number,
   cuts: number[] = [],
-  fps: number = SAMPLE_FPS
+  fps: number = SAMPLE_FPS,
+  /** `legacy` keeps the reactive threshold planner, for benchmark comparison only. */
+  options: { cropWidth?: number; faceBand?: number; legacy?: boolean } = {}
 ): FocusKeyframe[] | null {
   const detected = centres.filter((c): c is number => c !== null)
   if (detected.length < centres.length * 0.3 || detected.length < 2) return null
@@ -151,7 +158,8 @@ export function buildFocusTrack(
     const runStart = runBounds[r]
     const run = filled.slice(runStart, runBounds[r + 1])
     if (run.length === 0) continue
-    trackRun(medianSmooth(run, Math.min(smoothWindow, run.length)), runStart, clipStartSec, fps, keyframes)
+    if (options.legacy) trackRun(medianSmooth(run, Math.min(smoothWindow, run.length)), runStart, clipStartSec, fps, keyframes)
+    else keyframes.push(...planShot(run, clipStartSec + runStart / fps, fps, options.cropWidth, options.faceBand))
   }
   return keyframes
 }
@@ -210,6 +218,8 @@ export interface ClipFocusAnalysis {
   sceneCuts?: number[]
   sceneTransitions?: Array<{ start: number; end: number }>
   lowDetailShots?: Array<{ start: number; end: number }>
+  /** Two-person exchanges in a shared shot, shown as a stacked split. */
+  speakerSplits?: SpeakerSplit[]
 }
 
 /**
@@ -247,12 +257,16 @@ async function analyzeFocus(
         asd.fps
       )
       const cuts = [...new Set([...asd.sceneCuts, ...switchCuts])].sort((a, b) => a - b)
-      const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps)
+      const cropWidth = asd.cropSize ? portraitCropWidth(asd.cropSize.width / Math.max(1, asd.cropSize.height)) : undefined
+      const focusTrack = buildFocusTrack(centres, startSec, cuts, asd.fps, { cropWidth })
       const detected = centres.filter((c): c is number => c !== null).length
       const faceCoverage = centres.length > 0 ? detected / centres.length : 0
       const contentType = classifyClipContent(faceCoverage, focusTrack !== null)
       if (contentType === 'screencast') return { focusTrack: null, contentType, sceneCuts, sceneTransitions, lowDetailShots }
-      return { focusTrack, contentType, sceneCuts, sceneTransitions, lowDetailShots }
+      const speakerSplits = asd.cropSize
+        ? planSpeakerSplits(asd.tracks, asd.frameCount, asd.sceneCuts, asd.fps, startSec, asd.cropSize)
+        : []
+      return { focusTrack, contentType, sceneCuts, sceneTransitions, lowDetailShots, speakerSplits }
     }
   } catch (err) {
     if (signal?.aborted) throw err
@@ -288,6 +302,9 @@ export function applyFocusAnalysis(
 ): void {
   clip.focusTrack = analysis.focusTrack
   clip.contentType = resolveContentType(videoType, analysis.contentType)
+  if (analysis.speakerSplits?.length && clip.contentType === 'speaker') {
+    clip.visualLayout = applySpeakerSplits(clip.visualLayout, clip.edit.start, clip.edit.end, analysis.speakerSplits)
+  }
   if (videoType !== 'talking-head') {
     clip.visualLayout = protectLayoutRanges(clip.visualLayout, clip.edit.start, clip.edit.end, analysis.lowDetailShots ?? [])
   }

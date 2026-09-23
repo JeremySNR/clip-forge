@@ -8,9 +8,7 @@ import { mapLimit } from './concurrency'
 import { extractThumbnail, probeVideo } from './ffmpeg'
 import { ensureTranscript } from './projectTranscript'
 import { detectHighlights, maxDurationFor } from './highlights'
-import { analyzeClipLayout } from './clipLayout'
-import { LayoutMemory } from './layoutMemory'
-import { mergeReframeResult, selectEagerReframeIds } from '@shared/reframe'
+import { timed } from './timing'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { completeVisualStory } from './visualStory'
 import { attachBroll } from './broll'
@@ -148,7 +146,7 @@ export async function analyzeProject(
   await mkdir(workDir, { recursive: true })
 
   try {
-    const transcript = await ensureTranscript(
+    const transcript = await timed('transcript', () => ensureTranscript(
       project,
       workDir,
       {
@@ -160,17 +158,17 @@ export async function analyzeProject(
       },
       onProgress,
       signal
-    )
+    ))
 
     onProgress({ stage: 'analyze', progress: 0.58, message: 'Finding viral moments…' })
-    let clips = await detectHighlights(
+    let clips = await timed('highlights', () => detectHighlights(
       apiKey,
       settings.analysisModel,
       transcript,
       options,
       project.video.durationSec,
       signal
-    )
+    ))
     if (clips.length === 0) {
       throw new Error('The AI could not find any clip-worthy moments in this video.')
     }
@@ -180,7 +178,7 @@ export async function analyzeProject(
     let scored = 0
     const incomplete = new Set<string>()
     const incoherent = new Set<string>()
-    await mapLimit(clips, 3, async (clip) => {
+    await timed('visual-review', () => mapLimit(clips, 3, async (clip) => {
       signal?.throwIfAborted()
       let visual = await assessClipVisuals(
         apiKey,
@@ -209,17 +207,18 @@ export async function analyzeProject(
       scored++
       onProgress({
         stage: 'analyze',
-        progress: 0.64 + (scored / clips.length) * 0.08,
+        progress: 0.64 + (scored / clips.length) * 0.18,
         message: 'Scoring visuals…'
       })
-    })
+    }), { clips: clips.length })
     clips = clips.filter(clip => !incomplete.has(clip.id))
     if (!clips.length) throw new Error('The candidate clips promised demonstrations whose payoffs could not be included. Try a longer clip length.')
     clips = clips.filter(clip => !incoherent.has(clip.id))
     if (!clips.length) throw new Error('The candidate clips did not form complete, self-contained stories. Try a longer clip length or a different source.')
     clips.sort((a, b) => b.viralityScore - a.viralityScore)
 
-    const layoutMemory = new LayoutMemory(project.video.path, project.clips)
+    // Layouts for the top clips run in the background once the list is on
+    // screen (see backgroundReframe.ts); every clip starts pending.
     for (const clip of clips) clip.reframeStatus = 'pending'
     project.clips = clips
     project.prompt = options.prompt
@@ -230,42 +229,10 @@ export async function analyzeProject(
       p.videoType = options.videoType
     })
 
-    onProgress({ stage: 'reframe', progress: 0.72, message: 'Preparing clip layouts…' })
-    {
-      // Face tracking and visual composition are substantial stages, so
-      // only the top tier is analysed here. The rest stay 'pending' and are
-      // analysed when opened or exported (see pipeline/reframe.ts).
-      const eager = selectEagerReframeIds(clips)
-      const eagerClips = clips.filter((c) => eager.has(c.id))
-      let reframed = 0
-      await mapLimit(eagerClips, 2, async (clip) => {
-        signal?.throwIfAborted()
-        await analyzeClipLayout(project.video.path, clip, options.videoType,
-          apiKey, settings.analysisModel, transcript, signal, layoutMemory)
-        // Persist each completed clip, including when a later request fails or
-        // the user cancels. Merge with edits made while analysis was running.
-        await updateProject(project.id, (fresh) => {
-          if (fresh.video.path !== project.video.path ||
-              (fresh.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
-          const index = fresh.clips.findIndex(c => c.id === clip.id)
-          if (index >= 0) fresh.clips[index] = mergeReframeResult(fresh.clips[index], clip, options.videoType)
-        })
-        reframed++
-        onProgress({
-          stage: 'reframe',
-          progress: 0.72 + (reframed / eagerClips.length) * 0.1,
-          message:
-            eagerClips.length < clips.length
-              ? `Analysing layout for the top ${eagerClips.length} clips (${reframed}/${eagerClips.length})…`
-              : `Preparing layouts (${reframed}/${eagerClips.length})…`
-        })
-      })
-    }
-
     if (options.broll) {
       onProgress({ stage: 'broll', progress: 0.82, message: 'Finding B-roll images…' })
       let brolled = 0
-      await mapLimit(clips, 3, async (clip) => {
+      await timed('broll', () => mapLimit(clips, 3, async (clip) => {
         signal?.throwIfAborted()
         try {
           await attachBroll(apiKey, settings.analysisModel, transcript, project.id, clip, signal)
@@ -281,7 +248,7 @@ export async function analyzeProject(
           progress: 0.82 + (brolled / clips.length) * 0.08,
           message: 'Finding B-roll images…'
         })
-      })
+      }))
       await updateProject(project.id, (p) => {
         if (p.video.path !== project.video.path || (p.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) return
         for (const current of p.clips) {
@@ -294,21 +261,22 @@ export async function analyzeProject(
     onProgress({ stage: 'thumbnails', progress: 0.9, message: 'Creating thumbnails…' })
     const thumbsDir = join(projectDir(project.id), 'thumbs')
     await mkdir(thumbsDir, { recursive: true })
-    for (let i = 0; i < clips.length; i++) {
+    let thumbnailed = 0
+    await timed('thumbnails', () => mapLimit(clips, 4, async (clip) => {
       signal?.throwIfAborted()
-      const clip = clips[i]
       const at = clip.suggestedStart + Math.min(1.5, (clip.suggestedEnd - clip.suggestedStart) / 2)
       try {
         clip.thumbnailPath = await extractThumbnail(project.video.path, at, join(thumbsDir, `${clip.id}.jpg`))
       } catch {
         clip.thumbnailPath = null
       }
+      thumbnailed++
       onProgress({
         stage: 'thumbnails',
-        progress: 0.9 + ((i + 1) / clips.length) * 0.08,
+        progress: 0.9 + (thumbnailed / clips.length) * 0.08,
         message: 'Creating thumbnails…'
       })
-    }
+    }), { clips: clips.length })
 
     // Final save returns the freshest merged copy (clips from this run plus
     // anything — like a rename — that changed on disk while it ran).
