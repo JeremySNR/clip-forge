@@ -76,6 +76,12 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
       const bus = usePreviewBus.getState()
       const mod = e.metaKey || e.ctrlKey
       const key = e.key.toLowerCase()
+      // Holding a key auto-repeats it: stepping should continue, but play,
+      // split, cut, in/out and undo must fire once per press.
+      if (e.repeat && !['j', 'l', 'arrowleft', 'arrowright'].includes(key)) {
+        if ([' ', 'k', 's', 'i', 'o', 'delete', 'backspace', 'z', 'y'].includes(key)) e.preventDefault()
+        return
+      }
       const step = (dt: number): void => bus.seek(Math.max(edit.start, Math.min(edit.end, bus.time + dt)))
       let handled = true
       if (mod && key === 'z') void (e.shiftKey ? redo(clip.id) : undo(clip.id))
