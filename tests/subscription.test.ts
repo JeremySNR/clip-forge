@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -170,4 +170,12 @@ it('cancels a duplicate waiter without cancelling the original request', async (
   expect(await first).toEqual({ title: 'A complete story' })
   expect(await third).toEqual({ title: 'A complete story' })
   expect(mock.spawn.mock.calls.filter(call => call[1][0] === 'exec')).toHaveLength(1)
+})
+
+describe('cmd.exe launcher quoting', () => {
+  it('keeps paths with spaces and shell characters in one argument each', async () => {
+    const { cmdLine } = await import('../src/main/subscription')
+    expect(cmdLine(['C:\\Users\\Jane Doe\\miniconda3\\condabin\\python.cmd', 'C:\\Program Files\\Cutawan\\transcribe.py', 'a&b', 'say "hi"']))
+      .toBe('"C:\\Users\\Jane Doe\\miniconda3\\condabin\\python.cmd" "C:\\Program Files\\Cutawan\\transcribe.py" "a&b" "say ""hi"""')
+  })
 })

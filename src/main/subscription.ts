@@ -72,13 +72,27 @@ function commandFor(executable: string): { command: string; prefix: string[]; no
   return { command: resolveCodexExecutable(executable), prefix: [], node: false, shell: false }
 }
 
+/**
+ * Quote arguments for cmd.exe (which Node runs as `cmd /d /s /c "<line>"`).
+ * Inside double quotes cmd treats spaces and & | < > ^ literally; embedded
+ * quotes are doubled. `%VAR%` can still expand, so arguments must not rely on
+ * a literal percent sign.
+ */
+export function cmdLine(parts: string[]): string {
+  return parts.map((part) => `"${part.replace(/"/g, '""')}"`).join(' ')
+}
+
 async function run(executable: string, args: string[], input: string, signal: AbortSignal): Promise<string> {
   signal.throwIfAborted()
   const { command, prefix, node, shell } = commandFor(executable)
   return new Promise((accept, reject) => {
     const env = subscriptionEnvironment(process.env)
     if (node) env.ELECTRON_RUN_AS_NODE = '1'
-    const child = spawn(command, [...prefix, ...args], { windowsHide: true, shell, env, detached: process.platform !== 'win32' })
+    // A .cmd launcher needs cmd.exe, which splits on spaces and interprets
+    // & | < > ^: pass it one fully quoted command line instead of argv.
+    const child = shell
+      ? spawn(cmdLine([command, ...prefix, ...args]), [], { windowsHide: true, shell: true, env })
+      : spawn(command, [...prefix, ...args], { windowsHide: true, shell: false, env, detached: process.platform !== 'win32' })
     const stop = (): void => {
       // npm/Python launchers can have a native child. Killing just the launcher
       // would leave inference running (and consuming allowance) after Cancel.
