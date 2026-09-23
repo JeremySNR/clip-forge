@@ -92,6 +92,12 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
     app.quit()
     return
   }
+  // Seeded profiles have projects and no record of seen notes, so the
+  // after-update "What's new" dialog opens; capture and dismiss it.
+  if (await win.webContents.executeJavaScript(`Boolean(document.querySelector('[data-testid="whats-new"]'))`)) {
+    await shot('whats-new')
+    await click('[data-testid="whats-new-close"]')
+  }
   await shot('home')
   await click('[data-testid="project-card"]')
   await shot('clips')

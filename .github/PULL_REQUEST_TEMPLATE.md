@@ -6,6 +6,14 @@
 
 <!-- What problem this solves. -->
 
+## Release notes
+
+<!--
+What people using Cutawan will notice, in their words. Add the same lines under
+"## [Unreleased]" in CHANGELOG.md (### Added / Improved / Fixed); CI checks it.
+Nothing visible? Write "None" and add the "no release notes" label.
+-->
+
 ## How did you test it?
 
 <!--

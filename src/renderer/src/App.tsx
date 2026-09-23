@@ -7,6 +7,7 @@ import EditorScreen from './components/EditorScreen'
 import SettingsModal from './components/SettingsModal'
 import TopBar from './components/TopBar'
 import SetupWizard from './components/SetupWizard'
+import WhatsNewAfterUpdate from './components/WhatsNew'
 import { startUpdateChecks } from '@shared/updateSchedule'
 
 function ScreenView({ screen }: { screen: Screen }): React.JSX.Element {
@@ -71,6 +72,7 @@ export default function App(): React.JSX.Element {
       </main>
       {settingsOpen && <SettingsModal />}
       {settings && !settings.setupComplete && <SetupWizard />}
+      <WhatsNewAfterUpdate />
     </div>
   )
 }

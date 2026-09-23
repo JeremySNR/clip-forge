@@ -4,8 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
+    # labeled/unlabeled so adding "no release notes" re-runs the check.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
+  release-notes:
+    name: release notes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require CHANGELOG notes for app changes
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node scripts/check-release-notes.mjs
   mac-package:
     name: packaged Apple Silicon inference and export
     runs-on: macos-latest

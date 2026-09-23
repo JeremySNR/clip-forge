@@ -438,6 +438,8 @@ export interface UpdateCheckResult {
   updateAvailable: boolean
   /** GitHub release page to download the update from. */
   releaseUrl: string | null
+  /** The latest release's notes (its CHANGELOG section), when published. */
+  releaseNotes?: string | null
   /**
    * True when the app can download and install the update itself. Unsigned
    * packaged Macs use a manual download; source checkouts pull and rebuild.

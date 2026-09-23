@@ -22,6 +22,8 @@ import {
   Server,
 } from 'lucide-react'
 import { useStore } from '../store'
+import { NotesList, userNotes, WhatsNewDialog } from './WhatsNew'
+import { parseNotes } from '@shared/releaseNotes'
 import SizeTargetControls from './SizeTargetControls'
 import { DEFAULT_BRAND_COLORS, resolveCaptionStyle } from '@shared/captionStyles'
 import type {
@@ -836,6 +838,9 @@ function UpdatesSection(): React.JSX.Element {
     Object.values(s.exports).some((e) => e.status === 'exporting') ||
     Object.values(s.reframeBusy).some(Boolean) || Object.values(s.captionBusy).some(Boolean))
 
+  const [notesOpen, setNotesOpen] = useState(false)
+  const upcoming = updateCheck?.updateAvailable && updateCheck.releaseNotes ? userNotes(parseNotes(updateCheck.releaseNotes)) : []
+
   return (
     <div className="max-w-xl">
       <label className="flex items-center gap-2 text-sm font-medium">
@@ -844,7 +849,20 @@ function UpdatesSection(): React.JSX.Element {
       </label>
       <p className="mt-1 text-xs text-zinc-500">
         Cutawan v{settings?.appVersion ?? '…'} — updates are checked on launch and every six hours.
+        {settings?.appVersion && (
+          <button type="button" onClick={() => setNotesOpen(true)} data-testid="whats-new-button"
+            className="ml-1.5 text-zinc-400 underline underline-offset-2 hover:text-zinc-200">
+            What&apos;s new in this version
+          </button>
+        )}
       </p>
+      {notesOpen && settings?.appVersion && <WhatsNewDialog version={settings.appVersion} onClose={() => setNotesOpen(false)} />}
+      {upcoming.length > 0 && (
+        <div className="mt-2.5 rounded-lg border border-surface-600 bg-surface-850 px-3 py-2.5" data-testid="update-notes">
+          <p className="mb-2 text-xs font-medium text-zinc-200">What&apos;s new in v{updateCheck?.latestVersion}</p>
+          <NotesList blocks={upcoming} compact />
+        </div>
+      )}
 
       {updateDownload.status !== 'idle' || (updateCheck?.updateAvailable &&
         (updateCheck.autoUpdateSupported || updateCheck.manualDownloadSupported)) ? (

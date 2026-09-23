@@ -125,6 +125,13 @@ describe('evaluateUpdate', () => {
     expect(res.error).toBeNull()
   })
 
+  it('carries the published release notes, never a draft\'s', () => {
+    expect(evaluateUpdate('0.1.0', { tag_name: 'v0.2.0', body: '### Added\n\n- Timeline cuts\n' }).releaseNotes)
+      .toBe('### Added\n\n- Timeline cuts')
+    expect(evaluateUpdate('0.1.0', { tag_name: 'v0.2.0', body: 'secret', draft: true }).releaseNotes).toBeNull()
+    expect(evaluateUpdate('0.1.0', { tag_name: 'v0.2.0', body: '   ' }).releaseNotes).toBeNull()
+  })
+
   it('reports up to date when the release matches or is older', () => {
     expect(evaluateUpdate('0.2.0', { tag_name: 'v0.2.0' }).updateAvailable).toBe(false)
     expect(evaluateUpdate('0.3.0', { tag_name: 'v0.2.0' }).updateAvailable).toBe(false)
