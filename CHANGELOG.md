@@ -6,6 +6,12 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [Unreleased]
+
+### Improved
+
+- Screen recordings with a webcam box (for example a presenter in the top-right corner over a screen share) now find the webcam from the video itself instead of relying on the AI to draw it. This avoids layouts that merged two webcams, left a strip of page beside the presenter, or cut the content under the webcam, and needs fewer retries.
+
 ## [0.12.0] - 2026-09-23
 
 ### Added

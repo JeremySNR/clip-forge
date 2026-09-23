@@ -10,7 +10,7 @@ The basic approach is right: analyse offline, split into shots, pick a primitive
 2. **The camera can only slide sideways.** It cannot zoom, tilt or set headroom, so wide shots, panels and small faces fall back to letterbox.
 3. **The layout vocabulary is missing the formats creators use most after the single speaker:** remote-call galleries, groups and blurred-fill fallbacks.
 
-This PR adds the first piece of the fix: a local style triage that runs in a few seconds with no connection. For now it only logs its decision, so it can be checked against real footage before it controls anything. The rest of this document sets out how each style should be framed, what the research supports, and the order I would do the remaining work in.
+This PR adds the first piece of the fix: a local style triage that runs in a few seconds with no connection. Its whole-clip style decision only logs for now, so it can be checked against real footage before it controls anything. One part does change output: screen recordings with a webcam box take the webcam bounds from pixels (section 4a). The rest of this document sets out how each style should be framed, what the research supports, and the order I would do the remaining work in.
 
 ## 1. How the current implementation decides a layout
 
@@ -110,6 +110,30 @@ Known limits, to check on real footage before the triage is allowed to decide an
 - **Moving or scrolling content.** A playing video or scrolling page inside a screen recording is a live region too. Only the face check separates it from a webcam.
 - **Gallery detection needs a clean divider.** Tiles that butt together without a gutter and with similar colours will be missed and treated as a two-shot.
 - **Six samples cannot see a layout change between them.** Per-shot triage should use the shot boundaries already detected.
+
+## 4a. Follow-up: pixel webcam panels in the screen route (T3.GG layout)
+
+T3.GG-style recordings put a fixed webcam panel in the top-right corner over a screen share. The earlier validation notes record the model's webcam boxes as the main failure: two webcams merged into one tall box, a strip of page left beside the presenter, and repeated repair calls costing 15–75 s per clip (`docs/rejected-layout-repair.md`, `docs/layout-reuse-validation.md`).
+
+`persistentPresenterInset` now finds the panel across several samples:
+
+- a cell must be live in two thirds of the samples, so scrolling pages and playing clips, which are live only some of the time, drop out;
+- the region must be at least 80% filled and hold a face in half the samples;
+- its bounds are refined to sample pixels, and each internal side must be a hard edge that is live along most of its length. That rejects a head on a still, compressed background;
+- among several candidates, the one anchored to the frame edges wins, which separates the commentator's overlay from an embedded video call.
+
+A single sample applies the same rectangle check.
+
+For each screen shot of at least 2 s, `refineComposition` runs this on four frame pairs (`detectPresenterPanel`, local, about 1–2 s):
+
+- the pixel panel replaces the presenter box from the editorial review and from each shot proposal;
+- the content region is trimmed off the panel along the side that keeps the most content;
+- the model is told where the webcam is, so it only chooses the content region;
+- a webcam the model missed is still composed.
+
+Rendered review is unchanged. The existing enlargement, presenter-size and overlap checks still decide acceptance, and a shot where no panel is found keeps the previous model path. `[presenter-panel]` log lines show each detected panel.
+
+Not validated on real T3.GG footage here (downloads were blocked). Tests cover scrolling and embedded-video samples, an embedded second face, a head blob, content trimming and the composition flow with mocked model responses.
 
 ## 5. What the research supports
 

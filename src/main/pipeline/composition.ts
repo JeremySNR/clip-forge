@@ -13,6 +13,8 @@ import { mapLimit } from './concurrency'
 import { refineScreenDetails } from './screenDetail'
 import { reviewExistingComposition, reviewPresenterComposition, sourceRectangle } from './presenterComposition'
 import type { LayoutMemory } from './layoutMemory'
+import { excludeInset } from '@shared/shotStyle'
+import { detectPresenterPanel } from './shotTriage'
 
 const SCHEMA = {
   type: 'object', additionalProperties: false, required: ['mode', 'reason', 'region', 'screen_detail', 'presenter'],
@@ -59,11 +61,23 @@ export async function refineComposition(
     const narration = transcript?.segments.flatMap(s => s.words)
       .filter(w => w.start >= shot.start && w.start < shot.end).map(w => w.text).join(' ').slice(0, 4000) ?? clip.title
     try {
+      // A fixed webcam panel is visible in the pixels: take its bounds from
+      // there rather than from a model's box, which can merge two webcams or
+      // keep a strip of page beside the presenter. Content is trimmed off it.
+      const pixelPresenter = assessment.kind !== 'camera' && clip.edit.aspect === '9:16' && shot.end - shot.start >= 2
+        ? await detectPresenterPanel(videoPath, shot.start, shot.end, signal).catch((error: unknown) => {
+          if (signal?.aborted) throw error
+          console.warn('Local presenter panel detection failed:', error)
+          return undefined
+        })
+        : undefined
+      if (pixelPresenter) console.info('[presenter-panel]', JSON.stringify({ start: shot.start, end: shot.end, panel: pixelPresenter }))
       // The editorial pass already inspected source geometry. Reuse its proposal,
       // but verify the actual output on independent samples before applying it.
       if (assessment.panels && assessment.kind === 'screen' && clip.edit.aspect === '9:16' &&
           assessment.start <= shot.start && assessment.end >= shot.end) {
-        const { content, presenter } = assessment.panels
+        const presenter = pixelPresenter ?? assessment.panels.presenter
+        const content = pixelPresenter ? excludeInset(assessment.panels.content, pixelPresenter) : assessment.panels.content
         const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
         Object.assign(shot, { composition: checked.composition, review: checked.review })
         retryTimes = checked.retryTimes ?? []
@@ -109,6 +123,10 @@ export async function refineComposition(
           } })
         }
       }
+      if (pixelPresenter) {
+        const box = (v: number): number => Math.round(v * 1000)
+        parts.push({ type: 'text', text: `A pixel scan found a fixed webcam panel at left=${box(pixelPresenter.x)}, top=${box(pixelPresenter.y)}, right=${box(pixelPresenter.x + pixelPresenter.width)}, bottom=${box(pixelPresenter.y + pixelPresenter.height)} (0–1000 source coordinates). Treat it as the presenter: return screen_detail=true with exactly that presenter rectangle, and choose a content region that excludes it.` })
+      }
       if (repairFeedback) parts.push({ type: 'text', text: `Repair this rejected proposal. Coordinates below are normalized 0–1; return corrected bounds in 0–1000. ${repairFeedback}` })
       // At most two source proposals. A repaired inset can expose a separate
       // content-size problem; its precise geometric feedback gets one attempt.
@@ -117,9 +135,12 @@ export async function refineComposition(
         const result = await chatJSON<{ mode: string; reason: string; screen_detail?: boolean; region?: { left: number; top: number; right: number; bottom: number }; presenter?: { left: number; top: number; right: number; bottom: number } }>(apiKey, model,
           [{ role: 'user', content: parts }], 'shot_composition', SCHEMA, signal)
         shot.mode = result.mode === 'crop' && focusTrack?.length ? 'crop' : 'fit'
-        const presenter = sourceRectangle(result.presenter)
-        const content = sourceRectangle(result.region)
-        const insetRequested = result.screen_detail && result.presenter && Object.values(result.presenter).some(value => value !== 0)
+        const presenter = pixelPresenter ?? sourceRectangle(result.presenter)
+        const proposed = sourceRectangle(result.region)
+        // Without a usable content box, start from the whole frame beside the webcam.
+        const content = pixelPresenter ? excludeInset(proposed ?? { x: 0, y: 0, width: 1, height: 1 }, pixelPresenter) : proposed
+        const insetRequested = Boolean(pixelPresenter) ||
+          (result.screen_detail && result.presenter && Object.values(result.presenter).some(value => value !== 0))
         if (insetRequested) shot.mode = 'fit'
         if (insetRequested && (!presenter || !content || clip.edit.aspect !== '9:16')) {
           shot.review = { status: 'needs-review', reason: 'Separate source panels could not be composed safely in this format.' }
@@ -130,7 +151,7 @@ export async function refineComposition(
           }
           return
         }
-        if (shot.mode === 'fit' && result.screen_detail && presenter && content && clip.edit.aspect === '9:16') {
+        if (shot.mode === 'fit' && (result.screen_detail || pixelPresenter) && presenter && content && clip.edit.aspect === '9:16') {
           const checked = await reviewPresenterComposition(apiKey, model, videoPath, shot.start, shot.end, content, presenter, narration, signal)
           Object.assign(shot, { composition: checked.composition, review: checked.review })
           if (shot.composition) return

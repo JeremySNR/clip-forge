@@ -229,7 +229,10 @@ export function classifySample(sample: StyleSample): SampleStyle {
   if (stillShare >= SCREEN_STILL_SHARE) {
     const inset = liveInset(sample)
     if (inset && faces.some(f => inside(inset, centreX(f), centreY(f)))) {
-      return { ...base, style: 'screen-with-presenter', inset }
+      // A face in a live blob that is not a rectangle is a person on a still
+      // (often heavily compressed) camera background, not a webcam panel.
+      const panel = samplePanel(sample, inset)
+      return panel ? { ...base, style: 'screen-with-presenter', inset: panel } : { ...base, style: 'single-speaker' }
     }
     // A still frame can also be a gallery with frozen, silent tiles; faces
     // separated by dividers decide it. Otherwise faces are pictures on screen.
@@ -263,10 +266,186 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)] ?? 0
 }
 
+/** A cell must be live in this share of samples to belong to a webcam panel. */
+const PERSISTENT_SHARE = 0.66
+/** Presenter panels are rectangles: a person moving on a still background is not. */
+const PANEL_MIN_FILL = 0.8
+/** Per-pixel change frequency marking a panel edge: inside above, outside below. */
+const EDGE_INSIDE = 0.2
+const EDGE_OUTSIDE = 0.06
+/** Pixels either side of a refined edge compared for a hard panel boundary. */
+const EDGE_STEP = 3
+/** Share of each panel side that must change in at least one sample. */
+const PANEL_EDGE_COVERAGE = 0.6
+
+/**
+ * A fixed webcam panel over screen content, located from several samples.
+ *
+ * One sample cannot tell a webcam from content that happens to change: a
+ * page scrolls, a demo video plays, a cursor drags a window. Across samples
+ * the webcam is live every time while content changes come and go, so the
+ * panel is the compact, rectangular region live in most samples that holds a
+ * face in most samples. Several candidates (a primary commentator plus an
+ * embedded video call) prefer the one anchored to the frame edges, as
+ * overlays are, then the one with the most face detections.
+ *
+ * Bounds are refined from cells to sample pixels using per-pixel change
+ * frequency, and every side not on the frame border must be a hard edge.
+ * That rejects a person on a still, heavily compressed camera background,
+ * whose live region fades out gradually instead of stopping at a line.
+ */
+export function persistentPresenterInset(samples: StyleSample[]): ContentRegion | undefined {
+  if (samples.length < 2) return undefined
+  const { width, height } = samples[0]
+  if (samples.some(s => s.width !== width || s.height !== height)) return undefined
+  const grids = samples.map(cellGrid)
+  const { cols, rows } = grids[0]
+  const need = Math.ceil(PERSISTENT_SHARE * samples.length)
+  const persistent = grids[0].cells.map((_, i) => grids.filter(g => !g.cells[i].still).length >= need)
+  // Per-pixel change frequency across samples.
+  const frequency = new Float32Array(width * height)
+  for (const { a, b } of samples) for (let i = 0; i < frequency.length; i++) if (Math.abs(a[i] - b[i]) > REPEAT_DELTA) frequency[i]++
+  for (let i = 0; i < frequency.length; i++) frequency[i] /= samples.length
+
+  const seen = new Uint8Array(persistent.length)
+  let best: { score: number; region: ContentRegion } | undefined
+  for (let start = 0; start < persistent.length; start++) {
+    if (seen[start] || !persistent[start]) continue
+    const stack = [start]
+    seen[start] = 1
+    let count = 0, c0 = cols, c1 = -1, r0 = rows, r1 = -1
+    while (stack.length) {
+      const i = stack.pop()!
+      const c = i % cols, r = Math.floor(i / cols)
+      count++
+      c0 = Math.min(c0, c); c1 = Math.max(c1, c); r0 = Math.min(r0, r); r1 = Math.max(r1, r)
+      for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nc = c + dc, nr = r + dr
+        if (nc < 0 || nr < 0 || nc >= cols || nr >= rows) continue
+        const n = nr * cols + nc
+        if (!seen[n] && persistent[n]) { seen[n] = 1; stack.push(n) }
+      }
+    }
+    const w = c1 - c0 + 1, h = r1 - r0 + 1
+    const area = (w * h) / (cols * rows)
+    if (area < INSET_MIN_AREA || area > INSET_MAX_AREA || count / (w * h) < PANEL_MIN_FILL) continue
+    const region = refinePanel(frequency, width, height,
+      Math.max(0, (c0 - 1) * CELL), Math.min(width, (c1 + 2) * CELL), Math.max(0, (r0 - 1) * CELL), Math.min(height, (r1 + 2) * CELL))
+    if (!region) continue
+    const hits = samples.filter(s => s.faces.some(f => faceHeight(f) >= MIN_FACE && inside(region, centreX(f), centreY(f)))).length
+    if (hits < Math.ceil(samples.length / 2)) continue
+    const anchored = [region.x < .02, region.y < .02, region.x + region.width > .98, region.y + region.height > .98].filter(Boolean).length
+    const score = hits + 2 * Math.min(2, anchored)
+    if (!best || score > best.score) best = { score, region }
+  }
+  return best?.region
+}
+
+/** Pixel-precise panel bounds around one sample's live cell region, if it is a rectangle. */
+function samplePanel(sample: StyleSample, cells: ContentRegion): ContentRegion | undefined {
+  const { width, height, a, b } = sample
+  const frequency = new Float32Array(width * height)
+  for (let i = 0; i < frequency.length; i++) if (Math.abs(a[i] - b[i]) > REPEAT_DELTA) frequency[i] = 1
+  return refinePanel(frequency, width, height,
+    Math.max(0, Math.floor(cells.x * width) - CELL), Math.min(width, Math.ceil((cells.x + cells.width) * width) + CELL),
+    Math.max(0, Math.floor(cells.y * height) - CELL), Math.min(height, Math.ceil((cells.y + cells.height) * height) + CELL))
+}
+
+/** Pixel bounds from change-frequency profiles; undefined without hard internal edges. */
+function refinePanel(frequency: Float32Array, width: number, height: number,
+  x0: number, x1: number, y0: number, y1: number): ContentRegion | undefined {
+  const column = (x: number): number => {
+    if (x < 0 || x >= width) return 0
+    let sum = 0
+    for (let y = y0; y < y1; y++) sum += frequency[y * width + x]
+    return sum / Math.max(1, y1 - y0)
+  }
+  const row = (y: number): number => {
+    if (y < 0 || y >= height) return 0
+    let sum = 0
+    for (let x = x0; x < x1; x++) sum += frequency[y * width + x]
+    return sum / Math.max(1, x1 - x0)
+  }
+  const bounds = (profile: (i: number) => number, from: number, to: number): [number, number] | undefined => {
+    let lo = -1, hi = -1
+    for (let i = from; i < to; i++) if (profile(i) >= EDGE_INSIDE) { if (lo < 0) lo = i; hi = i }
+    return lo < 0 ? undefined : [lo, hi + 1]
+  }
+  const xs = bounds(column, x0, x1), ys = bounds(row, y0, y1)
+  if (!xs || !ys) return undefined
+  // Profiles averaged over the panel's own span, so a neighbouring live
+  // region outside it does not blur the edge.
+  const hard = (profile: (i: number) => number, edge: number, outward: number, limit: number): boolean =>
+    edge <= 0 || edge >= limit ||
+    (profile(edge + outward * EDGE_STEP) <= EDGE_OUTSIDE && profile(edge - outward * (EDGE_STEP + 1)) >= EDGE_INSIDE)
+  x0 = xs[0]; x1 = xs[1]; y0 = ys[0]; y1 = ys[1]
+  if (!hard(column, x0, -1, width) || !hard(column, x1 - 1, 1, width - 1) ||
+      !hard(row, y0, -1, height) || !hard(row, y1 - 1, 1, height - 1)) return undefined
+  // A panel is live along the whole of each side; a rounded blob (a head on
+  // a still background) only touches its bounding box at a few points.
+  const inset = EDGE_STEP - 1
+  const coveredColumn = (x: number): number => {
+    let live = 0
+    for (let y = y0; y < y1; y++) if (frequency[y * width + x] > 0) live++
+    return live / Math.max(1, y1 - y0)
+  }
+  const coveredRow = (y: number): number => {
+    let live = 0
+    for (let x = x0; x < x1; x++) if (frequency[y * width + x] > 0) live++
+    return live / Math.max(1, x1 - x0)
+  }
+  if (x1 - x0 <= 2 * inset || y1 - y0 <= 2 * inset ||
+      Math.min(coveredColumn(x0 + inset), coveredColumn(x1 - 1 - inset),
+        coveredRow(y0 + inset), coveredRow(y1 - 1 - inset)) < PANEL_EDGE_COVERAGE) return undefined
+  return { x: x0 / width, y: y0 / height, width: (x1 - x0) / width, height: (y1 - y0) / height }
+}
+
+/**
+ * The largest part of the frame beside a presenter panel: the content left,
+ * right, above or below it. A fallback when nothing better says which part
+ * of the screen matters.
+ */
+export function contentBesideInset(inset: ContentRegion): ContentRegion {
+  const options: ContentRegion[] = [
+    { x: 0, y: 0, width: inset.x, height: 1 },
+    { x: inset.x + inset.width, y: 0, width: 1 - inset.x - inset.width, height: 1 },
+    { x: 0, y: 0, width: 1, height: inset.y },
+    { x: 0, y: inset.y + inset.height, width: 1, height: 1 - inset.y - inset.height }
+  ]
+  return options.reduce((p, q) => (q.width * q.height > p.width * p.height ? q : p))
+}
+
+/**
+ * Trim a content rectangle so it no longer covers the presenter panel,
+ * cutting along whichever side of the panel loses the least content.
+ */
+export function excludeInset(content: ContentRegion, inset: ContentRegion): ContentRegion {
+  const right = content.x + content.width, bottom = content.y + content.height
+  const ix = Math.min(right, inset.x + inset.width) - Math.max(content.x, inset.x)
+  const iy = Math.min(bottom, inset.y + inset.height) - Math.max(content.y, inset.y)
+  if (ix <= 0 || iy <= 0) return content
+  const options: ContentRegion[] = [
+    { x: content.x, y: content.y, width: inset.x - content.x, height: content.height },
+    { x: inset.x + inset.width, y: content.y, width: right - inset.x - inset.width, height: content.height },
+    { x: content.x, y: content.y, width: content.width, height: inset.y - content.y },
+    { x: content.x, y: inset.y + inset.height, width: content.width, height: bottom - inset.y - inset.height }
+  ].filter(r => r.width > 0 && r.height > 0)
+  return options.reduce((p, q) => (q.width * q.height > p.width * p.height ? q : p), options[0] ?? content)
+}
+
 /** Aggregate per-sample styles into one clip decision. */
 export function classifyClipStyle(samples: StyleSample[]): ClipStyle {
   const results = samples.map(classifySample)
   if (!results.length) return { style: 'mixed', recommendation: 'wide-fit', confidence: 0, smallFaces: false, samples: [] }
+  // A persistent webcam panel decides the clip even when scrolling or a
+  // playing video makes individual samples look like camera footage.
+  const panel = persistentPresenterInset(samples)
+  if (panel) {
+    const agreeing = results.filter(r => r.style === 'screen-with-presenter' || r.style === 'screen').length
+    return { style: 'screen-with-presenter', recommendation: 'content-with-presenter',
+      confidence: Math.max(agreeing, Math.ceil(PERSISTENT_SHARE * results.length)) / results.length,
+      inset: panel, smallFaces: false, samples: results }
+  }
   const votes = new Map<ShotStyle, number>()
   for (const r of results) votes.set(r.style, (votes.get(r.style) ?? 0) + 1)
   const [top, count] = [...votes.entries()].sort((p, q) => q[1] - p[1])[0]

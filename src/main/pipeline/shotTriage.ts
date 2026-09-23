@@ -1,4 +1,5 @@
-import { classifyClipStyle, type ClipStyle, type StyleSample } from '@shared/shotStyle'
+import { classifyClipStyle, persistentPresenterInset, type ClipStyle, type StyleSample } from '@shared/shotStyle'
+import type { ContentRegion } from '@shared/types'
 import { detectFaces, MODEL_H, MODEL_W } from './detect'
 import { probeVideo, streamRawFrames } from './ffmpeg'
 import { mediaJobs } from './mediaJobs'
@@ -87,5 +88,30 @@ export function triageClipStyle(video: string, start: number, end: number, signa
       if (sample) samples.push(sample)
     }
     return { ...classifyClipStyle(samples), seconds: (performance.now() - started) / 1000 }
+  }, signal)
+}
+
+/** Frame pairs sampled per shot when locating a webcam panel. */
+const PANEL_SAMPLES = 4
+
+/**
+ * The fixed webcam panel over screen content in one shot, from pixels alone
+ * (see persistentPresenterInset). Undefined when there is none or the shot
+ * is too short to sample.
+ */
+export function detectPresenterPanel(video: string, start: number, end: number, signal?: AbortSignal):
+  Promise<ContentRegion | undefined> {
+  if (end - start < 1) return Promise.resolve(undefined)
+  return mediaJobs.run(async () => {
+    const info = await probeVideo(video)
+    const size = faceDetectionSize(info.width || 640, info.height || 360)
+    const yunet = yunetAvailable()
+    const samples: StyleSample[] = []
+    for (const time of triageTimes(start, end, PANEL_SAMPLES)) {
+      signal?.throwIfAborted()
+      const sample = await samplePair(video, time, size, yunet, signal)
+      if (sample) samples.push(sample)
+    }
+    return persistentPresenterInset(samples)
   }, signal)
 }
