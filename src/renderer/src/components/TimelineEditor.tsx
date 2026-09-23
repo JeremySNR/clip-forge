@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Redo2, Scissors, SplitSquareHorizontal, Trash2, Undo2 } from 'lucide-react'
 import type { Clip, TimelineData, TimeRange } from '@shared/types'
 import { autoRemovedRanges, editedClipDuration, normalizeRanges } from '@shared/tighten'
-import { cutRange, pieceAt, setTrimEdge, splitAt, timelinePieces, toggleRestored, uncutAt } from '@shared/editOps'
+import { cutRange, keepsPlayback, pieceAt, setTrimEdge, splitAt, timelinePieces, toggleRestored, uncutAt } from '@shared/editOps'
 import { historyState } from '@shared/editHistory'
 import { usePreviewBus } from '../lib/previewBus'
 import { useStore } from '../store'
@@ -51,12 +51,18 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
   }, [clip, transcript, edit.restored, edit.cuts, edit.start, edit.end, edit.tightenCuts])
 
   const pieces = timelinePieces(edit)
-  // A selection only means something once the timeline has been split.
-  const selection = selected && pieces.length > 1 ? selected : null
+  // A selection only means something once the timeline has been split, and
+  // only while it is still exactly one of the current pieces (a split, trim
+  // or undo since the click would otherwise leave a stale range to cut).
+  const selection = selected && pieces.length > 1 &&
+    pieces.some((p) => Math.abs(p.start - selected.start) < 1e-6 && Math.abs(p.end - selected.end) < 1e-6)
+    ? selected : null
 
   const cutSelected = (): void => {
     if (!selection) return
-    onSave(cutRange(edit, selection))
+    const next = cutRange(edit, selection)
+    // Never cut away everything that plays.
+    if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
     setSelected(null)
   }
   const split = (): void => {

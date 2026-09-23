@@ -21,13 +21,27 @@ function snapshot(clip: Clip): Snapshot {
 
 const same = (a: Snapshot, b: Snapshot): boolean => JSON.stringify(a) === JSON.stringify(b)
 
-/** Apply a snapshot, keeping analysis-owned layout unless the user had set one. */
-function restore(clip: Clip, s: Snapshot): Clip {
-  const manual = (s.visualLayout?.revision ?? 0) > 0 || (clip.visualLayout?.revision ?? 0) > 0
-  return { ...clip, ...structuredClone(s), visualLayout: manual ? structuredClone(s.visualLayout) : clip.visualLayout }
+/** Framing fields the reframe analysis also sets (see shared/reframe.ts). */
+const FRAMING_FIELDS = ['reframeMode', 'framing', 'focusX', 'autoZoom', 'compositionPreference', 'layoutChosen'] as const
+
+/**
+ * Apply `target`, the other side of the step being undone or redone from
+ * `from`. Framing fields and automatic layouts change only when that step
+ * changed them: analysis may have updated them since, and undoing a rename
+ * must not put back the default crop.
+ */
+function restore(clip: Clip, target: Snapshot, from: Snapshot): Clip {
+  const edit = { ...structuredClone(target.edit) }
+  for (const field of FRAMING_FIELDS) {
+    if (JSON.stringify(target.edit[field]) === JSON.stringify(from.edit[field])) {
+      (edit as Record<string, unknown>)[field] = clip.edit[field]
+    }
+  }
+  const manual = (target.visualLayout?.revision ?? 0) > 0 || (clip.visualLayout?.revision ?? 0) > 0
+  return { ...clip, ...structuredClone(target), edit, visualLayout: manual ? structuredClone(target.visualLayout) : clip.visualLayout }
 }
 
-/** Start tracking a clip as saved (on opening the editor); keeps existing history. */
+/** Start tracking a clip as last saved; keeps existing history. Call before each save. */
 export function trackClip(clip: Clip): void {
   if (!histories.has(clip.id)) histories.set(clip.id, { saved: snapshot(clip), past: [], future: [] })
 }
@@ -50,9 +64,10 @@ export function undo(clip: Clip): Clip | null {
   const history = histories.get(clip.id)
   const previous = history?.past.pop()
   if (!history || !previous) return null
+  const from = history.saved
   history.future.push(snapshot(clip))
   history.saved = previous
-  return restore(clip, previous)
+  return restore(clip, previous, from)
 }
 
 /** The clip one step forward again, or null. */
@@ -60,9 +75,10 @@ export function redo(clip: Clip): Clip | null {
   const history = histories.get(clip.id)
   const next = history?.future.pop()
   if (!history || !next) return null
+  const from = history.saved
   history.past.push(snapshot(clip))
   history.saved = next
-  return restore(clip, next)
+  return restore(clip, next, from)
 }
 
 export function historyState(clipId: string): { canUndo: boolean; canRedo: boolean } {

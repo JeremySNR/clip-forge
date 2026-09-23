@@ -406,6 +406,11 @@ export const useStore = create<AppState>((set, get) => ({
   updateClip: async (clip) => {
     const project = get().project
     if (!project) return
+    // The stored copy is the last saved state (local edits during typing and
+    // drags replace it only here), so start history from it whichever way
+    // the editor was opened.
+    const saved = project.clips.find((c) => c.id === clip.id)
+    if (saved) trackClip(saved)
     get().updateClipLocal(clip)
     if (recordSave(clip)) set({ historyVersion: get().historyVersion + 1 })
     await window.cutawan.updateClip(project.id, clip)

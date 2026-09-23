@@ -25,7 +25,8 @@ import { useStore } from '../store'
 import PreviewPlayer from './PreviewPlayer'
 import CompositionControls from './CompositionControls'
 import TimelineEditor from './TimelineEditor'
-import { cutRange } from '@shared/editOps'
+import { cutRange, keepsPlayback } from '@shared/editOps'
+import { trackClip } from '@shared/editHistory'
 import ScoreBadge from './ScoreBadge'
 import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
@@ -96,6 +97,12 @@ export default function EditorScreen(): React.JSX.Element {
   // opening one is what triggers the analysis (see shared/reframe.ts).
   const clipId = clip?.id ?? null
   const reframePending = clip ? needsReframe(clip) : false
+  // Undo history starts from the clip as opened, whichever screen led here
+  // (whole-video projects open straight into the editor).
+  useEffect(() => {
+    const opened = useStore.getState().project?.clips.find((c) => c.id === clipId)
+    if (opened) trackClip(opened)
+  }, [clipId])
   useEffect(() => {
     if (clipId && !sourceMissing) void ensureReframe(clipId)
     // Later trim changes trigger analysis after updateClip has saved them.
@@ -527,7 +534,10 @@ export default function EditorScreen(): React.JSX.Element {
               clipStart={clip.edit.start}
               clipEnd={clip.edit.end}
               cuts={clip.edit.cuts}
-              onCut={(range) => void updateClip({ ...clip, edit: cutRange(clip.edit, range) })}
+              onCut={(range) => {
+                const next = { ...clip, edit: cutRange(clip.edit, range) }
+                if (keepsPlayback(next, project.transcript)) void updateClip(next)
+              }}
               onTrim={(start, end) => {
                 void updateClip({
                   ...clip,

@@ -46,3 +46,25 @@ describe('edit history', () => {
     expect(historyState('c').canRedo).toBe(false)
   })
 })
+
+describe('undo and automatic framing', () => {
+  it('keeps framing the analysis set after the clip was opened', () => {
+    const opened = { ...base, edit: { ...base.edit, framing: 'manual', focusX: 0.5, reframeMode: 'crop' } } as unknown as Clip
+    trackClip(opened)
+    recordSave({ ...opened, title: 'Renamed' })
+    // Analysis lands, switching to automatic framing, then the user undoes the rename.
+    const analysed = { ...opened, title: 'Renamed', edit: { ...opened.edit, framing: 'auto', focusX: 0.31 } } as unknown as Clip
+    const back = undo(analysed)!
+    expect(back.title).toBe('T')
+    expect(back.edit.framing).toBe('auto')
+    expect(back.edit.focusX).toBe(0.31)
+  })
+
+  it('still undoes a framing change the user made', () => {
+    const opened = { ...base, edit: { ...base.edit, framing: 'auto', focusX: 0.5 } } as unknown as Clip
+    trackClip(opened)
+    const manual = { ...opened, edit: { ...opened.edit, framing: 'manual', focusX: 0.2 } } as unknown as Clip
+    recordSave(manual)
+    expect(undo(manual)!.edit.framing).toBe('auto')
+  })
+})

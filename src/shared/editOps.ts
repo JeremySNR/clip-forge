@@ -1,5 +1,5 @@
-import type { ClipEditState, TimeRange, Transcript } from './types'
-import { normalizeRanges } from './tighten'
+import type { Clip, ClipEditState, TimeRange, Transcript } from './types'
+import { editedClipDuration, normalizeRanges } from './tighten'
 
 /**
  * Pure timeline edits shared by keyboard shortcuts, the timeline and the
@@ -26,9 +26,10 @@ export function timelinePieces(edit: ClipEditState): TimeRange[] {
   return bounds.slice(0, -1).map((start, i) => ({ start, end: bounds[i + 1] }))
 }
 
-/** The piece containing `t`. */
+/** The piece containing `t`; none outside the trim. */
 export function pieceAt(edit: ClipEditState, t: number): TimeRange | undefined {
-  return timelinePieces(edit).find(p => t >= p.start && t < p.end) ?? timelinePieces(edit).at(-1)
+  const pieces = timelinePieces(edit)
+  return pieces.find(p => t >= p.start && t < p.end) ?? (t === edit.end ? pieces.at(-1) : undefined)
 }
 
 /** Remove a source range from playback (ripple: later material closes the gap). */
@@ -76,4 +77,9 @@ export function clipWords(transcript: Transcript, start: number, end: number): A
 export function setTrimEdge(edit: ClipEditState, which: 'start' | 'end', t: number): ClipEditState {
   if (which === 'start') return { ...edit, start: Math.max(0, Math.min(t, edit.end - MIN_CLIP_SEC)) }
   return { ...edit, end: Math.max(t, edit.start + MIN_CLIP_SEC) }
+}
+
+/** A cut must leave something to play: never less than MIN_CLIP_SEC. */
+export function keepsPlayback(clip: Pick<Clip, 'edit' | 'visualStory'>, transcript: Transcript | null): boolean {
+  return editedClipDuration(clip, transcript) >= MIN_CLIP_SEC
 }

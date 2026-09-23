@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cutRange, pieceAt, setTrimEdge, splitAt, timelinePieces, toggleRestored, uncutAt, wordsRange } from '@shared/editOps'
+import { cutRange, keepsPlayback, pieceAt, setTrimEdge, splitAt, timelinePieces, toggleRestored, uncutAt, wordsRange } from '@shared/editOps'
 import type { ClipEditState } from '@shared/types'
 
 const edit = { start: 10, end: 30 } as ClipEditState
@@ -11,6 +11,19 @@ describe('razor and pieces', () => {
     expect(timelinePieces(split)).toEqual([{ start: 10, end: 15 }, { start: 15, end: 20 }, { start: 20, end: 30 }])
     expect(pieceAt(split, 17)).toEqual({ start: 15, end: 20 })
   })
+  it('selects nothing outside the trim', () => {
+    const split = splitAt(edit, 20)
+    expect(pieceAt(split, 5)).toBeUndefined()
+    expect(pieceAt(split, 31)).toBeUndefined()
+    expect(pieceAt(split, 30)).toEqual({ start: 20, end: 30 })
+  })
+
+  it('refuses a cut that leaves nothing to play', () => {
+    expect(keepsPlayback({ edit: cutRange(edit, { start: 10, end: 30 }) }, null)).toBe(false)
+    expect(keepsPlayback({ edit: cutRange(edit, { start: 10, end: 29.5 }) }, null)).toBe(false)
+    expect(keepsPlayback({ edit: cutRange(edit, { start: 10, end: 20 }) }, null)).toBe(true)
+  })
+
   it('ignores splits at the edges or on top of another split', () => {
     expect(splitAt(edit, 10.01)).toBe(edit)
     const once = splitAt(edit, 20)
