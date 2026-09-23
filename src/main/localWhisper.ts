@@ -112,8 +112,18 @@ export async function installLocalWhisper(
       }
     }
     announce(0.45, `Downloading the ${model} speech model…`)
-    await run(paths.python, ['-u', installScript(), model, modelPath, ...(gpu ? ['--mlx'] : [])], controller.signal,
-      message => announce(-1, message))
+    const download = (withGpu: boolean): Promise<void> =>
+      run(paths.python, ['-u', installScript(), model, modelPath, ...(withGpu ? ['--mlx'] : [])],
+        controller.signal, message => announce(-1, message))
+    try {
+      await download(gpu)
+    } catch (error) {
+      // MLX weights are optional; a failed GPU download must not block the CPU model.
+      controller.signal.throwIfAborted()
+      if (!gpu) throw error
+      console.warn('Apple Silicon Whisper model unavailable; using the CPU:', error)
+      await download(false)
+    }
     announce(0.95, 'Checking the local transcription setup…')
     await run(paths.python, ['-c', 'import ctranslate2, faster_whisper; print("ready")'], controller.signal, () => {})
     announce(1, 'Local Whisper is ready.')

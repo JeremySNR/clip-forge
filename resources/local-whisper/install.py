@@ -29,10 +29,14 @@ snapshot_download(repo_id=MODELS[sys.argv[1]], local_dir=str(target))
 if not (target / "model.bin").is_file():
     raise RuntimeError("The model download did not include model.bin. Retry setup.")
 if mlx:
-    gpu_target = Path(str(target) + "-mlx")
-    gpu_target.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading the Apple Silicon {sys.argv[1]} model…", flush=True)
-    snapshot_download(repo_id=MLX_MODELS[sys.argv[1]], local_dir=str(gpu_target))
-    if not (gpu_target / "config.json").is_file() or not any(gpu_target.glob("weights.*")):
-        raise RuntimeError("The Apple Silicon model download is incomplete. Retry setup.")
+    # Optional: the faster-whisper CPU model above is enough on its own.
+    try:
+        gpu_target = Path(str(target) + "-mlx")
+        gpu_target.mkdir(parents=True, exist_ok=True)
+        print(f"Downloading the Apple Silicon {sys.argv[1]} model…", flush=True)
+        snapshot_download(repo_id=MLX_MODELS[sys.argv[1]], local_dir=str(gpu_target))
+        if not (gpu_target / "config.json").is_file() or not any(gpu_target.glob("weights.*")):
+            print("Apple Silicon model download incomplete; using the CPU model.", flush=True)
+    except Exception as error:
+        print(f"Apple Silicon model unavailable; using the CPU model. ({error})", flush=True)
 print("Model download complete.", flush=True)

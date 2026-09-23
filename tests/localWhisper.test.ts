@@ -84,5 +84,14 @@ it('adds GPU transcription on Apple Silicon, and still installs when it is unava
     const result = await installLocalWhisper('small', 'python3', vi.fn())
     expect(result.modelPath).toContain('small')
     expect(downloadCall()).not.toContain('--mlx')
+
+    // A failed optional MLX model download must not block the CPU setup.
+    mock.spawn.mockReset()
+    succeedUnless(args => args.some(x => x.endsWith('install.py')) && args.includes('--mlx'))
+    const afterMlxModelFail = await installLocalWhisper('small', 'python3', vi.fn())
+    expect(afterMlxModelFail.modelPath).toContain('small')
+    const downloads = mock.spawn.mock.calls.map(c => c[1] as string[]).filter(a => a.some(x => x.endsWith('install.py')))
+    expect(downloads.some(a => a.includes('--mlx'))).toBe(true)
+    expect(downloads.some(a => !a.includes('--mlx'))).toBe(true)
   } finally { restore() }
 })

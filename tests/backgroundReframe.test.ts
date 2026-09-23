@@ -36,7 +36,7 @@ it('keeps going after one clip fails and leaves it pending for an on-demand retr
   expect(events.filter(e => e.state === 'done').length).toBeGreaterThan(0)
 })
 
-it('stops waiting when cancelled, without reporting the aborted clips', async () => {
+it('stops waiting when cancelled and clears the Framing badge for aborted clips', async () => {
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   ensure.mockImplementation(async (_p: string, _id: string, signal: AbortSignal) => {
@@ -49,5 +49,9 @@ it('stops waiting when cancelled, without reporting the aborted clips', async ()
   cancelBackgroundReframes('p')
   release()
   await run
-  expect(events.every(e => e.state === 'running')).toBe(true)
+  const started = events.filter(e => e.state === 'running').map(e => e.clipId).sort()
+  const cleared = events.filter(e => e.state === 'failed').map(e => e.clipId).sort()
+  expect(started.length).toBeGreaterThan(0)
+  expect(cleared).toEqual(started)
+  expect(events.some(e => e.state === 'done')).toBe(false)
 })

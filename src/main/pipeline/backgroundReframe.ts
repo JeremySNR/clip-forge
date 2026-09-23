@@ -35,8 +35,11 @@ export function startBackgroundReframes(
       const done = fresh.clips.find(c => c.id === clip.id)
       if (done) notify({ projectId: project.id, clipId: clip.id, state: 'done', clip: done })
     } catch (error) {
-      if (controller.signal.aborted) return
-      console.error(`Background layout failed for clip ${clip.id}:`, error)
+      // Always clear the renderer's "Framing…" badge — including on cancel —
+      // otherwise backgroundReframing stays stuck until a later done/failed.
+      if (!controller.signal.aborted) {
+        console.error(`Background layout failed for clip ${clip.id}:`, error)
+      }
       notify({ projectId: project.id, clipId: clip.id, state: 'failed',
         message: error instanceof Error ? error.message : String(error) })
     }
