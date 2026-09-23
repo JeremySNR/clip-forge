@@ -63,8 +63,21 @@ describe('undo and automatic framing', () => {
   it('still undoes a framing change the user made', () => {
     const opened = { ...base, edit: { ...base.edit, framing: 'auto', focusX: 0.5 } } as unknown as Clip
     trackClip(opened)
-    const manual = { ...opened, edit: { ...opened.edit, framing: 'manual', focusX: 0.2 } } as unknown as Clip
+    const manual = { ...opened, edit: { ...opened.edit, framing: 'manual', focusX: 0.2, layoutChosen: true } } as unknown as Clip
     recordSave(manual)
     expect(undo(manual)!.edit.framing).toBe('auto')
+  })
+
+  it('keeps analysis framing that landed between unrelated saves', () => {
+    const opened = { ...base, edit: { ...base.edit, framing: 'manual', focusX: 0.5, reframeMode: 'crop' } } as unknown as Clip
+    trackClip(opened)
+    // Analysis grafts without a history step; the next save snapshots it with a rename.
+    const analysed = { ...opened, edit: { ...opened.edit, framing: 'auto', focusX: 0.31 } } as unknown as Clip
+    const renamed = { ...analysed, title: 'Renamed' } as unknown as Clip
+    recordSave(renamed)
+    const back = undo(renamed)!
+    expect(back.title).toBe('T')
+    expect(back.edit.framing).toBe('auto')
+    expect(back.edit.focusX).toBe(0.31)
   })
 })

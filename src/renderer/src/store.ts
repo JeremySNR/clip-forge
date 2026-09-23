@@ -432,6 +432,9 @@ export const useStore = create<AppState>((set, get) => ({
       const current = get().project
       // Only graft the caption on: other clip edits may be in flight.
       if (fresh && current?.id === updated.id) {
+        const live = current.clips.find((c) => c.id === clipId)
+        if (live) trackClip(live)
+        const grafted = live ? { ...live, caption: fresh.caption } : null
         set({
           project: {
             ...current,
@@ -440,6 +443,9 @@ export const useStore = create<AppState>((set, get) => ({
             )
           }
         })
+        // Caption generation is otherwise outside history, so the next cut or
+        // rename would snapshot it and an undo of that edit would wipe it.
+        if (grafted && recordSave(grafted)) set({ historyVersion: get().historyVersion + 1 })
       }
     } finally {
       const busy = { ...get().captionBusy }

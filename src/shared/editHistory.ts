@@ -26,14 +26,18 @@ const FRAMING_FIELDS = ['reframeMode', 'framing', 'focusX', 'autoZoom', 'composi
 
 /**
  * Apply `target`, the other side of the step being undone or redone from
- * `from`. Framing fields and automatic layouts change only when that step
- * changed them: analysis may have updated them since, and undoing a rename
- * must not put back the default crop.
+ * `from`. Framing fields change only when that step was a user layout choice
+ * (`layoutChosen`): analysis may rewrite the crop between saves without a
+ * history step, and the next unrelated save must not make that crop undoable.
  */
 function restore(clip: Clip, target: Snapshot, from: Snapshot): Clip {
   const edit = { ...structuredClone(target.edit) }
-  for (const field of FRAMING_FIELDS) {
-    if (JSON.stringify(target.edit[field]) === JSON.stringify(from.edit[field])) {
+  const framingStep = FRAMING_FIELDS.some(
+    (field) => JSON.stringify(target.edit[field]) !== JSON.stringify(from.edit[field])
+  )
+  const userFraming = Boolean(target.edit.layoutChosen || from.edit.layoutChosen)
+  if (!(framingStep && userFraming)) {
+    for (const field of FRAMING_FIELDS) {
       (edit as Record<string, unknown>)[field] = clip.edit[field]
     }
   }

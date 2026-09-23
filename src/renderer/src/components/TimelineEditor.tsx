@@ -135,7 +135,10 @@ export default function TimelineEditor({ clip, windowStart, windowEnd, fps, time
         playsFor={editedClipDuration(clip, transcript)}
         onMarkClick={(mark) => {
           if (mark.kind === 'cut') onSave(uncutAt(edit, (mark.range.start + mark.range.end) / 2))
-          else onSave(toggleRestored(edit, mark.range))
+          else {
+            const next = toggleRestored(edit, mark.range)
+            if (keepsPlayback({ ...clip, edit: next }, transcript)) onSave(next)
+          }
         }}
       />
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
