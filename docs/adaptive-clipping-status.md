@@ -6,6 +6,10 @@ This release implements an initial presenter/content workflow within the existin
 
 See [real-video validation](layout-first-validation.md). Screen evidence is reused from editorial review, screen footage skips active-speaker tracking, changing screens get a cheap local change detector, and completed layouts are checkpointed individually. These changes address the reported slow/letterboxed T3.GG workflow. They do not complete the full roadmap below.
 
+## Reframing review, 23 September 2026
+
+See [reframing review](reframing-review-2026-09-23.md) for a per-style layout decision table, the research behind it, and a fast local style triage that currently only logs (`CUTAWAN_LAYOUT_TRIAGE=1`).
+
 ## Available now
 
 The subsequent [layout reuse](layout-reuse-validation.md) and [temporal review](temporal-layout-validation.md) increments add checked proposal reuse, concurrent cloud review, earlier screen segmentation and targeted samples for transient crop-edge alerts. They do not complete the roadmap below.
