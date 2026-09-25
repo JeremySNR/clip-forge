@@ -23,6 +23,7 @@ still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 ### Validation
 
 - Automated regressions use scripted model responses; they do not establish human preference or superiority over OpusClip. Run the documented human comparison workflow before making those claims.
+- A bounded live ChatGPT check exercised editorial review, visual discovery and refinement. The API route was not live-tested. See `docs/provider-smoke.md` for the recorded results and limits.
 
 ## [0.12.1] - 2026-09-23
 
