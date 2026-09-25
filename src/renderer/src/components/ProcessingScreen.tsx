@@ -12,7 +12,7 @@ interface StageRow {
 const CLIP_STAGES: StageRow[] = [
   { id: 'audio', label: 'Extract audio', icon: FileAudio },
   { id: 'transcribe', label: 'Transcribe speech', icon: AudioLines },
-  { id: 'analyze', label: 'Find viral moments', icon: Brain },
+  { id: 'analyze', label: 'Find and review moments', icon: Brain },
   { id: 'broll', label: 'Find B-roll images', icon: ImagePlus },
   { id: 'thumbnails', label: 'Create thumbnails', icon: Image }
 ]

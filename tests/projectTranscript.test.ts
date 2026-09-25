@@ -11,4 +11,10 @@ describe('no-audio input', () => {
     }, progress)).rejects.toThrow('This video has no audio track')
     expect(progress).not.toHaveBeenCalled()
   })
+  it('does not let a saved empty visual-only transcript bypass caption-mode speech requirements', async () => {
+    const project = { transcript: { language: 'en', durationSec: 20, segments: [] }, video: { hasAudio: false } } as unknown as Project
+    await expect(ensureTranscript(project, 'unused', {
+      apiKey: '', model: '', language: 'en', span: { from: 0, to: 1 }, noSpeechError: 'No speech to caption'
+    }, () => {})).rejects.toThrow('No speech to caption')
+  })
 })

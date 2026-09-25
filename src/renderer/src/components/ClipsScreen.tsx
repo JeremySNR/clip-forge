@@ -14,12 +14,14 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store'
 import { formatBytes, formatDuration } from '../lib/format'
-import ScoreBadge from './ScoreBadge'
+import { EditorialExplanation, EditorialRankingSummary, EditorialScore } from './EditorialSummary'
 import MissingSourceBanner from './MissingSourceBanner'
+import DiscoverySummary from './DiscoverySummary'
 import type { Clip } from '@shared/types'
 import { findWholeVideoClip, highlightClips } from '@shared/wholeVideo'
 import { editedClipDuration } from '@shared/tighten'
 import { layoutReviewMessage } from '@shared/contentType'
+import { editorialAssessmentCurrent, editorialReportMatchesClips } from '@shared/editorialRanking'
 
 export default function ClipsScreen(): React.JSX.Element {
   const project = useStore((s) => s.project)
@@ -36,6 +38,8 @@ export default function ClipsScreen(): React.JSX.Element {
   // and is exported from its editor, never swept into "Export all".
   const clips = highlightClips(project)
   const wholeVideo = findWholeVideoClip(project)
+  const currentRanking = editorialReportMatchesClips(project)
+  const earlierRanking = !!project.editorialRanking && !currentRanking
   const doneCount = clips.filter((c) => exports[c.id]?.status === 'done').length
 
   return (
@@ -48,15 +52,15 @@ export default function ClipsScreen(): React.JSX.Element {
               {clips.length} clips found
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Ranked by virality score. Open a clip to trim, reframe and style captions before
-              exporting.
+              {earlierRanking ? 'Saved clips from an earlier run; the latest attempt did not replace them.' : currentRanking ? 'Ordered for complete stories, editorial quality and variety.' : 'Saved AI selections.'}
+              {' '}Review each clip before exporting; scores estimate editorial quality, not audience performance.
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={goHome}
               data-testid="regenerate-button"
-              title="Change the AI instructions and generate a new set of clips — the saved transcript is reused, so it only takes seconds"
+              title="Change the AI instructions and generate a new set of clips using the saved transcript"
               className="flex items-center gap-2 rounded-xl border border-surface-600 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-surface-800"
             >
               <RefreshCw size={15} />
@@ -92,6 +96,8 @@ export default function ClipsScreen(): React.JSX.Element {
         </div>
 
         <MissingSourceBanner />
+        <DiscoverySummary report={project.discoveryReport} earlierAttempt={!!project.discoveryReport?.generationId && project.discoveryReport.generationId !== project.clipsGenerationId} />
+        <EditorialRankingSummary report={project.editorialRanking} earlierAttempt={earlierRanking} />
 
         {wholeVideo && <WholeVideoBanner clip={wholeVideo} />}
 
@@ -140,6 +146,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
   const framing = useStore((s) => s.backgroundReframing[clip.id] === true)
   const transcript = useStore((s) => s.project?.transcript ?? null)
   const duration = useMemo(() => editedClipDuration(clip, transcript), [clip, transcript])
+  const assessmentCurrent = useMemo(() => editorialAssessmentCurrent(clip, transcript), [clip, transcript])
 
   return (
     <div className="group overflow-hidden rounded-2xl border border-surface-700 bg-surface-900 transition hover:border-surface-600">
@@ -161,7 +168,7 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
           <span className="rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-zinc-300 backdrop-blur">
             #{rank}
           </span>
-          <ScoreBadge score={clip.viralityScore} />
+          <EditorialScore clip={clip} current={assessmentCurrent} />
         </div>
         {framing && (
           <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-zinc-300 backdrop-blur">
@@ -176,12 +183,16 @@ function ClipCard({ clip, rank }: { clip: Clip; rank: number }): React.JSX.Eleme
 
       <div className="p-4">
         <div className="line-clamp-1 text-sm font-semibold">{clip.title}</div>
+        {clip.discovery?.origin === 'visual' && <p className="mt-1 text-xs text-zinc-400">
+          Found from visual evidence · review the complete action before exporting
+        </p>}
         {layoutReviewMessage(clip) && (
           <p className="mt-1 text-xs text-amber-300" title={layoutReviewMessage(clip)!}>Review layout</p>
         )}
         <p className="mt-1.5 line-clamp-2 min-h-[2.2rem] text-xs leading-relaxed text-zinc-500">
           {clip.summary}
         </p>
+        <EditorialExplanation clip={clip} current={assessmentCurrent} compact />
         <div className="mt-2 line-clamp-1 text-[11px] text-zinc-500">
           {clip.hashtags.map((h) => `#${h}`).join(' ')}
         </div>

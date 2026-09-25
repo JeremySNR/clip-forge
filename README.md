@@ -77,8 +77,9 @@ On the default API route, a typical estimate is **~$0.36/hour of video** for Whi
 
 - **Import anything.** Local files (MP4/MOV/MKV/WEBM and more) or paste a URL from YouTube, Vimeo, TikTok, Twitch, or any site yt-dlp supports. Private or SSO-protected videos (like enterprise Vimeo) work by borrowing the login from your browser. No server integration needed.
 - **Whisper transcription** with word-level timestamps. Long videos are chunked automatically and checkpointed, so retries and re-generations never pay for transcription twice.
+- **Find visual moments (beta).** Opt in to sampled source-wide discovery before transcript selection, including demonstrations and visible events without speech. The app shows sampling gaps and failed coverage. [How it works and its limits](docs/source-discovery.md).
 - **Viral moment detection backed by research.** An LLM picks self-contained hook, build, payoff micro-stories (not clips that trail off mid-setup). You can steer it with your own prompt if you want, like "find the funniest exchanges". A second AI pass reviews every clip ending and extends it to the beat that actually completes the thought.
-- **Two-pass virality scoring (0-99).** A text rubric based on Berger and Milkman's *What Makes Online Content Viral?* (JMR 2012), plus measured vocal energy, combined with a vision pass from Kayal et al. (ACL 2025) that scores sampled frames for scroll-stopping potential.
+- **Editorial selection and ranking.** Review retained speech, nearby context and sampled frames against common hook, clarity, value, payoff and audience-fit criteria. Incomplete stories need evidence; uncertainty stays visible, repeated ideas move down the list, and scores are provisional editorial assessments. [How ranking and its comparison baseline work](docs/editorial-ranking.md).
 
 **Making them good**
 

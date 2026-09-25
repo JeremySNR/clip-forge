@@ -11,6 +11,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { runFfmpeg, probeVideo, extractThumbnail } from '../src/main/pipeline/ffmpeg'
 import { DEFAULT_CAPTION_STYLE_ID } from '../src/shared/captionStyles'
 import type { Clip, Project, Transcript, TranscriptWord } from '../src/shared/types'
+import { needsEditorialReview } from '../src/shared/editorialRanking'
 
 const appData = process.platform === 'win32'
   ? process.env.APPDATA ?? join(homedir(), 'AppData', 'Roaming')
@@ -177,6 +178,13 @@ async function main(): Promise<void> {
     prompt: '',
     videoType: 'podcast'
   }
+  // Scripted UI states, explicitly labelled fixtures rather than model evidence.
+  clips[0].editorial = { ...needsEditorialReview(clips[0], project.transcript!, 'Demo fixture: a complete thought with a clear landing.'),
+    status: 'reviewed', story: 'complete', fidelity: 'supported', score: 75,
+    scores: { hook: 3, clarity: 3, value: 3, payoff: 3, audienceFit: null }, concerns: [],
+    takeaway: 'Demo fixture for checking the editorial assessment UI.' }
+  clips[1].editorial = needsEditorialReview(clips[1], project.transcript!, 'Demo fixture: check the source for missing setup.')
+  clips[2].editorial = { ...clips[0].editorial, selectionKey: 'outdated-fixture-selection' }
   await writeFile(join(dir, 'project.json'), JSON.stringify(project), 'utf8')
   console.log(`Seeded demo project at ${dir}`)
 }

@@ -19,6 +19,10 @@ import {
 import { useStore } from '../store'
 import { formatDuration, formatBytes } from '../lib/format'
 import MissingSourceBanner from './MissingSourceBanner'
+import DiscoverySummary from './DiscoverySummary'
+import { EditorialRankingSummary } from './EditorialSummary'
+import { SOURCE_DISCOVERY_BUDGET } from '@shared/sourceAnalysis'
+import { EDITORIAL_BUDGET, editorialReportMatchesClips } from '@shared/editorialRanking'
 import type {
   AspectRatio,
   BrowserCookieSource,
@@ -103,12 +107,12 @@ function ImportHero(): React.JSX.Element {
       <h1 className="max-w-2xl text-4xl font-bold leading-tight tracking-tight">
         Turn long videos into{' '}
         <span className="bg-gradient-to-b from-white to-zinc-500 bg-clip-text text-transparent">
-          viral clips
+          compelling clips
         </span>
       </h1>
       <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-zinc-400">
         Drop in a podcast, webinar or stream. Cutawan transcribes it, finds the best moments
-        with AI, scores them for virality and renders caption-burned vertical clips.
+        with AI, ranks them for editorial quality and renders caption-burned vertical clips.
       </p>
 
       {pipelineError && (
@@ -295,6 +299,8 @@ function SetupPanel(): React.JSX.Element {
   const [broll, setBroll] = useState(false)
   // Off by default: hook-first trimming rewrites clip starts with an extra LLM pass.
   const [hookFirst, setHookFirst] = useState(false)
+  const [visualDiscovery, setVisualDiscovery] = useState(project.visualDiscovery ?? false)
+  const [editorialRanking, setEditorialRanking] = useState(project.rankingEnabled ?? false)
 
   // Captioning an already-transcribed video makes no API calls, so it does not
   // need a key; clip finding always does.
@@ -370,6 +376,35 @@ function SetupPanel(): React.JSX.Element {
 
           {mode === 'clips' ? (
             <>
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <label className="flex items-start gap-3 text-sm font-semibold">
+                <input type="checkbox" checked={editorialRanking} onChange={e => setEditorialRanking(e.target.checked)}
+                  className="mt-1" data-testid="editorial-ranking-toggle" />
+                <span>Review and rank complete stories <span className="font-normal text-zinc-400">(beta)</span>
+                  <span className="mt-1 block text-xs font-normal leading-relaxed text-zinc-400">
+                    Check context, payoff and repeated ideas using source text and sampled frames.
+                    Up to {EDITORIAL_BUDGET.maxReviewCalls + EDITORIAL_BUDGET.maxDiversityCalls} extra analysis calls plus provider retries.
+                    {' '}Scores are model judgements; watch the clips before exporting.
+                  </span>
+                </span>
+              </label>
+              <EditorialRankingSummary report={project.editorialRanking} earlierAttempt={!!project.editorialRanking && !editorialReportMatchesClips(project)} />
+            </div>
+            <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
+              <label className="flex items-start gap-3 text-sm font-semibold">
+                <input type="checkbox" checked={visualDiscovery} onChange={e => setVisualDiscovery(e.target.checked)}
+                  className="mt-1" data-testid="visual-discovery-toggle" />
+                <span>Find visual moments <span className="font-normal text-zinc-400">(beta)</span>
+                  <span className="mt-1 block text-xs font-normal leading-relaxed text-zinc-400">
+                    Look for demonstrations, reveals and reactions, including footage without speech.
+                    Samples frames across the video through your configured AI connection, with up to {SOURCE_DISCOVERY_BUDGET.maxAnalysisRequests} extra
+                    {' '}analysis calls plus any provider retries. Brief events between samples may be missed.
+                    {' '}Reviewing and framing the resulting clips uses additional calls.
+                  </span>
+                </span>
+              </label>
+              <DiscoverySummary report={project.discoveryReport} earlierAttempt={!!project.discoveryReport?.generationId && project.discoveryReport.generationId !== project.clipsGenerationId} />
+            </div>
             <div className="rounded-2xl border border-surface-700 bg-surface-900 p-5">
               <label className="flex items-center gap-2 text-sm font-semibold">
                 <Wand2 size={15} className="text-accent-400" />
@@ -518,7 +553,7 @@ function SetupPanel(): React.JSX.Element {
                 data-testid="start-button"
                 onClick={() =>
                   mode === 'clips'
-                    ? void analyze({ prompt, clipLength, broll, hookFirst, videoType })
+                    ? void analyze({ prompt, clipLength, broll, hookFirst, videoType, visualDiscovery, editorialRanking })
                     : void captionWholeVideo({
                         aspect: captionAspect,
                         followSpeaker,
@@ -543,7 +578,7 @@ function SetupPanel(): React.JSX.Element {
               </button>
               {project.transcript && (
                 <p className="mt-2 text-center text-[11px] text-zinc-500">
-                  Transcript already saved — this skips transcription and only takes seconds.
+                  Transcript already saved — this skips transcription. Clip analysis may still take time.
                 </p>
               )}
             </div>
@@ -565,7 +600,7 @@ function ModeSwitcher({
   const options: Array<{ value: ProjectMode; label: string; hint: string; icon: React.ElementType }> = [
     {
       value: 'clips',
-      label: 'Find viral clips',
+      label: 'Find clips',
       hint: 'AI cuts the best moments out',
       icon: Sparkles
     },

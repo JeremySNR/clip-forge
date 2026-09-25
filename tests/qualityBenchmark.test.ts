@@ -57,6 +57,11 @@ describe('highlight evaluation', () => {
     expect(scoreHighlights(gold, [gold[0], gold[0], gold[1]], 3, 0.5).recall).toBe(1)
   })
 
+  it('reports yield against the requested budget when fewer than K candidates exist', () => {
+    expect(scoreHighlights(gold, [gold[0]], 5, 0.5)).toMatchObject({ returned: 1, returnedFraction: 0.2,
+      matchedPerRequestedSlot: 0.2, precision: 1, recall: 0.5 })
+  })
+
   it('finds maximum matching when a broad clip could match either moment', () => {
     const ref = [{ start: 0, end: 10 }, { start: 10, end: 20 }]
     expect(scoreHighlights(ref, [{ start: 0, end: 20 }, ref[0]], 2, 0.5).matchedMoments).toBe(2)

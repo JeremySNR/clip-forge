@@ -28,6 +28,8 @@ export interface EnsureTranscriptOptions {
   span: { from: number; to: number }
   /** Error raised when the video turns out to have no speech at all. */
   noSpeechError: string
+  /** Visual discovery can proceed on an explicitly empty transcript. */
+  allowNoSpeech?: boolean
 }
 
 export async function ensureTranscript(
@@ -41,6 +43,7 @@ export async function ensureTranscript(
   const at = (fraction: number): number => from + (to - from) * fraction
 
   if (project.transcript) {
+    if (!project.transcript.segments.length && !options.allowNoSpeech) throw new Error(options.noSpeechError)
     onProgress({ stage: 'transcribe', progress: at(1), message: 'Using saved transcript…' })
     if (!project.transcript.speech && project.video.hasAudio) {
       // Older projects: add voice activity once so cuts land in silence.
@@ -55,6 +58,15 @@ export async function ensureTranscript(
   }
 
   if (!project.video.hasAudio) {
+    if (options.allowNoSpeech) {
+      const transcript: Transcript = { language: options.language, durationSec: project.video.durationSec, segments: [], speech: [] }
+      project.transcript = transcript
+      await updateProject(project.id, (p) => {
+        if (p.video.path === project.video.path && (p.sourceRevision ?? 0) === (project.sourceRevision ?? 0)) p.transcript = transcript
+      })
+      onProgress({ stage: 'transcribe', progress: at(1), message: 'No audio track — looking for visual moments.' })
+      return transcript
+    }
     throw new Error('This video has no audio track. Speech-based clip selection needs a video with spoken audio.')
   }
 
@@ -93,7 +105,7 @@ export async function ensureTranscript(
       }),
     signal
   )
-  if (transcript.segments.length === 0) throw new Error(options.noSpeechError)
+  if (transcript.segments.length === 0 && !options.allowNoSpeech) throw new Error(options.noSpeechError)
   transcript.speech = (await speech) ?? undefined
 
   // Vocal energy feeds the virality analysis (arousal signal) and the auto

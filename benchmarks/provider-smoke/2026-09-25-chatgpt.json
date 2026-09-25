@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-25T19:08:44.903Z",
+  "purpose": "Live provider compatibility smoke, not quality/engagement/competitive evaluation",
+  "provider": "chatgpt",
+  "model": "gpt-5.6-luna",
+  "source": {
+    "title": "Fun with Open Source: Blender Tutorial. A cup of tea.",
+    "url": "https://commons.wikimedia.org/wiki/File:Blender_Tutorial._A_cup_of_tea..webm",
+    "license": "CC BY 3.0",
+    "originalCatalogSha1": "9f0affee8c762cb23ede208d86133ae87daf76e7",
+    "excerptStartSec": 65,
+    "excerptEndSec": 105,
+    "excerptSha256": "4dbcf9c69bcb4ab45590c45a53105ab55613567b6e97006adb0a5ec52c17fb50",
+    "durationSec": 40,
+    "width": 1280,
+    "height": 720,
+    "fps": 60,
+    "hasAudio": false
+  },
+  "freshRun": {
+    "startedAt": "2026-09-25T19:03:18.797Z",
+    "finishedAt": "2026-09-25T19:03:58.802Z",
+    "maxNewRequests": 4,
+    "newCodexRequests": 3,
+    "originalHarnessStatus": "needs-investigation",
+    "reviewResolution": "Provider and schema paths completed. The model returned valid grounded editorial uncertainty, which the initial harness incorrectly treated as a generic investigation condition. No result or source was changed to obtain a positive score.",
+    "editorial": {
+      "candidateInterval": {
+        "start": 0,
+        "end": 40
+      },
+      "logicalCalls": 1,
+      "requestedFrames": 4,
+      "assessment": {
+        "version": 1,
+        "status": "needs-review",
+        "story": "uncertain",
+        "fidelity": "supported",
+        "scores": {
+          "hook": 2,
+          "clarity": 2,
+          "value": 2,
+          "payoff": null,
+          "audienceFit": null
+        },
+        "score": null,
+        "reason": "The frames show a Blender modeling workflow developing a hollow cylindrical form, but still images do not establish the exact action between stages or confirm a final rendered result.",
+        "concerns": [
+          "The opening frame shows an in-progress bevel operation, so the demonstration begins mid-process.",
+          "The final frame remains a wireframe/editing view, making the completed result and intended takeaway uncertain."
+        ],
+        "takeaway": "This appears to demonstrate shaping and refining a hollow cylindrical mesh in Blender, including rim and base adjustments.",
+        "evidence": [
+          {
+            "kind": "frame",
+            "time": 0.25,
+            "quote": "Blender edit-mode view of a hollow cylindrical mesh with the upper rim selected during a bevel operation."
+          },
+          {
+            "kind": "frame",
+            "time": 13.45,
+            "quote": "Front orthographic view showing a selected lower edge loop near the base of the cylinder."
+          },
+          {
+            "kind": "frame",
+            "time": 26.65,
+            "quote": "Top-angled wireframe view showing the cylinder's interior, radial bottom topology, and concentric support loops."
+          },
+          {
+            "kind": "frame",
+            "time": 39.85,
+            "quote": "Wireframe perspective view of the cylindrical model with dense vertical and horizontal edge loops."
+          }
+        ],
+        "selectionKey": "{\"ranges\":[{\"start\":0,\"end\":40}],\"words\":[]}",
+        "start": 0,
+        "end": 40
+      }
+    },
+    "discovery": {
+      "status": "complete",
+      "logicalCalls": 2,
+      "requestedCoarseFrames": 8,
+      "successfulRefinements": 1,
+      "failedRefinements": 0,
+      "candidates": [
+        {
+          "id": "6cac5af081728950499d",
+          "start": 7.885999999999999,
+          "end": 18.761,
+          "title": "Smoothing the cup’s lower edge",
+          "summary": "The modeled cylindrical cup is refined by working on the lower edge, then shown as a smooth open container with a rounded base.",
+          "reason": "The sequence shows editable mesh topology and a selected lower edge region before a later solid, smoothed cup result.",
+          "score": 84,
+          "kind": "visible-result",
+          "evidence": [
+            {
+              "time": 8.886,
+              "role": "before",
+              "observation": "The cup is displayed in wireframe/edit view with dense cylindrical topology and an open top."
+            },
+            {
+              "time": 13.323,
+              "role": "action",
+              "observation": "A lower horizontal edge loop near the base is visibly selected in blue."
+            },
+            {
+              "time": 17.761,
+              "role": "result",
+              "observation": "The object is shown in solid object mode as a smooth open cup with a rounded lower edge."
+            }
+          ],
+          "protectedRange": {
+            "start": 7.885999999999999,
+            "end": 18.761
+          },
+          "sampleTimes": [
+            0.01,
+            4.448,
+            8.886,
+            13.323,
+            17.761,
+            22.199,
+            26.637,
+            31.074,
+            35.512,
+            39.95
+          ],
+          "timingUncertaintySec": 1
+        }
+      ],
+      "configuration": {
+        "version": "source-discovery-2",
+        "requestedModel": "gpt-5.6-luna",
+        "provider": "chatgpt",
+        "effectiveModel": "gpt-5.6-luna"
+      },
+      "limitations": [
+        "Sparse still-frame sampling can miss brief events and does not verify continuous motion or full story completeness.",
+        "Sample timestamps are requested seeks; extraction can seek up to 1 second earlier. Exact decoded frame timestamps are unavailable.",
+        "Audio events such as laughter, applause and music are not classified. Available transcript provides speech context only.",
+        "At most 8 source windows and 4 candidate refinements are inspected. Provider retries may make additional network attempts."
+      ]
+    }
+  },
+  "cacheOnlyVerification": {
+    "startedAt": "2026-09-25T19:06:27.006Z",
+    "finishedAt": "2026-09-25T19:06:28.291Z",
+    "status": "provider-smoke-passed-with-content-review",
+    "startingRequests": 3,
+    "effectiveLimit": 3,
+    "endingRequests": 3,
+    "newCodexRequests": 0,
+    "responseValidated": true,
+    "refinementExercised": true
+  },
+  "api": {
+    "status": "untested",
+    "reason": "No environment or stored API credential was available; no API-provider pass is claimed."
+  },
+  "rawArtifactSha256": {
+    "summary.json": "f9b84104cad03433064b84298026d6e5c0fe6c6705c93f9389030b5e0cd0b57e",
+    "editorial-report.json": "5666356d5389385f964e6fa6e4c3083636feea7aaf5e5d5e87afc379c8505046",
+    "discovery-report.json": "26b3195cabae6d3a6fd1ca9e8a561fbc14632e4b8341e303b9717a92f18c7650",
+    "provider-smoke.cjs": "c8adc2611ed7e80f4a9eb70fee1d216154c7e63013f554e263ab194b53f00f50"
+  },
+  "limits": [
+    "One public silent 40-second source, one full-interval editorial candidate, no text/audio transcript.",
+    "No multi-candidate live batching/diversity test; those boundaries use the independent actual-serializer tests with scripted subprocess responses.",
+    "No independent human publishability ratings, measured correction time, audience experiment, or matched OpusClip exports.",
+    "Sparse stills can miss the landing; valid uncertainty is a content-review state, not a provider failure."
+  ]
+}

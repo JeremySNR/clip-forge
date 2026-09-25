@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, open, readFile, rename, rm, writeFile } from 'node:fs/p
 import { basename, delimiter, dirname, join, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { analysisRequests as requests } from './pipeline/mediaJobs'
-import { DEFAULT_SUBSCRIPTION, type SubscriptionSettings } from '@shared/subscription'
+import { DEFAULT_SUBSCRIPTION, MAX_SUBSCRIPTION_IMAGES, type SubscriptionSettings } from '@shared/subscription'
 import type { ChatMessage, TranscribeFileOptions, WhisperResponse } from './pipeline/openai'
 
 export class SubscriptionError extends Error {}
@@ -235,7 +235,7 @@ export async function subscriptionJSON<T>(messages: ChatMessage[], schema: Recor
           if (part.type === 'text') text.push(part.text)
           else {
             const match = part.image_url.url.match(/^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/)
-            if (!match || match[2].length > 12_000_000 || images.length >= 10) throw new Error('Unsupported image input for ChatGPT analysis.')
+            if (!match || match[2].length > 12_000_000 || images.length >= MAX_SUBSCRIPTION_IMAGES) throw new Error('Unsupported image input for ChatGPT analysis.')
             const path = join(dir, `image-${images.length}.${match[1]}`)
             await writeFile(path, Buffer.from(match[2], 'base64'))
             images.push(path)

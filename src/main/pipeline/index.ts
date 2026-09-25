@@ -7,7 +7,10 @@ import type { AnalyzeOptions, BrowserCookieSource, ImportProgress, PipelineProgr
 import { mapLimit } from './concurrency'
 import { extractThumbnail, probeVideo } from './ffmpeg'
 import { ensureTranscript } from './projectTranscript'
-import { detectHighlights, maxDurationFor } from './highlights'
+import { dedupeClips, detectHighlights, maxDurationFor } from './highlights'
+import { discoverSourceMoments } from './sourceDiscovery'
+import { visualCandidateClip } from './visualCandidates'
+import { rankEditorialCandidates } from './editorialReview'
 import { timed } from './timing'
 import { assessClipVisuals, ensembleScore } from './visualScore'
 import { completeVisualStory } from './visualStory'
@@ -142,6 +145,7 @@ export async function analyzeProject(
     throw new Error('No API key configured. Add one in Settings before generating clips.')
   }
   const settings = getModelPreferences()
+  const generationId = randomUUID()
   const workDir = join(tmpdir(), 'cutawan', `job-${project.id}`)
   await mkdir(workDir, { recursive: true })
 
@@ -154,23 +158,52 @@ export async function analyzeProject(
         model: settings.transcriptionModel,
         language: settings.transcriptionLanguage,
         span: { from: 0.02, to: 0.58 },
-        noSpeechError: 'No speech was detected in this video, so no clips could be generated.'
+        noSpeechError: 'No speech was detected. Enable Find visual moments to look for demonstrations and visible events.',
+        allowNoSpeech: options.visualDiscovery === true
       },
       onProgress,
       signal
     ))
 
-    onProgress({ stage: 'analyze', progress: 0.58, message: 'Finding viral moments…' })
-    let clips = await timed('highlights', () => detectHighlights(
+    const discovery = options.visualDiscovery ? await timed('source-discovery', () => discoverSourceMoments({
+      videoPath: project.video.path, durationSec: project.video.durationSec, transcript,
+      apiKey, model: settings.analysisModel, providerCacheKey: settings.analysisProviderKey,
+      prompt: options.prompt, maxClipDurationSec: maxDurationFor(options.clipLength),
+      cacheDir: join(projectDir(project.id), 'discovery-cache'), signal,
+      onProgress: message => onProgress({ stage: 'analyze', progress: .58, message })
+    })) : undefined
+    const visualClips = (discovery?.candidates ?? []).flatMap(candidate => {
+      const clip = visualCandidateClip(candidate, transcript, project.video.durationSec, maxDurationFor(options.clipLength))
+      return clip ? [clip] : []
+    })
+    if (discovery) {
+      discovery.generationId = generationId
+      discovery.admittedCandidateCount = visualClips.length
+      discovery.boundaryRejectedCandidateCount = discovery.candidates.length - visualClips.length
+    }
+    // Save even an empty or incomplete scan: omissions must remain measurable.
+    await updateProject(project.id, p => {
+      if (p.video.path !== project.video.path || (p.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) {
+        throw new Error('The source changed during analysis. Generate clips again for the current video.')
+      }
+      p.visualDiscovery = options.visualDiscovery === true
+      p.discoveryReport = discovery
+    })
+    onProgress({ stage: 'analyze', progress: 0.6, message: 'Finding spoken moments…' })
+    let clips = transcript.segments.length ? await timed('highlights', () => detectHighlights(
       apiKey,
       settings.analysisModel,
       transcript,
       options,
       project.video.durationSec,
       signal
-    ))
+    )) : []
+    for (const clip of clips) clip.discovery = { origin: 'transcript' }
+    clips.push(...visualClips)
     if (clips.length === 0) {
-      throw new Error('The AI could not find any clip-worthy moments in this video.')
+      throw new Error(discovery?.status === 'failed'
+        ? 'The visual scan failed and no spoken moments were found. Check the connection and retry.'
+        : 'No complete moments were found within the selected length. Try a longer clip length or different instructions. Visual sampling can miss brief events.')
     }
 
     // Review the actual planned edit and repair explicitly missing visual payoffs.
@@ -207,7 +240,7 @@ export async function analyzeProject(
       scored++
       onProgress({
         stage: 'analyze',
-        progress: 0.64 + (scored / clips.length) * 0.18,
+        progress: 0.64 + (scored / clips.length) * 0.13,
         message: 'Scoring visuals…'
       })
     }), { clips: clips.length })
@@ -216,6 +249,27 @@ export async function analyzeProject(
     clips = clips.filter(clip => !incoherent.has(clip.id))
     if (!clips.length) throw new Error('The candidate clips did not form complete, self-contained stories. Try a longer clip length or a different source.')
     clips.sort((a, b) => b.viralityScore - a.viralityScore)
+    // Freeze the old policy on this exact surviving pool before the independent review.
+    const baselineClips = dedupeClips(clips)
+    if (options.editorialRanking === true) {
+      const ranked = await timed('editorial-ranking', () => rankEditorialCandidates({
+        video: project.video, sourceRevision: project.sourceRevision ?? 0, transcript,
+        clips, baselineClips, apiKey, model: settings.analysisModel, providerCacheKey: settings.analysisProviderKey,
+        prompt: options.prompt, signal,
+        onProgress: message => onProgress({ stage: 'analyze', progress: .8, message })
+      }))
+      ranked.report.generationId = generationId
+      // Rejected/missing reviews remain in the report, including runs with no recommendation.
+      await updateProject(project.id, p => {
+        if (p.video.path !== project.video.path || (p.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) {
+          throw new Error('The source changed during analysis. Generate clips again for the current video.')
+        }
+        p.rankingEnabled = true
+        p.editorialRanking = ranked.report
+      })
+      clips = ranked.clips
+      if (!clips.length) throw new Error('Editorial review found incomplete or misleading selections. Try a longer clip length or different instructions; the review report has been saved.')
+    } else clips = baselineClips
 
     // Layouts for the top clips run in the background once the list is on
     // screen (see backgroundReframe.ts); every clip starts pending.
@@ -224,9 +278,15 @@ export async function analyzeProject(
     project.prompt = options.prompt
     project.videoType = options.videoType
     await updateProject(project.id, (p) => {
+      if (p.video.path !== project.video.path || (p.sourceRevision ?? 0) !== (project.sourceRevision ?? 0)) {
+        throw new Error('The source changed during analysis. Generate clips again for the current video.')
+      }
       p.clips = clips
       p.prompt = options.prompt
       p.videoType = options.videoType
+      p.clipsGenerationId = generationId
+      p.rankingEnabled = options.editorialRanking === true
+      if (!p.rankingEnabled) delete p.editorialRanking
     })
 
     if (options.broll) {
