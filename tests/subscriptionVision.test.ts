@@ -104,6 +104,16 @@ describe('visual pipelines through the real ChatGPT serializer', () => {
       configuration: { version: 'source-discovery-2', provider: 'chatgpt' } })
     expect(report.candidates).toHaveLength(1)
     expect(calls.map(call => call.imageCount)).toEqual([SOURCE_DISCOVERY_BUDGET.framesPerWindow, MAX_SUBSCRIPTION_IMAGES])
+    // Inspect the schema actually written for Codex alongside its serialized image files.
+    // Coarse requests must stop at frame 7; refinement can use frame 9.
+    for (const call of calls) {
+      const frameIndex = { minimum: 0, maximum: call.imageCount - 1 }
+      expect(call.schema.properties.proposals).toMatchObject({ items: { properties: {
+        start_frame: frameIndex,
+        end_frame: frameIndex,
+        evidence: { items: { properties: { frame: frameIndex } } }
+      } } })
+    }
     expect(calls.flatMap(call => call.imageBytes).every(size => size > 0)).toBe(true)
     expect(calls[1].prompt).toContain('[Attached image 10]')
     expect(fetch).not.toHaveBeenCalled()
