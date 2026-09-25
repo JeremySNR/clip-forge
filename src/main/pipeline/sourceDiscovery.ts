@@ -44,12 +44,12 @@ interface ObservedProposal {
   evidence: Array<{ frame: number; role: 'before' | 'action' | 'result'; observation: string }>
 }
 
-const PROPOSAL_SCHEMA = {
+const proposalSchema = (maxFrame: number) => ({
   type: 'object', additionalProperties: false,
   required: ['start_frame', 'end_frame', 'title', 'summary', 'reason', 'score', 'kind', 'observable_change', 'complete_event', 'evidence'],
   properties: {
-    start_frame: { type: 'integer', minimum: 0, maximum: BUDGET.framesPerRefinement - 1 },
-    end_frame: { type: 'integer', minimum: 0, maximum: BUDGET.framesPerRefinement - 1 },
+    start_frame: { type: 'integer', minimum: 0, maximum: maxFrame },
+    end_frame: { type: 'integer', minimum: 0, maximum: maxFrame },
     title: { type: 'string', minLength: 1, maxLength: 120 },
     summary: { type: 'string', minLength: 1, maxLength: 600 },
     reason: { type: 'string', minLength: 1, maxLength: 600 },
@@ -58,16 +58,16 @@ const PROPOSAL_SCHEMA = {
     observable_change: { type: 'boolean' }, complete_event: { type: 'boolean' },
     evidence: { type: 'array', minItems: 2, maxItems: 5, items: {
       type: 'object', additionalProperties: false, required: ['frame', 'role', 'observation'], properties: {
-        frame: { type: 'integer', minimum: 0, maximum: BUDGET.framesPerRefinement - 1 },
+        frame: { type: 'integer', minimum: 0, maximum: maxFrame },
         role: { type: 'string', enum: ['before', 'action', 'result'] },
         observation: { type: 'string', minLength: 1, maxLength: 300 }
       }
     } }
   }
-}
-const schema = (limit: number): Record<string, unknown> => ({
+})
+const schema = (limit: number, frameCount: number): Record<string, unknown> => ({
   type: 'object', additionalProperties: false, required: ['proposals'],
-  properties: { proposals: { type: 'array', maxItems: limit, items: PROPOSAL_SCHEMA } }
+  properties: { proposals: { type: 'array', maxItems: limit, items: proposalSchema(frameCount - 1) } }
 })
 
 const SYSTEM = `You identify candidate visual moments from timestamped samples of a longer source recording.
@@ -198,7 +198,7 @@ async function inspectSamples(
     try {
       onRequest()
       response = await chatJSON<unknown>(opts.apiKey, opts.model, [{ role: 'system', content: SYSTEM }, { role: 'user', content: parts }],
-        refinement ? 'source_event_refinement' : 'source_event_discovery', schema(refinement ? 1 : MAX_PROPOSALS), opts.signal)
+        refinement ? 'source_event_refinement' : 'source_event_discovery', schema(refinement ? 1 : MAX_PROPOSALS, times.length), opts.signal)
     } catch (error) {
       throwIfProviderBlocked(error)
       opts.signal?.throwIfAborted()
