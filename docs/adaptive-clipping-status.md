@@ -8,6 +8,10 @@ See [real-video validation](layout-first-validation.md). Screen evidence is reus
 
 ## Available now
 
+The unreleased [source-discovery increment](source-discovery.md) adds opt-in visual-event proposals before transcript selection, including silent sources, with sampling coverage and failure reports. The [quality benchmark](quality-benchmark.md) now supports blind publishability/repair reviews and explicit missing-output coverage. The untouched human-labelled corpus and measured comparison remain outstanding; these additions do not complete the priorities below.
+
+The [editorial-ranking increment](editorial-ranking.md) adds independent common-rubric review, grounded rejection, uncertainty handling, repeated-idea deferral and frozen same-pool baseline exports. Its scores remain provisional; no new human preference result is implied.
+
 The subsequent [layout reuse](layout-reuse-validation.md) and [temporal review](temporal-layout-validation.md) increments add checked proposal reuse, concurrent cloud review, earlier screen segmentation and targeted samples for transient crop-edge alerts. They do not complete the roadmap below.
 
 The [rejected-bounds recovery](rejected-layout-repair.md) follow-up adds bounded geometry repair and per-clip automatic retry. A real two-webcam email demo remains unresolved; the broader quality claim is still unproven.

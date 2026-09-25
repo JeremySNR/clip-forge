@@ -27,7 +27,8 @@ import CompositionControls from './CompositionControls'
 import TimelineEditor from './TimelineEditor'
 import { cutRange, keepsPlayback } from '@shared/editOps'
 import { trackClip } from '@shared/editHistory'
-import ScoreBadge from './ScoreBadge'
+import { EditorialExplanation, EditorialScore } from './EditorialSummary'
+import { editorialAssessmentCurrent } from '@shared/editorialRanking'
 import TranscriptEditor from './TranscriptEditor'
 import { ExportButton } from './ClipsScreen'
 import SizeTargetControls from './SizeTargetControls'
@@ -113,6 +114,7 @@ export default function EditorScreen(): React.JSX.Element {
   // A full-video edit has no virality score, hashtags or B-roll behind it —
   // nothing found it, so those panels would only show empty AI furniture.
   const wholeVideo = isWholeVideoClip(clip)
+  const assessmentCurrent = editorialAssessmentCurrent(clip, project.transcript)
 
   const set = (edit: Partial<Clip['edit']>): void => {
     void updateClip({ ...clip, edit: userClipEdit(clip.edit, edit) })
@@ -167,23 +169,11 @@ export default function EditorScreen(): React.JSX.Element {
               Full video
             </span>
           ) : (
-            <ScoreBadge score={clip.viralityScore} size="lg" />
+            <EditorialScore clip={clip} current={assessmentCurrent} size="lg" />
           )}
         </div>
 
-        {!wholeVideo && (
-          <div className="rounded-xl border border-surface-700 bg-surface-850 px-3.5 py-3 text-xs leading-relaxed text-zinc-400">
-            <span className="font-semibold text-zinc-300">Why this score: </span>
-            {clip.viralityReason}
-            {clip.visualSummary && (
-              <>
-                {' '}
-                <span className="font-semibold text-zinc-300">Visuals: </span>
-                {clip.visualSummary}
-              </>
-            )}
-          </div>
-        )}
+        {!wholeVideo && <EditorialExplanation clip={clip} current={assessmentCurrent} />}
 
         <Section icon={Scissors} title="Trim">
           <TimelineEditor

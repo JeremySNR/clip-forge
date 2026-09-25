@@ -129,7 +129,8 @@ export function scoreHighlights(reference: TimedSpan[], prediction: TimedSpan[],
     return false
   }
   for (let p = 0; p < selected.length; p++) match(p, new Set())
-  return { k, iouThreshold: threshold, returned: selected.length, referenceMoments: reference.length,
+  return { k, iouThreshold: threshold, returned: selected.length, returnedFraction: selected.length / k,
+    matchedPerRequestedSlot: assigned.size / k, referenceMoments: reference.length,
     matchedMoments: assigned.size, precision: selected.length ? assigned.size / selected.length : 0,
     recall: reference.length ? assigned.size / reference.length : null }
 }

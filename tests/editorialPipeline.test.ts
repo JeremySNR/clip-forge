@@ -4,11 +4,16 @@ import type { AnalyzeOptions, Clip, Project } from '@shared/types'
 import { makeTranscript } from './helpers'
 
 const mocks = vi.hoisted(() => ({ highlights: vi.fn(), transcript: vi.fn(), assess: vi.fn(), complete: vi.fn(),
-  faces: vi.fn(), composition: vi.fn(), save: vi.fn(), projectDir: vi.fn() }))
+  faces: vi.fn(), composition: vi.fn(), save: vi.fn(), projectDir: vi.fn(), discovery: vi.fn(), rank: vi.fn() }))
 vi.mock('../src/main/settings', () => ({ getAnalysisCredential: () => 'key', getModelPreferences: () => ({ analysisModel: 'test' }), getImportPreferences: vi.fn() }))
 vi.mock('../src/main/projects', () => ({ projectDir: mocks.projectDir, saveProject: vi.fn(), updateProject: mocks.save }))
 vi.mock('../src/main/pipeline/projectTranscript', () => ({ ensureTranscript: mocks.transcript }))
-vi.mock('../src/main/pipeline/highlights', () => ({ detectHighlights: mocks.highlights, maxDurationFor: () => 45 }))
+vi.mock('../src/main/pipeline/highlights', async importOriginal => ({
+  ...await importOriginal<typeof import('../src/main/pipeline/highlights')>(),
+  detectHighlights: mocks.highlights, maxDurationFor: () => 45
+}))
+vi.mock('../src/main/pipeline/sourceDiscovery', () => ({ discoverSourceMoments: mocks.discovery }))
+vi.mock('../src/main/pipeline/editorialReview', () => ({ rankEditorialCandidates: mocks.rank }))
 vi.mock('../src/main/pipeline/screenCuts', () => ({ screenTransitions: async () => [] }))
 vi.mock('../src/main/pipeline/visualScore', () => ({ assessClipVisuals: mocks.assess, ensembleScore: (a: number, b: number) => Math.round((a + b) / 2) }))
 vi.mock('../src/main/pipeline/visualStory', () => ({ completeVisualStory: mocks.complete }))
@@ -23,7 +28,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 let project: Project
-const options = { videoType: 'product-demo', clipLength: 'short', prompt: '', broll: false } as AnalyzeOptions
+const options = { videoType: 'product-demo', clipLength: 'short', prompt: '', broll: false, editorialRanking: true } as AnalyzeOptions
 const review = { needsVisualPayoff: false, visualScore: 80, visualSummary: 'Complete', visualLayout: { kind: 'screen', start: 0, end: 10, preserveContext: true, allowZoom: false, reason: 'demo' } }
 
 beforeEach(() => {
@@ -35,6 +40,8 @@ beforeEach(() => {
   mocks.transcript.mockResolvedValue(makeTranscript(['Here is the result']))
   mocks.assess.mockResolvedValue(review)
   mocks.complete.mockResolvedValue(null)
+  mocks.discovery.mockResolvedValue({ version: 1, status: 'complete', candidates: [] })
+  mocks.rank.mockImplementation(async ({ baselineClips }) => ({ clips: baselineClips, report: { version: 1, candidateCount: baselineClips.length } }))
   mocks.faces.mockResolvedValue({ focusTrack: null, contentType: 'screencast' })
   mocks.projectDir.mockImplementation(() => join(tmpdir(), 'cutawan', `job-${project.id}`))
   mocks.save.mockImplementation(async (_: string, update: (p: Project) => void) => { update(project); return project })
@@ -45,6 +52,88 @@ it('returns scored clips before any layout analysis runs', async () => {
   expect(mocks.faces).not.toHaveBeenCalled()
   expect(mocks.composition).not.toHaveBeenCalled()
   expect(result.clips[0].reframeStatus).toBe('pending')
+  expect(mocks.discovery).not.toHaveBeenCalled()
+  expect(mocks.rank).toHaveBeenCalledOnce()
+  expect(result.rankingEnabled).toBe(true)
+  expect(result.editorialRanking?.generationId).toBe(result.clipsGenerationId)
+})
+
+it('keeps the legacy ranking available without making editorial review calls', async () => {
+  project.editorialRanking = { version: 1 } as Project['editorialRanking']
+  const result = await analyzeProject(project, { ...options, editorialRanking: undefined }, () => {})
+  expect(mocks.rank).not.toHaveBeenCalled()
+  expect(result.editorialRanking).toBeUndefined()
+  expect(result.rankingEnabled).toBe(false)
+})
+
+it('persists the review report and previous edits when every new candidate is rejected', async () => {
+  const [previous] = await mocks.highlights(); project.clips = [previous]
+  project.clipsGenerationId = 'previous-generation'
+  mocks.rank.mockResolvedValue({ clips: [], report: { version: 1, candidateCount: 1, rejectedCount: 1 } })
+  await expect(analyzeProject(project, options, () => {})).rejects.toThrow('incomplete or misleading')
+  expect(project.clips).toEqual([previous])
+  expect(project.editorialRanking?.rejectedCount).toBe(1)
+  expect(project.clipsGenerationId).toBe('previous-generation')
+  expect(project.editorialRanking?.generationId).not.toBe('previous-generation')
+})
+
+it('uses editorial selection order instead of re-sorting by legacy scores', async () => {
+  const [high] = await mocks.highlights()
+  const low = { ...high, id: 'more-useful', viralityScore: 30, suggestedStart: 40, suggestedEnd: 45,
+    edit: { ...high.edit, start: 40, end: 45 } }
+  mocks.highlights.mockResolvedValue([high, low])
+  mocks.rank.mockImplementation(async ({ clips }) => ({ clips: [...clips].reverse(), report: { version: 1, candidateCount: 2 } }))
+  const result = await analyzeProject(project, options, () => {})
+  expect(result.clips.map(c => c.id)).toEqual(['more-useful', 'clip'])
+  expect(mocks.rank.mock.calls[0][0].baselineClips.map((c: Clip) => c.id)).toEqual(['clip', 'more-useful'])
+})
+
+it('discovers a silent demonstration even when the transcript has no candidates', async () => {
+  mocks.transcript.mockResolvedValue({ language: 'en', durationSec: 100, segments: [], speech: [] })
+  mocks.discovery.mockResolvedValue({ version: 1, status: 'complete', candidates: [{
+    id: 'visual', start: 20, end: 35, title: 'A visible result', summary: 'The device works', score: 70,
+    reason: 'Observed setup, action and result', kind: 'demonstration', protectedRange: { start: 20, end: 35 },
+    evidence: [{ time: 21, role: 'before', observation: 'Stopped' }, { time: 30, role: 'result', observation: 'Running' }],
+    sampleTimes: [21, 30], timingUncertaintySec: 1
+  }] })
+  const result = await analyzeProject(project, { ...options, visualDiscovery: true }, () => {})
+  expect(mocks.highlights).not.toHaveBeenCalled()
+  expect(mocks.discovery).toHaveBeenCalledOnce()
+  expect(result.clips).toHaveLength(1)
+  expect(result.clips[0].discovery?.origin).toBe('visual')
+  expect(result.clips[0].edit.captionsEnabled).toBe(false)
+  expect(result.clips[0].visualStory?.protectedRanges).toEqual([{ start: 20, end: 35 }])
+  expect(result.discoveryReport?.candidates).toHaveLength(1)
+  expect(result.discoveryReport?.generationId).toBe(result.clipsGenerationId)
+})
+
+it('persists unsuccessful scan coverage and preserves previous clips when no new moments exist', async () => {
+  const [previous] = await mocks.highlights()
+  project.clips = [previous]
+  mocks.transcript.mockResolvedValue({ language: 'en', durationSec: 100, segments: [] })
+  mocks.discovery.mockResolvedValue({ version: 1, status: 'failed', candidates: [] })
+  await expect(analyzeProject(project, { ...options, visualDiscovery: true }, () => {})).rejects.toThrow('visual scan failed')
+  expect(project.discoveryReport?.status).toBe('failed')
+  expect(project.clips).toEqual([previous])
+  expect(project.discoveryReport?.generationId).not.toBe(project.clipsGenerationId)
+})
+
+it('does not silently swallow a discovery budget or cancellation failure', async () => {
+  mocks.discovery.mockRejectedValue(new Error('Daily request cap reached'))
+  await expect(analyzeProject(project, { ...options, visualDiscovery: true }, () => {})).rejects.toThrow('Daily request cap')
+  expect(mocks.highlights).not.toHaveBeenCalled()
+})
+
+it('deduplicates after visual-payoff expansion', async () => {
+  const [original] = await mocks.highlights()
+  mocks.highlights.mockResolvedValue([original, { ...original, id: 'later', suggestedStart: 20, suggestedEnd: 35,
+    edit: { ...original.edit, start: 20, end: 35 } }])
+  mocks.assess.mockImplementation(async (_key, _model, _path, _transcript, clip) => ({
+    ...review, needsVisualPayoff: clip.id === 'clip' && clip.edit.end === 10
+  }))
+  mocks.complete.mockResolvedValue({ ...original, suggestedEnd: 35, edit: { ...original.edit, end: 35 } })
+  const result = await analyzeProject(project, options, () => {})
+  expect(result.clips).toHaveLength(1)
 })
 
 it('reviews content composition for explicit product demos without running face tracking', async () => {

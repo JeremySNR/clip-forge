@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "legacy-editorial-v1",
+  "frozenAt": "2026-09-25T18:07:34.970Z",
+  "gitHead": "15c0694d4195b4376b7a163aa83affbaff668291",
+  "workingTree": "Includes uncommitted source-discovery increment; gitHead alone does not identify these source files.",
+  "purpose": "Fixed algorithmic baseline for within-candidate-pool editorial ranking. This is a protocol, not a completed experiment or human judgment.",
+  "stage": "After existing visual review, attempted payoff repair, and known incomplete/incoherent candidate removal; before final score ordering and overlap removal.",
+  "input": "A deep snapshot of every surviving Clip, including original provisional blended viralityScore, source ranges and complete render-relevant edit state. Preserve original candidate insertion order for ties.",
+  "score": "When visual review succeeds: clamp(round(0.6 * proposalScore + 0.4 * visualScore), 0, 99). When unavailable: retain proposalScore. These are uncalibrated model judgments, not engagement probabilities.",
+  "selection": "Stable descending viralityScore order. Iterate in that order; reject a candidate only when its suggested interval overlaps any retained interval by more than 0.4 of the shorter suggested duration. Do not enforce a top-K quota or pad empty slots.",
+  "controlledComparison": "Both arms use the identical surviving input pool, original transcript, source bytes and frozen rendering inputs. Any retrieval/prompt change is shared by both arms and therefore not evaluated by this ranking-only experiment.",
+  "limitations": [
+    "The historical proposal score is not modality calibrated.",
+    "The pool already excludes candidates rejected by upstream review, so this cannot measure discovery recall or full old-versus-new pipeline quality.",
+    "Source-file hashes identify the inspected working tree but do not imply that current model responses are reproducible.",
+    "No measured quality change, human ratings, OpusClip outputs, or engagement outcomes are recorded by this artifact."
+  ],
+  "sourceEvidence": {
+    "src/main/pipeline/highlights.ts": {
+      "sha256": "e12ebf0cf9a4b63791ab35a930b4f14d8c17a023d4ebb1d64cb2456714206c55"
+    },
+    "src/main/pipeline/visualScore.ts": {
+      "sha256": "df2dc90af03dd4bbbd55c61f9795b1f465f3fac259a0e3455cdb7be1f4270834"
+    },
+    "src/main/pipeline/visualCandidates.ts": {
+      "sha256": "c82d8420483b54f3d3296d3f4d4c03d74f05ef764ae13784152393a1bf4e4fa8"
+    },
+    "src/main/pipeline/index.ts": {
+      "sha256": "5af2bd4eb85c27eeb9e68f173d8fd6de05e9ca38d2605e8797e3a55868452d7a"
+    }
+  },
+  "frozenFunctions": {
+    "ensembleScore": "export function ensembleScore(textScore: number, visualScore: number): number {\n  return Math.max(0, Math.min(99, Math.round(TEXT_WEIGHT * textScore + (1 - TEXT_WEIGHT) * visualScore)))\n}",
+    "dedupeClips": "export function dedupeClips(clips: Clip[], maxOverlapFraction = 0.4): Clip[] {\n  const kept: Clip[] = []\n  for (const clip of clips) {\n    const dur = clip.suggestedEnd - clip.suggestedStart\n    const tooSimilar = kept.some((k) => {\n      const overlap =\n        Math.min(clip.suggestedEnd, k.suggestedEnd) - Math.max(clip.suggestedStart, k.suggestedStart)\n      if (overlap <= 0) return false\n      const kDur = k.suggestedEnd - k.suggestedStart\n      return overlap / Math.min(dur, kDur) > maxOverlapFraction\n    })\n    if (!tooSimilar) kept.push(clip)\n  }\n  return kept\n}"
+  }
+}

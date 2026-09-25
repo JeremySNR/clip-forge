@@ -130,14 +130,30 @@ async function runSmokeCapture(win: BrowserWindow, dir: string): Promise<void> {
   await key('Delete')
   await sleep(600)
   if (!(await hasText('1 cut'))) throw new Error('Smoke capture: splitting and deleting a piece did not cut it')
+  if (!(await hasText('Review edits'))) throw new Error('Smoke capture: a cut did not mark the editorial assessment stale')
   await shot('editor-cut')
   await key('Z', [process.platform === 'darwin' ? 'meta' : 'control'])
   await sleep(600)
   if (await hasText('1 cut')) throw new Error('Smoke capture: undo did not restore the cut piece')
+  if (await hasText('Review edits')) throw new Error('Smoke capture: undo did not restore the assessed selection')
   // Out to the setup screen, which is where the two modes are chosen.
   await click('[data-testid="back-button"]')
   await click('[data-testid="regenerate-button"]')
   await shot('setup-clips')
+  if (await win.webContents.executeJavaScript(`document.querySelector('[data-testid="editorial-ranking-toggle"]').checked`)) {
+    throw new Error('Smoke capture: editorial ranking must be opt-in on a new project')
+  }
+  await click('[data-testid="editorial-ranking-toggle"]')
+  if (!await win.webContents.executeJavaScript(`document.querySelector('[data-testid="editorial-ranking-toggle"]').checked`)) {
+    throw new Error('Smoke capture: editorial ranking could not be enabled')
+  }
+  await click('[data-testid="editorial-ranking-toggle"]')
+  await click('[data-testid="visual-discovery-toggle"]')
+  if (!await win.webContents.executeJavaScript(`document.querySelector('[data-testid="visual-discovery-toggle"]').checked`)) {
+    throw new Error('Smoke capture: visual discovery could not be enabled')
+  }
+  await shot('setup-visual-discovery')
+  await click('[data-testid="visual-discovery-toggle"]')
   await click('[data-testid="mode-whole-video"]')
   await shot('setup-caption-video')
   // Run the mode for real. The seeded demo already has a transcript, so this

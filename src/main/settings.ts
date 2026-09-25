@@ -16,7 +16,7 @@ import { getGpuStatus } from './pipeline/encoders'
 import { clearImportCookiesFile, getImportCookiesPath } from './cookies'
 import { DEFAULT_BRAND_COLORS } from '@shared/captionStyles'
 import { normalizeSizeTargetMb } from '@shared/uploadBudget'
-import { configureOpenAiEndpoints } from './pipeline/openai'
+import { chatApiBase, configureOpenAiEndpoints } from './pipeline/openai'
 
 
 interface StoredSettings {
@@ -230,12 +230,16 @@ export function getModelPreferences(): {
   transcriptionModel: string
   transcriptionLanguage: string
   analysisModel: string
+  analysisProviderKey: string
 } {
   const s = load()
   return {
     transcriptionModel: s.transcriptionModel,
     transcriptionLanguage: s.transcriptionLanguage,
-    analysisModel: s.analysisModel
+    analysisModel: s.analysisModel,
+    analysisProviderKey: s.subscription.provider === 'chatgpt'
+      ? `chatgpt:${s.subscription.codexModel}:low`
+      : `api:${chatApiBase()}`
   }
 }
 

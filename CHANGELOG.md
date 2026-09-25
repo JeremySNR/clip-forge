@@ -6,6 +6,24 @@ the [releases page](https://github.com/JeremySNR/cutawan/releases).
 This project uses [semantic versioning](https://semver.org/), loosely: while
 still pre-1.0, minor bumps carry new features and patch bumps carry fixes.
 
+## [0.13.0] - 2026-09-25
+
+### Added
+
+- Optional editorial ranking (beta) reviews retained speech, surrounding context and sampled frames using common hook, clarity, value, payoff and audience-fit criteria. It marks uncertainty, defers repeated ideas, preserves the old ranking for offline comparison, and shows reasons and evidence in the editor. Extra analysis calls are shown before enabling it.
+- Optional **Find visual moments (beta)** scans sampled frames across the source before selecting clips, then inspects promising demonstrations, reveals and reactions more closely. It can suggest clips without spoken audio. Completed scans are cached by source content, transcript, provider/model and instructions; failed scans remain retryable.
+- Visual discovery reports show successful and failed source sections, sampling gaps and rejected proposals. The scan uses at most twelve additional analysis calls plus provider retries. Sparse frames can miss brief events; this is not continuous-video understanding or a measured improvement in engagement.
+- Offline quality comparisons now support blind publishability decisions, measured repair time, severe defects, reviewer coverage and source-separated summaries. Missing clips and missing reviews remain visible, with a protocol for collecting untouched human-labelled holdouts.
+
+### Improved
+
+- Score badges distinguish editorial assessments from legacy scores. Changed source selections require review again; a high score is not presented as a prediction of virality or certification of the export.
+- Visual candidates preserve their observed action and crossing speech boundaries, start with conservative framing, and keep pause removal and auto zoom off. Candidates that cannot fit completely are rejected. Final overlap removal runs after visual-payoff repair.
+
+### Validation
+
+- Automated regressions use scripted model responses; they do not establish human preference or superiority over OpusClip. Run the documented human comparison workflow before making those claims.
+
 ## [0.12.1] - 2026-09-23
 
 ### Fixed

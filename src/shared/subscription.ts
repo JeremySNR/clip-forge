@@ -9,6 +9,9 @@ export interface SubscriptionSettings {
   localTranscription: boolean
 }
 
+/** Hard adapter limit; callers must split visual requests before serialization. */
+export const MAX_SUBSCRIPTION_IMAGES = 10
+
 export const DEFAULT_SUBSCRIPTION: SubscriptionSettings = {
   provider: 'api',
   codexPath: 'codex',

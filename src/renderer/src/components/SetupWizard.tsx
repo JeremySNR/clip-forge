@@ -171,7 +171,7 @@ export default function SetupWizard(): React.JSX.Element {
         <div>
           <h2 className="text-base font-semibold">Local captions only</h2>
           <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-            Caption a whole video, trim it, and export without an API key. This route does not find or score viral clips.
+            Caption a whole video, trim it, and export without an API key. This route does not find or rank highlights.
           </p>
         </div>
         <label className="block text-xs">Python executable (Python 3.10+)

@@ -241,8 +241,13 @@ export function registerIpcHandlers(): void {
       fresh.video = video
       fresh.sourceMissing = false
       fresh.sourceRevision = (fresh.sourceRevision ?? 0) + 1
+      delete fresh.discoveryReport
+      delete fresh.editorialRanking
       // Matching duration does not prove identical pictures or speakers.
-      for (const clip of fresh.clips) clip.reframeStatus = 'pending'
+      for (const clip of fresh.clips) {
+        clip.reframeStatus = 'pending'
+        delete clip.editorial
+      }
     })
   })
 
